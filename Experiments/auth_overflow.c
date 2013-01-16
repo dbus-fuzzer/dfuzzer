@@ -38,9 +38,9 @@ int check_authentication(char *password) {
 
 	strcpy(password_buffer, password);
 	
-	if (strcmp(password_buffer, "heslo1") == 0)
+	if (strcmp(password_buffer, "pwd1") == 0)
 		auth_flag = 1;
-	if (strcmp(password_buffer, "heslo2") == 0)
+	if (strcmp(password_buffer, "pwd2") == 0)
 		auth_flag = 1;
 
 	return auth_flag;
