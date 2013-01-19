@@ -13,12 +13,12 @@
 // Next, launch gdb and find adress, which gives us "Access Granted".
 // $ gdb -q ./auth
 // (gdb) disass main
-// ...
+//   ...
 //   0x00000000004006a5 <+70>:	call   0x4005fc <check_pwd>
 //   0x00000000004006aa <+75>:	test   eax,eax
 //   0x00000000004006ac <+77>:	je     0x4006ba <main+91>
 //   0x00000000004006ae <+79>:	mov    edi,0x4007a0
-// ...
+//   ...
 // its adress 0x00000000004006ae, so we need to replace return
 // adress of check_pwd function with adress 0x00000000004006ae.
 // The vulnerability is in function check_pwd at the line

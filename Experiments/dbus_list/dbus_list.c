@@ -1,3 +1,4 @@
+// dbus-monitor for monitoring D-Bus
 #include <glib.h>
 #include <dbus/dbus-glib.h>
 #include <stdio.h>
