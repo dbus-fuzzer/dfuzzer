@@ -1,0 +1,444 @@
+								Matus Marhefka
+================================================================================
+	AUTOMATED FUZZ TESTING OF APPLICATIONS COMMUNICATING THROUGH D-BUS SYSTEM
+================================================================================
+
+
+
+
+================================================================================
+1. INTRODUCTION
+...
+
+
+
+
+================================================================================
+2. FUZZING
+The term fuzzing was first used by professor Barton Miller who used it to test
+robustness of UNIX applications in 1989.
+Fuzzing is a method for discovering faults in software by providing unexpected
+input and monitoring for exceptions. It is brute force vulnerability discovery
+and is an automated or semiautomated process where data is repeatedly supplied
+to target software for processing. The aim is to crash a program or protocol
+and analyze the results. This is why many vendors want a crash data. It is very
+important because a crash tells so much about a program. Fuzzing is close
+to boundary value analysis, where you create test values that infringes
+the boundary of known good and bad values. Fuzzing is very effective because all
+exploitable vulnerabilities are caused by applications accepting user input and
+processing that data without applying validation routines. [1]
+
+
+
+2.1 FUZZER CATEGORIES
+Fuzzers can be divided into two groups [1]:
+a) Mutation-based fuzzers apply mutations on existing data samples to create
+   test cases
+b) Generation-based fuzzers create test cases from scratch by modeling
+   the target protocol of file format
+
+
+
+2.2 FUZZER SUBCATEGORIES
+Generally we can divide fuzzers into these subcategories [1]:
+1) pregenerated test cases
+2) random
+3) manual protocol mutation testing
+4) mutation or brute force testing
+5) automatic protocol generation testing
+
+
+2.2.1 PREGENERATED TEST CASES
+This method was used in PROTOS framework. It includes studying a particular
+specification to understand all supported data structures and the acceptable
+value ranges. Packets or files are then generated that test boundary conditions
+or violate the specification. A disadvantage is that there is no random
+component, once the list of test cases is exhausted, fuzzing is complete.
+
+
+2.2.2 RANDOM
+This method is the least effective. It simply generate pseudo-random data and
+moves it on the target input, waiting for the result. Example of this can be:
+while [1]; do cat /dev/urandom | nc -vv localhost 22; done
+This command reads random data from Linux urandom device and then transmits
+that data to localhost address on port 22 (ssh). The biggest disadvantage of
+this simple technique is tracking back how some random bytes caused
+an application crash. This includes capturing the input we sent to application
+and also debugging a corrupted stack.
+
+
+2.2.3 MANUAL PROTOCOL MUTATION TESTING
+In manual protocol mutation testing there is no automated fuzzer involved.
+The researcher is the fuzzer, simply entering inappropriate data in an attempt
+to crash an application or to find some undesirable behaviour. The success
+depends on the researcher knowledge and experience. This class of fuzzing is
+most often applied to web applications.
+
+
+2.2.4 MUTATION OR BRUTE FORCE TESTING
+Brute force in this class of fuzzing is referring to fuzzer that starts with
+a valid sample of a protocol or data and continually mangles some amount of
+bytes within that data packet or file. It requires only a little research
+and implementation of brute force fuzzer is relatively straightforward.
+The main advantage is that the process is fully automated. Disadvantages
+are that it takes many samples of data to get decent coverage of protocol
+specifications or file definitions, so many CPU cycles will be wasted on data
+that cannot be interpreted. Examples of brute force file format fuzzers include
+FileFuzz and notSPIKEfile.
+
+
+2.2.5 AUTOMATIC PROTOCOL GENERATION TESTING
+Automatic protocol generation testing is a more advanced method of brute force
+testing. In this approach, research is needed to first understand protocol
+specification and file definition. Than the grammar is created that describes
+how the protocol specification works. It includes identifying portions of data
+that are to remain static and others that represents fuzzable variables.
+The fuzzer than generates fuzz data for that variables and sends the resulting
+packet to the target. The success depends on the researcher's ability
+to pinpoint those portions of the specification that are most likely to lead
+to faults in the target application. Examples of this type of fuzzers are SPIKE
+and SPIKEfile. Both of these tools take SPIKE script descriptions of their
+target protocol or file format and use a fuzzing engine of SPIKE framework
+to create mangled data. SPIKE is actually a fuzzer creation kit, providing
+an API that allows a user to create their own fuzzers for network based
+protocols using the C programming language. SPIKE defines a number of primitives
+that it makes available to C coders, which allows it to construct fuzzed
+messages called "SPIKES" that can be sent to a network service to hopefully
+induce errors.
+
+
+
+2.3 FUZZER TYPES
+Each type of target has its own class of fuzzer as it needs different approaches
+to fuzzing. Subsections in this section will describe each type of fuzzer
+as divided in [1].
+
+
+2.3.1 LOCAL FUZZERS
+In UNIX, setuid applications allow a normal user to temporarily gain elevated
+privileges. Any vulnerability in this type of applications will give user
+escalated privileges and availability to execute own code. Example of such
+application can be /usr/bin/passwd:
+ls -l /usr/bin/passwd
+-rwsr-xr-x. 1 root root 26688 Jan 27  2012 /usr/bin/passwd
+which has setuid flag set, to allow user to change password. setuid means set
+user ID upon execution. If setuid bit is turned on a file, user executing that
+executable file gets the permissions of the individual or group that owns
+the file. You can set setuid bit of a file by:
+sudo chown root:root ./app
+sudo chmod u+s ./app
+This will give user a root privileges when executing app. There are two distinct
+targets for fuzzing setuid applications - command-line argument fuzzing and
+environment variable fuzzers.
+
+2.3.1.1 Command-Line Argument Fuzzers
+Applications usually process command-line arguments as strings. The following
+example demonstrates command-line argument stack overflow:
+#include <string.h>
+int main(int argc, char **argv) {
+	char buffer[5];
+	strcpy(buffer, argv[1]);
+}
+If it would have setuid bit set, it could be misused to get elevated privileges.
+The easiest way to find such a bugs (even without source code available)
+is fuzzing. Useful tools for command-line fuzzing can be clfuzz and iFUZZ which
+can be used to format string and buffer overflow testing.
+
+2.3.1.2 Environment Variable Fuzzers
+Another type of local fuzzers are environment variable fuzzers.
+Example of bug which unsafely uses value from environment variable HOME:
+#include <string.h>
+int main(void) {
+	char buffer[5];
+	strcpy(buffer, getenv("HOME"));
+}
+This is the same bug as for command-line arguments - format string and buffer
+overflow. Tools for fuzzing this type of bugs are Sharefuzz and iFUZZ.
+
+
+2.3.2 FILE FORMAT FUZZERS
+Many applications are working with file input and output. For example, office
+software, antivirus gateways, applications which use configuration files, etc.,
+they all need to parse files. These types of applications must properly handle
+file parsing even if files are malformed (maliciously or by some random damage).
+For testing how these applications handle file input are used file fuzzers.
+A file format fuzzer will dynamically create different malformed files that are
+then launched using the target application. Useful tools for file fuzzing are
+for example notSPIKEfile and SPIKEfile.
+
+
+2.3.3 REMOTE FUZZERS
+Remote fuzzers are used for testing software that listens on a network
+interface. Today, these applications are targets for most of the attacks which
+can provide an attacker with access to sensitive data. The most targeted fuzzing
+targets are network protocols, web applcations and web browsers.
+
+2.3.3.1 Network Protocol Fuzzers
+Network protocol fuzzers can be divided into two categories: fuzzers for simple
+protocols and fuzzers fro complex protocols. Simple protocols often have simple
+authentication or no authentication at all. They are usually based on ASCII text
+and do not contain checksum or length fields. Complex protocols on the other
+hand are comprised of binary data and they might use encryption for
+authentication. Useful tools for network protocol fuzzing are SPIKE (written in
+C) or Peach (written in Python).
+
+2.3.3.2 Web Application Fuzzers
+As web applications become popular they are used to access back-end services as
+e-mail and internet banking. Even traditional desktop applications as word
+processing are moving to the Web. Web application fuzzers must be capable of 
+communicating via HTTP protocol and they are looking for vulnerabilities unique
+to specific Web applications. Example of web application fuzzer is WebScarab.
+
+2.3.3.3 Web Browser Fuzzers
+Web browser fuzzers are just a special type of file format fuzzer. Web browser
+fuzzing is not limited to HTML parsing, it also includes parsing of Cascading
+Style Sheets (CSS) and elements as graphics and server response headers.
+Tools which can be used for fuzzing web browser include mangleme, Hamachi or
+CSSDIE (CSS fuzzer).
+
+
+2.3.7 IN-MEMORY FUZZERS
+In-memory fuzzers can be implemented by freezing and taking a snapshot of
+a process and rapidly injecting faulty data into one of its input routines.
+After each test case, the snapshot taken previously is restored and new data is
+injected. This is repeated until all of the test cases are exhausted.
+
+
+2.3.8 FUZZER FRAMEWORKS
+A fuzzing framework is generic fuzzer or fuzzer library that simplifies data
+representation for many types of targets. Fuzzing framework usually includes
+a library to produce fuzz strings or values that produce problems in parsing
+routines. It should also include script-like language for creating specific
+fuzzer. The most important property of generic fuzzers is reusability. The main
+disadvantages are development time of framework, its complexity and sometimes
+limitations (target of fuzzing is not suitable for framework). Fuzzing
+frameworks include SPIKE and Peach fuzzer.
+
+
+
+
+================================================================================
+3. PROTOCOLS
+Computers use protocols in all aspects of internal and external communication.
+Protocols represent a structure for data transfer and processing with defined
+syntax. Certain standards and rules understood by both sending and receiving
+entities must be agreed on to communicate data in meaningful way. [1]
+
+Some protocols are designed to be human readable and are represented in plain
+text form. Other protocols are represented in binary, as for example D-Bus.
+
+//TODO--finish PROTOCOLS chapter
+
+
+
+
+================================================================================
+4. D-BUS
+D-Bus is a message bus system, a simple way for applications to talk to one
+another. It is a system for interprocess communication (IPC) and makes it simple
+and reliable to code a "single instance" application or daemon, and to launch
+applications and daemons on demand when their services are needed. [2]
+
+The low-level API for D-Bus is written in C but most of the documentation and
+code is written for a higher level binding (Python or GLib). D-Bus supplies both
+a system daemon (for events such as "new hardware device added" or "printer
+queue changed") and a per-user-login-session daemon (for general IPC needs among
+user applications). Also, the message bus is built on top of a general
+one-to-one message passing framework, which can be used by any two apps
+to communicate directly (without going through the message bus daemon).
+The communicating applications are on one computer, or through unencrypted
+TCP/IP suitable for use behind a firewall. [2]
+
+
+
+4.1 D-BUS ARCHITECTURE
+D-Bus has several layers [3]:
+* A library, libdbus, that allows two applications to connect to each other
+  and exchange messages.
+* A message bus daemon executable, built on libdbus, that multiple applications
+  can connect to. The daemon can route messages from one application to zero or
+  more other applications.
+* Wrapper libraries or bindings based on particular application frameworks.
+
+D-Bus contains the bus daemons which act as routers for messages. There are two
+standard buses: the system bus and the session bus. [5]
+
+The system bus is a global daemon that any application running in any context
+can use as a transport. It is a single point where applications can export
+services that anyone can use. Only one system bus daemon can be run at a time.
+[5]
+
+The session bus is a bus local to the current user's session. It is used for
+communication between applications running within the same X session. For every
+login to X, a session bus daemon is started. [5]
+
+D-BUS specifies a common binary format in which to transport information.
+Because it is a binary protocol, D-BUS messages incur low overhead when
+marshaling and demarshling data. Messages consist of a two sections, the header
+and the body. The header contains the meta data for the message. This can
+include routing information and the type signature for the data. The body
+contains the data being sent. Each piece of data has a type code associated with
+it and is packed into the body accordingly. Some common types include bytes, 32
+and 64 bit integers, doubles, and strings. On top of that, complex types such
+as arrays or dictionaries. [5]
+
+
+4.1.1 OBJECTS AND OBJECT PATHS
+Messages are sent to objects which applications are free to register as many as
+they wish. A D-Bus object is like any other object in most programming languages
+with the exception that they are pointed to by object paths (not by memory
+addresses). Object paths take the form of a string which looks similar to Unix
+file system paths. D-Bus exports the /org/freedesktop/DBus object. [5]
+
+
+4.1.2 METHODS AND SIGNALS
+Each object has members - the two kinds of member are methods and signals.
+Methods are operations that can be invoked on an object, with optional input
+(arguments) and output (return values). Signals are broadcasts from the object
+to any interested observers of the object, signals may contain a data payload.
+Both methods and signals are referred to by name. [3]
+
+
+4.1.3 INTERFACES
+Each object supports one or more interfaces. An interface is a named group
+of methods and signals, just as it is in GLib or Qt. Interfaces simply allow
+the same method name to be used more than once with the interface specifying
+which of those methods is actually invoked. Interfaces define the type of
+an object instance. D-Bus identifies interfaces with a simple namespaced string.
+Most bindings will map these interface names directly to the appropriate
+programming language construct, for example C++ pure virtual classes. D-Bus
+exports the org.freedesktop.DBus interface. [3, 5]
+
+
+4.1.4 PROXIES
+A proxy object is a convenient native object created to represent a remote
+object in another process. The low-level D-Bus API involves manually creating
+a method call message, sending it, then manually receiving and processing
+the method reply message. Higher-level bindings provide proxies as
+an alternative. Proxies look like a normal native object, but when you invoke
+a method on the proxy object, the binding converts it into a D-Bus method call
+message, waits for the reply message, unpacks the return value, and returns it
+from the native D-Bus method. [3]
+
+
+4.1.5 BUS NAMES
+When each application connects to the bus daemon, the daemon immediately assigns
+it a name, called the unique connection name. A unique name begins with a ':'
+(colon) character. These names are never reused during the lifetime of the bus
+daemon - that is, you know a given name will always refer to the same
+application. An example of a unique name might be :1.396. The numbers after
+the colon have no meaning other than their uniqueness. When a name is mapped to
+a particular application's connection, that application is said to own that
+name. [3]
+
+Applications may ask to own additional well-known names (also called services).
+When a D-Bus application starts it registers one or more well-known names
+(services) that it will then own until it releases them.
+For example, you could write a specification to define a name called
+com.mycompany.TextEditor. Your definition could specify that to own this
+well-known name (service), an application should have an object at the path
+/com/mycompany/TextFileManager supporting the interface
+org.freedesktop.FileHandler. Applications could then send messages to this bus
+name (service), object, and interface to execute method calls. [3]
+
+You could think of the unique names as IP addresses, and the well-known names
+as domain names. So com.mycompany.TextEditor might map to something like :1.396
+just as mycompany.com maps to something like 192.168.0.5. [3]
+
+Names (services) have a second important use, other than routing messages.
+They are used to track lifecycle. When an application exits (or crashes), its
+connection to the message bus will be closed by the operating system kernel.
+The message bus then sends out notification messages telling remaining
+applications that the application's names have lost their owner. By tracking
+these notifications, your application can reliably monitor the lifetime of other
+applications. [3]
+
+
+4.1.6 ADDRESSES
+Applications using D-Bus are either servers or clients. A server listens for
+incoming connections; a client connects to a server. Once the connection is
+established, it is a symmetric flow of messages; the client-server distinction
+only matters when setting up the connection. [3]
+
+When using the bus daemon, application will be a client of the bus daemon. That
+is, the bus daemon listens for connections and application initiates
+a connection to the bus daemon. [3]
+
+A D-Bus address specifies where a server will listen, and where a client will
+connect. For example, the address unix:path=/tmp/abcdef specifies that the
+server will listen on a UNIX domain socket at the path /tmp/abcdef and
+the client will connect to that socket. An address can also specify TCP/IP
+sockets, or any other transport defined in future iterations of the D-Bus
+specification. [3]
+
+When using D-Bus with a message bus daemon, libdbus automatically discovers
+the address of the per-session bus daemon by reading an environment variable.
+It discovers the systemwide bus daemon by checking a well-known UNIX domain
+socket path (you can override this address with an environment variable). [3]
+
+If not using bus daemon, there is need to define which application will be
+the server and which will be the client, and specify a mechanism for them
+to agree on the server's address. This is an unusual case. [3]
+
+
+4.1.7 CALLING A METHOD
+To specify a particular method call on a particular object instance, a number
+of nested components have to be named:
+
+			Address -> [Bus Name] -> Path -> Interface -> Method
+
+The bus name is in brackets to indicate that it's optional -- you only provide
+a name to route the method call to the right application when using the bus
+daemon. If you have a direct connection to another application, bus names aren't
+used; there's no bus daemon. [3]
+
+The interface is also optional, primarily for historical reasons. D-Bus will
+thus let you omit the interface, but if your method name is ambiguous it is
+undefined which method will be invoked. [3]
+
+A method call in D-Bus consists of two messages. A method call message sent from
+process A to process B, and a matching method reply message sent from process B
+to process A. Both the call and the reply messages are routed through the bus
+daemon. The caller includes a different serial number in each call message, and
+the reply message includes this number to allow the caller to match replies
+to calls. [3]
+
+
+4.1.8 EMITTING A SIGNAL
+A signal in D-Bus consists of a single message, sent by one process to any
+number of other processes. That is, a signal is an unidirectional broadcast.
+The signal may contain arguments (a data payload), but because it is
+a broadcast, it never has a return value. [3]
+
+The emitter (sender) of a signal has no knowledge of the signal recipients.
+Recipients register within the bus daemon to receive signals based on match
+rules - these rules would typically include the sender and the signal name.
+The bus daemon sends each signal only to recipients who have expressed interest
+in that signal. [3]
+
+
+
+
+================================================================================
+5. FUZZING D-BUS
+There are 3 possible ways for fuzzing D-Bus clients:
+* Connect to session bus daemon and test other processes by sending them
+  messages and monitor results.
+* Connect to system bus daemon and test other processes by sending them
+  messages and monitor results.
+* Emulate session bus daemon, let processes connect and test them.
+
+...
+-GDBus - GLib D-Bus binding vs. native C D-Bus API
+
+
+
+
+================================================================================
+Sources:
+================================================================================
+[1] http://www.fuzzing.org/
+[2] http://www.freedesktop.org/wiki/Software/dbus
+[3] http://dbus.freedesktop.org/doc/dbus-tutorial.html
+[5] http://www.redhat.com/magazine/003jan05/features/dbus/
+[6] http://www.ibm.com/developerworks/linux/library/l-dbus/index.html

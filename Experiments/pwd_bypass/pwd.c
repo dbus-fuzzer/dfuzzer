@@ -24,6 +24,9 @@
 // The vulnerability is in function check_pwd at the line
 // 36 -> strcpy(pwd_buffer, pwd); this command is copying
 // argv[1] to local variable on stack withou bounds checking.
+//
+// Distance between the return address and the start of the pwd_buffer can
+// change due to different compiler versions and different optimization flags.
 // We write the adress 0x00000000004006ae 10 times to be sure it rewrites
 // the return adress and as the stack-smashing protection is disabled, it works.
 // $ ./pwd $(perl -e 'print "\xae\x06\x40\x00\x00\x00\x00\x00"x10')
