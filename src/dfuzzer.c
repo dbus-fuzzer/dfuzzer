@@ -139,5 +139,5 @@ void df_print_help(char *name)
 			"\t-o object path\n"
 			"\t-i interface\n\n"
 			"Example:\n%s -n org.gnome.Shell -o /org/gnome/Shell"
-			"-i org.gnome.Shell\n", name, name);
+			" -i org.gnome.Shell\n", name, name);
 }
