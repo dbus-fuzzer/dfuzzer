@@ -227,7 +227,22 @@ entities must be agreed on to communicate data in meaningful way. [1]
 Some protocols are designed to be human readable and are represented in plain
 text form. Other protocols are represented in binary, as for example D-Bus.
 
-//TODO--finish PROTOCOLS chapter
+
+
+3.1 PLAIN TEXT PROTOCOLS
+This protocols are human readable, they uses mostly the printable ASCII scheme.
+This includes numbers, lowercase and capital letters, symbols, carriage
+returns ('\r'), new lines ('\n'), tabs ('\t') and spaces. Plain text protocols
+are less efficient than binary protocols as they are more memory consuming, but
+they are easy to debug and analyse.
+
+
+
+3.2 BINARY PROTOCOLS
+Binary protocols consist of a stream of raw bytes. Without an understanding
+of the protocol, the packets will not be meaningful. For fuzzing,
+an understanding of the protocol structure is essential to target specific
+locations within the protocol.
 
 
 
