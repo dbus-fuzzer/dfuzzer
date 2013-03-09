@@ -81,7 +81,7 @@ int main(int argc, char **argv)
 			}
 		}
 		else
-			g_print("\n%s", *name_list_ptr);
+			g_print("%s", *name_list_ptr);
 		g_print("\n");
 	}
 

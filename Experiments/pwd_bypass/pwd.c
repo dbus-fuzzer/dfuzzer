@@ -40,7 +40,7 @@ int check_pwd(char *pwd) {
 	int auth_flag = 0;
 
 	strcpy(pwd_buffer, pwd);
-	
+
 	if (strcmp(pwd_buffer, "pwd1") == 0)
 		auth_flag = 1;
 	if (strcmp(pwd_buffer, "pwd2") == 0)
@@ -58,4 +58,4 @@ int main(int argc, char *argv[]) {
 		printf("\nAccess Granted\n");
 	else
 		printf("\nAccess Denied\n");
-}	
+}

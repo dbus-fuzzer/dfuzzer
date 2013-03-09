@@ -1,0 +1,109 @@
+\hypertarget{introspection_8c}{\section{introspection.\-c File Reference}
+\label{introspection_8c}\index{introspection.\-c@{introspection.\-c}}
+}
+{\ttfamily \#include $<$gio/gio.\-h$>$}\\*
+{\ttfamily \#include $<$glib/gstdio.\-h$>$}\\*
+{\ttfamily \#include $<$stdlib.\-h$>$}\\*
+{\ttfamily \#include \char`\"{}df\-\_\-lib.\-h\char`\"{}}\\*
+{\ttfamily \#include \char`\"{}introspection.\-h\char`\"{}}\\*
+\subsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+void \hyperlink{introspection_8c_a44b7cf4af3d6602046b4e74e05821a6c}{df\-\_\-init\-\_\-introspection} (G\-D\-Bus\-Proxy $\ast$dproxy, char $\ast$interface)
+\item 
+G\-D\-Bus\-Method\-Info $\ast$ \hyperlink{introspection_8c_a306a73e8413280f60d10aea44d4a7722}{df\-\_\-get\-\_\-method} (void)
+\item 
+void \hyperlink{introspection_8c_a83b867ff028717279bb02a067b0062d2}{df\-\_\-next\-\_\-method} (void)
+\item 
+G\-D\-Bus\-Arg\-Info $\ast$ \hyperlink{introspection_8c_a79d73157bc486d7a30bd0ed2f4bcd4d0}{df\-\_\-get\-\_\-method\-\_\-arg} (void)
+\item 
+void \hyperlink{introspection_8c_a7dbecc0f4f984d250a80d1644cec2936}{df\-\_\-next\-\_\-method\-\_\-arg} (void)
+\item 
+void \hyperlink{introspection_8c_a8c528b7e6a012f8a9e01001cca0d82de}{df\-\_\-unref\-\_\-introspection} ()
+\end{DoxyCompactItemize}
+\subsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+static G\-D\-Bus\-Node\-Info $\ast$ \hyperlink{introspection_8c_a43be9b3de58941c814f5358c69304d92}{introspection\-\_\-data}
+\item 
+static G\-D\-Bus\-Interface\-Info $\ast$ \hyperlink{introspection_8c_a3d9c8f10fc7fbd9b6e9463f8d0479772}{interface\-\_\-data}
+\item 
+static G\-D\-Bus\-Method\-Info $\ast$$\ast$ \hyperlink{introspection_8c_ad98a16a1d7cce5827ce2f7f6d83ed412}{methods}
+\item 
+static G\-D\-Bus\-Arg\-Info $\ast$$\ast$ \hyperlink{introspection_8c_a9263984707c090a7a1063fa9ca38506a}{in\-\_\-args}
+\end{DoxyCompactItemize}
+
+
+\subsection{Function Documentation}
+\hypertarget{introspection_8c_a306a73e8413280f60d10aea44d4a7722}{\index{introspection.\-c@{introspection.\-c}!df\-\_\-get\-\_\-method@{df\-\_\-get\-\_\-method}}
+\index{df\-\_\-get\-\_\-method@{df\-\_\-get\-\_\-method}!introspection.c@{introspection.\-c}}
+\subsubsection[{df\-\_\-get\-\_\-method}]{\setlength{\rightskip}{0pt plus 5cm}G\-D\-Bus\-Method\-Info$\ast$ df\-\_\-get\-\_\-method (
+\begin{DoxyParamCaption}
+\item[{void}]{}
+\end{DoxyParamCaption}
+)}}\label{introspection_8c_a306a73e8413280f60d10aea44d4a7722}
+\begin{DoxyReturn}{Returns}
+Pointer on G\-D\-Bus\-Method\-Info which contains information about method (do not free it). 
+\end{DoxyReturn}
+\hypertarget{introspection_8c_a79d73157bc486d7a30bd0ed2f4bcd4d0}{\index{introspection.\-c@{introspection.\-c}!df\-\_\-get\-\_\-method\-\_\-arg@{df\-\_\-get\-\_\-method\-\_\-arg}}
+\index{df\-\_\-get\-\_\-method\-\_\-arg@{df\-\_\-get\-\_\-method\-\_\-arg}!introspection.c@{introspection.\-c}}
+\subsubsection[{df\-\_\-get\-\_\-method\-\_\-arg}]{\setlength{\rightskip}{0pt plus 5cm}G\-D\-Bus\-Arg\-Info$\ast$ df\-\_\-get\-\_\-method\-\_\-arg (
+\begin{DoxyParamCaption}
+\item[{void}]{}
+\end{DoxyParamCaption}
+)}}\label{introspection_8c_a79d73157bc486d7a30bd0ed2f4bcd4d0}
+\begin{DoxyReturn}{Returns}
+Pointer on G\-D\-Bus\-Arg\-Info which contains information about argument of current (\hyperlink{introspection_8c_a306a73e8413280f60d10aea44d4a7722}{df\-\_\-get\-\_\-method()}) method (do not free it). 
+\end{DoxyReturn}
+\hypertarget{introspection_8c_a44b7cf4af3d6602046b4e74e05821a6c}{\index{introspection.\-c@{introspection.\-c}!df\-\_\-init\-\_\-introspection@{df\-\_\-init\-\_\-introspection}}
+\index{df\-\_\-init\-\_\-introspection@{df\-\_\-init\-\_\-introspection}!introspection.c@{introspection.\-c}}
+\subsubsection[{df\-\_\-init\-\_\-introspection}]{\setlength{\rightskip}{0pt plus 5cm}void df\-\_\-init\-\_\-introspection (
+\begin{DoxyParamCaption}
+\item[{G\-D\-Bus\-Proxy $\ast$}]{dproxy, }
+\item[{char $\ast$}]{interface}
+\end{DoxyParamCaption}
+)}}\label{introspection_8c_a44b7cf4af3d6602046b4e74e05821a6c}
+Gets introspection of object pointed by dproxy (in X\-M\-L format), then parses X\-M\-L data and fills G\-D\-Bus\-Node\-Info representing the data. At the end looks up information about an interface and initializes module global pointers on first method and its first argument. This function must be called before using any functions from this module. 
+\begin{DoxyParams}{Parameters}
+{\em dproxy} & Pointer on D-\/\-Bus interface proxy \\
+\hline
+{\em interface} & Name of application interface \\
+\hline
+\end{DoxyParams}
+\hypertarget{introspection_8c_a83b867ff028717279bb02a067b0062d2}{\index{introspection.\-c@{introspection.\-c}!df\-\_\-next\-\_\-method@{df\-\_\-next\-\_\-method}}
+\index{df\-\_\-next\-\_\-method@{df\-\_\-next\-\_\-method}!introspection.c@{introspection.\-c}}
+\subsubsection[{df\-\_\-next\-\_\-method}]{\setlength{\rightskip}{0pt plus 5cm}void df\-\_\-next\-\_\-method (
+\begin{DoxyParamCaption}
+\item[{void}]{}
+\end{DoxyParamCaption}
+)}}\label{introspection_8c_a83b867ff028717279bb02a067b0062d2}
+Function is used as \char`\"{}iterator\char`\"{} for interface methods. \hypertarget{introspection_8c_a7dbecc0f4f984d250a80d1644cec2936}{\index{introspection.\-c@{introspection.\-c}!df\-\_\-next\-\_\-method\-\_\-arg@{df\-\_\-next\-\_\-method\-\_\-arg}}
+\index{df\-\_\-next\-\_\-method\-\_\-arg@{df\-\_\-next\-\_\-method\-\_\-arg}!introspection.c@{introspection.\-c}}
+\subsubsection[{df\-\_\-next\-\_\-method\-\_\-arg}]{\setlength{\rightskip}{0pt plus 5cm}void df\-\_\-next\-\_\-method\-\_\-arg (
+\begin{DoxyParamCaption}
+\item[{void}]{}
+\end{DoxyParamCaption}
+)}}\label{introspection_8c_a7dbecc0f4f984d250a80d1644cec2936}
+Function is used as \char`\"{}iterator\char`\"{} for interface current (\hyperlink{introspection_8c_a306a73e8413280f60d10aea44d4a7722}{df\-\_\-get\-\_\-method()}) method arguments. \hypertarget{introspection_8c_a8c528b7e6a012f8a9e01001cca0d82de}{\index{introspection.\-c@{introspection.\-c}!df\-\_\-unref\-\_\-introspection@{df\-\_\-unref\-\_\-introspection}}
+\index{df\-\_\-unref\-\_\-introspection@{df\-\_\-unref\-\_\-introspection}!introspection.c@{introspection.\-c}}
+\subsubsection[{df\-\_\-unref\-\_\-introspection}]{\setlength{\rightskip}{0pt plus 5cm}void df\-\_\-unref\-\_\-introspection (
+\begin{DoxyParamCaption}
+{}
+\end{DoxyParamCaption}
+)}}\label{introspection_8c_a8c528b7e6a012f8a9e01001cca0d82de}
+Call when done with this module functions (only after \hyperlink{introspection_8c_a44b7cf4af3d6602046b4e74e05821a6c}{df\-\_\-init\-\_\-introspection()} function call). It frees memory used by introspection\-\_\-data (G\-D\-Bus\-Node\-Info $\ast$) which is used to look up information about the interface (methods, their arguments, etc.). 
+
+\subsection{Variable Documentation}
+\hypertarget{introspection_8c_a9263984707c090a7a1063fa9ca38506a}{\index{introspection.\-c@{introspection.\-c}!in\-\_\-args@{in\-\_\-args}}
+\index{in\-\_\-args@{in\-\_\-args}!introspection.c@{introspection.\-c}}
+\subsubsection[{in\-\_\-args}]{\setlength{\rightskip}{0pt plus 5cm}G\-D\-Bus\-Arg\-Info$\ast$$\ast$ in\-\_\-args\hspace{0.3cm}{\ttfamily [static]}}}\label{introspection_8c_a9263984707c090a7a1063fa9ca38506a}
+Pointer on arguments, each contains information about an argument for a method or a signal. \hypertarget{introspection_8c_a3d9c8f10fc7fbd9b6e9463f8d0479772}{\index{introspection.\-c@{introspection.\-c}!interface\-\_\-data@{interface\-\_\-data}}
+\index{interface\-\_\-data@{interface\-\_\-data}!introspection.c@{introspection.\-c}}
+\subsubsection[{interface\-\_\-data}]{\setlength{\rightskip}{0pt plus 5cm}G\-D\-Bus\-Interface\-Info$\ast$ interface\-\_\-data\hspace{0.3cm}{\ttfamily [static]}}}\label{introspection_8c_a3d9c8f10fc7fbd9b6e9463f8d0479772}
+Information about a D-\/\-Bus interface. \hypertarget{introspection_8c_a43be9b3de58941c814f5358c69304d92}{\index{introspection.\-c@{introspection.\-c}!introspection\-\_\-data@{introspection\-\_\-data}}
+\index{introspection\-\_\-data@{introspection\-\_\-data}!introspection.c@{introspection.\-c}}
+\subsubsection[{introspection\-\_\-data}]{\setlength{\rightskip}{0pt plus 5cm}G\-D\-Bus\-Node\-Info$\ast$ introspection\-\_\-data\hspace{0.3cm}{\ttfamily [static]}}}\label{introspection_8c_a43be9b3de58941c814f5358c69304d92}
+Information about nodes in a remote object hierarchy. \hypertarget{introspection_8c_ad98a16a1d7cce5827ce2f7f6d83ed412}{\index{introspection.\-c@{introspection.\-c}!methods@{methods}}
+\index{methods@{methods}!introspection.c@{introspection.\-c}}
+\subsubsection[{methods}]{\setlength{\rightskip}{0pt plus 5cm}G\-D\-Bus\-Method\-Info$\ast$$\ast$ methods\hspace{0.3cm}{\ttfamily [static]}}}\label{introspection_8c_ad98a16a1d7cce5827ce2f7f6d83ed412}
+Pointer on methods, each contains information about a method on a D-\/\-Bus interface. 
