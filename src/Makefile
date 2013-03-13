@@ -1,6 +1,6 @@
 CC=gcc
 CFLAGS=-Wall `pkg-config --cflags --libs gio-2.0` -DDEBUG -g
-OBJ=dfuzzer.o df_lib.o introspection.o
+OBJ=dfuzzer.o introspection.o fuzz.o
 TARGET=dfuzzer
 all: dfuzzer
 .PHONY: doc clean

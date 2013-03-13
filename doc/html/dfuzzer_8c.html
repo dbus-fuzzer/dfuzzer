@@ -94,12 +94,15 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 <code>#include &quot;<a class="el" href="df__lib_8h_source.html">df_lib.h</a>&quot;</code><br/>
 <code>#include &quot;<a class="el" href="dfuzzer_8h_source.html">dfuzzer.h</a>&quot;</code><br/>
 <code>#include &quot;<a class="el" href="introspection_8h_source.html">introspection.h</a>&quot;</code><br/>
+<code>#include &quot;<a class="el" href="fuzz_8h_source.html">fuzz.h</a>&quot;</code><br/>
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
 <tr class="memitem:a3c04138a5bfe5d72780bb7e82a18e627"><td class="memItemLeft" align="right" valign="top"><a class="anchor" id="a3c04138a5bfe5d72780bb7e82a18e627"></a>
 int&#160;</td><td class="memItemRight" valign="bottom"><b>main</b> (int argc, char **argv)</td></tr>
 <tr class="separator:a3c04138a5bfe5d72780bb7e82a18e627"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a962a49c6cc73a9af097ecc52ba0763ed"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="dfuzzer_8c.html#a962a49c6cc73a9af097ecc52ba0763ed">df_error</a> (char *message)</td></tr>
+<tr class="separator:a962a49c6cc73a9af097ecc52ba0763ed"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0581d21483e5d59fd9c7eaf0ca64e62a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="dfuzzer_8c.html#a0581d21483e5d59fd9c7eaf0ca64e62a">df_parse_parameters</a> (int argc, char **argv)</td></tr>
 <tr class="separator:a0581d21483e5d59fd9c7eaf0ca64e62a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac0ebf600eb19650c6cdc2ba6a56c9b5b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="dfuzzer_8c.html#ac0ebf600eb19650c6cdc2ba6a56c9b5b">df_print_help</a> (char *name)</td></tr>
@@ -112,6 +115,29 @@ struct <a class="el" href="structfuzzing__target.html">fuzzing_target</a>&#160;<
 <tr class="separator:a9317b0506a9c57134de41bcc0e2abfa4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Function Documentation</h2>
+<a class="anchor" id="a962a49c6cc73a9af097ecc52ba0763ed"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void df_error </td>
+          <td>(</td>
+          <td class="paramtype">char *&#160;</td>
+          <td class="paramname"><em>message</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Displays an error message and exits with error code 1. </p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">message</td><td>Error message which will be printed before exiting program. </td></tr>
+  </table>
+  </dd>
+</dl>
+
+</div>
+</div>
 <a class="anchor" id="a0581d21483e5d59fd9c7eaf0ca64e62a"></a>
 <div class="memitem">
 <div class="memproto">

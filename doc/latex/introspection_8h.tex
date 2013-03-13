@@ -4,7 +4,7 @@
 \subsection*{Functions}
 \begin{DoxyCompactItemize}
 \item 
-void \hyperlink{introspection_8h_a44b7cf4af3d6602046b4e74e05821a6c}{df\-\_\-init\-\_\-introspection} (G\-D\-Bus\-Proxy $\ast$dproxy, char $\ast$interface)
+int \hyperlink{introspection_8h_a48cabfa08665b71a962b76c5db915d77}{df\-\_\-init\-\_\-introspection} (G\-D\-Bus\-Proxy $\ast$dproxy, char $\ast$interface)
 \item 
 G\-D\-Bus\-Method\-Info $\ast$ \hyperlink{introspection_8h_a306a73e8413280f60d10aea44d4a7722}{df\-\_\-get\-\_\-method} (void)
 \item 
@@ -39,21 +39,24 @@ Pointer on G\-D\-Bus\-Method\-Info which contains information about method (do n
 \begin{DoxyReturn}{Returns}
 Pointer on G\-D\-Bus\-Arg\-Info which contains information about argument of current (\hyperlink{introspection_8c_a306a73e8413280f60d10aea44d4a7722}{df\-\_\-get\-\_\-method()}) method (do not free it). 
 \end{DoxyReturn}
-\hypertarget{introspection_8h_a44b7cf4af3d6602046b4e74e05821a6c}{\index{introspection.\-h@{introspection.\-h}!df\-\_\-init\-\_\-introspection@{df\-\_\-init\-\_\-introspection}}
+\hypertarget{introspection_8h_a48cabfa08665b71a962b76c5db915d77}{\index{introspection.\-h@{introspection.\-h}!df\-\_\-init\-\_\-introspection@{df\-\_\-init\-\_\-introspection}}
 \index{df\-\_\-init\-\_\-introspection@{df\-\_\-init\-\_\-introspection}!introspection.h@{introspection.\-h}}
-\subsubsection[{df\-\_\-init\-\_\-introspection}]{\setlength{\rightskip}{0pt plus 5cm}void df\-\_\-init\-\_\-introspection (
+\subsubsection[{df\-\_\-init\-\_\-introspection}]{\setlength{\rightskip}{0pt plus 5cm}int df\-\_\-init\-\_\-introspection (
 \begin{DoxyParamCaption}
 \item[{G\-D\-Bus\-Proxy $\ast$}]{dproxy, }
 \item[{char $\ast$}]{interface}
 \end{DoxyParamCaption}
-)}}\label{introspection_8h_a44b7cf4af3d6602046b4e74e05821a6c}
+)}}\label{introspection_8h_a48cabfa08665b71a962b76c5db915d77}
 Gets introspection of object pointed by dproxy (in X\-M\-L format), then parses X\-M\-L data and fills G\-D\-Bus\-Node\-Info representing the data. At the end looks up information about an interface and initializes module global pointers on first method and its first argument. 
 \begin{DoxyParams}{Parameters}
 {\em dproxy} & Pointer on D-\/\-Bus interface proxy \\
 \hline
-{\em interface} & Name of application interface\\
+{\em interface} & Name of application interface \\
 \hline
 \end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+0 on success, -\/1 on error
+\end{DoxyReturn}
 Gets introspection of object pointed by dproxy (in X\-M\-L format), then parses X\-M\-L data and fills G\-D\-Bus\-Node\-Info representing the data. At the end looks up information about an interface and initializes module global pointers on first method and its first argument. This function must be called before using any functions from this module. 
 \begin{DoxyParams}{Parameters}
 {\em dproxy} & Pointer on D-\/\-Bus interface proxy \\
@@ -61,6 +64,9 @@ Gets introspection of object pointed by dproxy (in X\-M\-L format), then parses 
 {\em interface} & Name of application interface \\
 \hline
 \end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+0 on success, -\/1 on error 
+\end{DoxyReturn}
 \hypertarget{introspection_8h_a83b867ff028717279bb02a067b0062d2}{\index{introspection.\-h@{introspection.\-h}!df\-\_\-next\-\_\-method@{df\-\_\-next\-\_\-method}}
 \index{df\-\_\-next\-\_\-method@{df\-\_\-next\-\_\-method}!introspection.h@{introspection.\-h}}
 \subsubsection[{df\-\_\-next\-\_\-method}]{\setlength{\rightskip}{0pt plus 5cm}void df\-\_\-next\-\_\-method (
@@ -82,4 +88,6 @@ Function is used as \char`\"{}iterator\char`\"{} for interface current (\hyperli
 {}
 \end{DoxyParamCaption}
 )}}\label{introspection_8h_a8c528b7e6a012f8a9e01001cca0d82de}
-Call when done with this module functions (only after \hyperlink{introspection_8c_a44b7cf4af3d6602046b4e74e05821a6c}{df\-\_\-init\-\_\-introspection()} function call). It frees memory used by introspection\-\_\-data (G\-D\-Bus\-Node\-Info $\ast$) which is used to look up information about the interface (methods, their arguments, etc.). 
+Call when done with this module functions (only after \hyperlink{introspection_8c_a48cabfa08665b71a962b76c5db915d77}{df\-\_\-init\-\_\-introspection()} function call). It frees memory used by introspection\-\_\-data (G\-D\-Bus\-Node\-Info $\ast$) which is used to look up information about the interface (methods, their arguments, etc.).
+
+Call when done with this module functions (only after \hyperlink{introspection_8c_a48cabfa08665b71a962b76c5db915d77}{df\-\_\-init\-\_\-introspection()} function call). It frees memory used by df\-\_\-introspection\-\_\-data (G\-D\-Bus\-Node\-Info $\ast$) which is used to look up information about the interface (methods, their arguments, etc.). 

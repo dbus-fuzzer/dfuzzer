@@ -26,8 +26,9 @@
 	global pointers on first method and its first argument.
 	@param dproxy Pointer on D-Bus interface proxy
 	@param interface Name of application interface
+	@return 0 on success, -1 on error
 */
-void df_init_introspection(GDBusProxy *dproxy, char *interface);
+int df_init_introspection(GDBusProxy *dproxy, char *interface);
 
 /** @return Pointer on GDBusMethodInfo which contains information about method
 	(do not free it).

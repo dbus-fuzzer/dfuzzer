@@ -21,7 +21,6 @@
 #include <glib/gstdio.h>
 #include <stdlib.h>
 
-#include "df_lib.h"
 #include "introspection.h"
 
 
@@ -44,9 +43,15 @@ static GDBusArgInfo **df_in_args;
 	This function must be called before using any functions from this module.
 	@param dproxy Pointer on D-Bus interface proxy
 	@param interface Name of application interface
+	@return 0 on success, -1 on error
 */
-void df_init_introspection(GDBusProxy *dproxy, char *interface)
+int df_init_introspection(GDBusProxy *dproxy, char *interface)
 {
+	if (dproxy == NULL || interface == NULL) {
+		fprintf(stderr, "Passing NULL argument to function.\n");
+		return -1;
+	}
+
 	GVariant *response;
 	gchar *introspection_xml;
 
@@ -55,33 +60,51 @@ void df_init_introspection(GDBusProxy *dproxy, char *interface)
 	response = g_dbus_proxy_call_sync(dproxy,
 		"org.freedesktop.DBus.Introspectable.Introspect",
 		NULL, G_DBUS_CALL_FLAGS_NONE, -1, NULL, NULL);
-	if (response == NULL)
-		df_error("in g_dbus_proxy_call_sync() on introspection of object");
+	if (response == NULL) {
+		fprintf(stderr, "Call of g_dbus_proxy_call_sync() returned NULL"
+						" pointer.\n");
+		return -1;
+	}
 
 	g_variant_get(response, "(s)", &introspection_xml);
 
-#ifdef DEBUG
-	g_printf("XML INTROSPECTION:\n**********\n%s**********\n", introspection_xml);
-#endif
+	#ifdef DEBUG
+		g_printf("XML INTROSPECTION:\n%s**********\n", introspection_xml);
+	#endif
 
-	// Parses introspection_xml and returns a GDBusNodeInfo representing the data.
-	df_introspection_data = g_dbus_node_info_new_for_xml(introspection_xml, NULL);
-	g_assert(df_introspection_data != NULL);
+	// Parses introspection_xml and returns a GDBusNodeInfo representing
+	// the data.
+	df_introspection_data = g_dbus_node_info_new_for_xml(introspection_xml,
+														NULL);
+	if (df_introspection_data == NULL) {
+		fprintf(stderr, "Call of g_dbus_node_info_new_for_xml() returned NULL"
+						" pointer.\n");
+		return -1;
+	}
 
 	// Looks up information about an interface (methods, their arguments, etc).
 	df_interface_data = g_dbus_node_info_lookup_interface(df_introspection_data,
 														interface);
-	g_assert(df_interface_data != NULL);
+	if (df_interface_data == NULL) {
+		fprintf(stderr, "Call of g_dbus_node_info_lookup_interface() returned"
+						" NULL pointer.\n");
+		return -1;
+	}
 
 	// *method is a pointer on the GDBusMethodInfo structure (first method)
 	// of interface.
 	df_methods = df_interface_data->methods;
+	if (*df_methods == NULL) {
+		fprintf(stderr, "Interface '%s' has no methods to test.\n", interface);
+		return -1;
+	}
 
 	// sets pointer on args of current method
 	df_in_args = (*df_methods)->in_args;
 
 	g_variant_unref(response);
 	g_free(introspection_xml);
+	return 0;
 }
 
 /** @return Pointer on GDBusMethodInfo which contains information about method

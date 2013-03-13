@@ -26,6 +26,7 @@
 #include "df_lib.h"
 #include "dfuzzer.h"
 #include "introspection.h"
+#include "fuzz.h"
 
 
 struct fuzzing_target target_app;
@@ -51,23 +52,44 @@ int main(int argc, char **argv)
 	dproxy = g_dbus_proxy_new_sync(dcon, G_DBUS_PROXY_FLAGS_NONE, NULL,
 		target_app.name, target_app.obj_path, target_app.interface, NULL, NULL);
 
-	if (dproxy == NULL)
+	if (dproxy == NULL) {
+		g_object_unref(dcon);
 		df_error("in g_dbus_proxy_new_sync() on creating proxy");
+	}
 
 	// Introspection of object through proxy.
-	df_init_introspection(dproxy, target_app.interface);
+	if (df_init_introspection(dproxy, target_app.interface) == -1) {
+		g_object_unref(dproxy);
+		g_object_unref(dcon);
+		df_error("in df_init_introspection() on introspecting object");
+	}
 
 
 	GDBusMethodInfo *m;
 	GDBusArgInfo *in_arg;
+	df_fuzz_add_proxy(dproxy);	// tells fuzz module to call methods on dproxy
+
 	for (; (m = df_get_method()) != NULL; df_next_method()) {
-		g_printf("%s()\n", m->name);
+		// adds method name to the fuzzing module
+		if (df_fuzz_add_method(m->name) == -1) {
+			df_unref_introspection();
+			g_object_unref(dproxy);
+			g_object_unref(dcon);
+			df_error("in df_fuzz_add_method()");
+		}
 
 		for (; (in_arg = df_get_method_arg()) != NULL; df_next_method_arg()) {
-			g_printf("\tin_arg: \"%s\"\n", in_arg->signature);
+			// adds method argument signature to the fuzzing module
+			if (df_fuzz_add_method_arg(in_arg->signature) == -1) {
+				df_unref_introspection();
+				g_object_unref(dproxy);
+				g_object_unref(dcon);
+				df_error("in df_fuzz_add_method_arg()");
+			}
 		}
-		// TODO: fuzzing modul -- it gets method name, number and types
-		// of arguments of method + modul for random data generation
+		df_fuzz_test_method();
+
+		df_fuzz_clean_method();		// cleaning up after fuzzing of method
 	}
 
 
@@ -75,6 +97,19 @@ int main(int argc, char **argv)
 	g_object_unref(dproxy);
 	g_object_unref(dcon);
 	return 0;
+}
+
+/** @function Displays an error message and exits with error code 1.
+	@param message Error message which will be printed before exiting program.
+*/
+void df_error(char *message)
+{
+	char errmsg[MAXLEN];
+
+	strcpy(errmsg, "Error ");
+	strncat(errmsg, message, MAXLEN-6);
+	perror(errmsg);
+	exit(1);
 }
 
 /** @function Parses program options and stores them into struct fuzzing_target.
@@ -90,7 +125,8 @@ void df_parse_parameters(int argc, char **argv)
 		switch (c) {
 			case 'n':
 				if (nflg != 0) {
-					fprintf(stderr, "%s: no duplicate options\n", argv[0]);
+					fprintf(stderr, "%s: no duplicate options 'n'\n", argv[0]);
+					df_print_help(argv[0]);
 					exit(1);
 				}
 				nflg++;
@@ -98,7 +134,8 @@ void df_parse_parameters(int argc, char **argv)
 				break;
 			case 'o':
 				if (oflg != 0) {
-					fprintf(stderr, "%s: no duplicate options\n", argv[0]);
+					fprintf(stderr, "%s: no duplicate options 'o'\n", argv[0]);
+					df_print_help(argv[0]);
 					exit(1);
 				}
 				oflg++;
@@ -106,7 +143,8 @@ void df_parse_parameters(int argc, char **argv)
 				break;
 			case 'i':
 				if (iflg != 0) {
-					fprintf(stderr, "%s: no duplicate options\n", argv[0]);
+					fprintf(stderr, "%s: no duplicate options 'i'\n", argv[0]);
+					df_print_help(argv[0]);
 					exit(1);
 				}
 				iflg++;
@@ -124,7 +162,9 @@ void df_parse_parameters(int argc, char **argv)
 	}
 
 	if (!nflg || !oflg || !iflg) {
-		fprintf(stderr, "%s: parameters 'n', 'o' and 'i' must be set\n", argv[0]);
+		fprintf(stderr, "%s: parameters 'n', 'o' and 'i' must be set\n",
+				argv[0]);
+		df_print_help(argv[0]);
 		exit(1);
 	}
 }

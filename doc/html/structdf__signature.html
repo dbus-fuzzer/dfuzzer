@@ -4,7 +4,7 @@
 <meta http-equiv="Content-Type" content="text/xhtml;charset=UTF-8"/>
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.3.1"/>
-<title>dfuzzer: Data Structures</title>
+<title>dfuzzer: df_signature Struct Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -59,11 +59,10 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
   </div>
   <div id="navrow2" class="tabs2">
     <ul class="tablist">
-      <li class="current"><a href="annotated.html"><span>Data&#160;Structures</span></a></li>
+      <li><a href="annotated.html"><span>Data&#160;Structures</span></a></li>
       <li><a href="classes.html"><span>Data&#160;Structure&#160;Index</span></a></li>
     </ul>
   </div>
-</div><!-- top -->
 <!-- window showing the filter options -->
 <div id="MSearchSelectWindow"
      onmouseover="return searchBox.OnSearchSelectShow()"
@@ -78,18 +77,31 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 </iframe>
 </div>
 
+</div><!-- top -->
 <div class="header">
+  <div class="summary">
+<a href="#pub-attribs">Data Fields</a>  </div>
   <div class="headertitle">
-<div class="title">Data Structures</div>  </div>
+<div class="title">df_signature Struct Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock">Here are the data structures with brief descriptions:</div><div class="directory">
-<table class="directory">
-<tr id="row_0_" class="even"><td class="entry"><img src="ftv2node.png" alt="o" width="16" height="22" /><img src="ftv2cl.png" alt="C" width="24" height="22" /><a class="el" href="structdf__sig__list.html" target="_self">df_sig_list</a></td><td class="desc"></td></tr>
-<tr id="row_1_"><td class="entry"><img src="ftv2node.png" alt="o" width="16" height="22" /><img src="ftv2cl.png" alt="C" width="24" height="22" /><a class="el" href="structdf__signature.html" target="_self">df_signature</a></td><td class="desc"></td></tr>
-<tr id="row_2_" class="even"><td class="entry"><img src="ftv2lastnode.png" alt="\" width="16" height="22" /><img src="ftv2cl.png" alt="C" width="24" height="22" /><a class="el" href="structfuzzing__target.html" target="_self">fuzzing_target</a></td><td class="desc"></td></tr>
+
+<p><code>#include &lt;<a class="el" href="fuzz_8h_source.html">fuzz.h</a>&gt;</code></p>
+<table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
+Data Fields</h2></td></tr>
+<tr class="memitem:abb7a207b3e620da8ae646f0fd413d5a6"><td class="memItemLeft" align="right" valign="top"><a class="anchor" id="abb7a207b3e620da8ae646f0fd413d5a6"></a>
+char *&#160;</td><td class="memItemRight" valign="bottom"><b>sig</b></td></tr>
+<tr class="separator:abb7a207b3e620da8ae646f0fd413d5a6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3a28431d4da1332475f90abb4e691207"><td class="memItemLeft" align="right" valign="top"><a class="anchor" id="a3a28431d4da1332475f90abb4e691207"></a>
+struct <a class="el" href="structdf__signature.html">df_signature</a> *&#160;</td><td class="memItemRight" valign="bottom"><b>next</b></td></tr>
+<tr class="separator:a3a28431d4da1332475f90abb4e691207"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
-</div><!-- directory -->
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock"><p>Structure contains a D-Bus signature of the argument and pointer to a next argument (arguments belongs to the method df_method_name in structure <a class="el" href="structdf__sig__list.html">df_sig_list</a>). </p>
+</div><hr/>The documentation for this struct was generated from the following file:<ul>
+<li><a class="el" href="fuzz_8h_source.html">fuzz.h</a></li>
+</ul>
 </div><!-- contents -->
 <!-- start footer part -->
 <hr class="footer"/><address class="footer"><small>

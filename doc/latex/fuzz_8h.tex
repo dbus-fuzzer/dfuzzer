@@ -1,0 +1,82 @@
+\hypertarget{fuzz_8h}{\section{fuzz.\-h File Reference}
+\label{fuzz_8h}\index{fuzz.\-h@{fuzz.\-h}}
+}
+\subsection*{Data Structures}
+\begin{DoxyCompactItemize}
+\item 
+struct \hyperlink{structdf__signature}{df\-\_\-signature}
+\item 
+struct \hyperlink{structdf__sig__list}{df\-\_\-sig\-\_\-list}
+\end{DoxyCompactItemize}
+\subsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+void \hyperlink{fuzz_8h_a499223424d8e42f66cec0c44b4e8a5bf}{df\-\_\-fuzz\-\_\-add\-\_\-proxy} (G\-D\-Bus\-Proxy $\ast$dproxy)
+\item 
+int \hyperlink{fuzz_8h_a671b0949c01c842f9be045ecc3ec894c}{df\-\_\-fuzz\-\_\-add\-\_\-method} (char $\ast$name)
+\item 
+int \hyperlink{fuzz_8h_afdafa85aefdb33025ff92cb6d6af9ac1}{df\-\_\-fuzz\-\_\-add\-\_\-method\-\_\-arg} (char $\ast$signature)
+\item 
+void \hyperlink{fuzz_8h_a638f16feeb5a719fa7e69d1e7a50cff0}{df\-\_\-fuzz\-\_\-test\-\_\-method} ()
+\item 
+void \hyperlink{fuzz_8h_a1c82bea3b7905f6f86d1011c70611008}{df\-\_\-fuzz\-\_\-clean\-\_\-method} ()
+\end{DoxyCompactItemize}
+
+
+\subsection{Function Documentation}
+\hypertarget{fuzz_8h_a671b0949c01c842f9be045ecc3ec894c}{\index{fuzz.\-h@{fuzz.\-h}!df\-\_\-fuzz\-\_\-add\-\_\-method@{df\-\_\-fuzz\-\_\-add\-\_\-method}}
+\index{df\-\_\-fuzz\-\_\-add\-\_\-method@{df\-\_\-fuzz\-\_\-add\-\_\-method}!fuzz.h@{fuzz.\-h}}
+\subsubsection[{df\-\_\-fuzz\-\_\-add\-\_\-method}]{\setlength{\rightskip}{0pt plus 5cm}int df\-\_\-fuzz\-\_\-add\-\_\-method (
+\begin{DoxyParamCaption}
+\item[{char $\ast$}]{name}
+\end{DoxyParamCaption}
+)}}\label{fuzz_8h_a671b0949c01c842f9be045ecc3ec894c}
+Initializes the global variable df\-\_\-list (struct \hyperlink{structdf__sig__list}{df\-\_\-sig\-\_\-list}) including allocationg memory for method name inside df\-\_\-list. 
+\begin{DoxyParams}{Parameters}
+{\em name} & Name of method which will be tested \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+0 on success, -\/1 on error 
+\end{DoxyReturn}
+\hypertarget{fuzz_8h_afdafa85aefdb33025ff92cb6d6af9ac1}{\index{fuzz.\-h@{fuzz.\-h}!df\-\_\-fuzz\-\_\-add\-\_\-method\-\_\-arg@{df\-\_\-fuzz\-\_\-add\-\_\-method\-\_\-arg}}
+\index{df\-\_\-fuzz\-\_\-add\-\_\-method\-\_\-arg@{df\-\_\-fuzz\-\_\-add\-\_\-method\-\_\-arg}!fuzz.h@{fuzz.\-h}}
+\subsubsection[{df\-\_\-fuzz\-\_\-add\-\_\-method\-\_\-arg}]{\setlength{\rightskip}{0pt plus 5cm}int df\-\_\-fuzz\-\_\-add\-\_\-method\-\_\-arg (
+\begin{DoxyParamCaption}
+\item[{char $\ast$}]{signature}
+\end{DoxyParamCaption}
+)}}\label{fuzz_8h_afdafa85aefdb33025ff92cb6d6af9ac1}
+Adds item (struct \hyperlink{structdf__signature}{df\-\_\-signature}) at the end of the linked list in the global variable df\-\_\-list (struct \hyperlink{structdf__sig__list}{df\-\_\-sig\-\_\-list}). This includes allocating memory for item and for signature string. 
+\begin{DoxyParams}{Parameters}
+{\em signature} & D-\/\-Bus signature of the argument \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+0 on success, -\/1 on error 
+\end{DoxyReturn}
+\hypertarget{fuzz_8h_a499223424d8e42f66cec0c44b4e8a5bf}{\index{fuzz.\-h@{fuzz.\-h}!df\-\_\-fuzz\-\_\-add\-\_\-proxy@{df\-\_\-fuzz\-\_\-add\-\_\-proxy}}
+\index{df\-\_\-fuzz\-\_\-add\-\_\-proxy@{df\-\_\-fuzz\-\_\-add\-\_\-proxy}!fuzz.h@{fuzz.\-h}}
+\subsubsection[{df\-\_\-fuzz\-\_\-add\-\_\-proxy}]{\setlength{\rightskip}{0pt plus 5cm}void df\-\_\-fuzz\-\_\-add\-\_\-proxy (
+\begin{DoxyParamCaption}
+\item[{G\-D\-Bus\-Proxy $\ast$}]{dproxy}
+\end{DoxyParamCaption}
+)}}\label{fuzz_8h_a499223424d8e42f66cec0c44b4e8a5bf}
+Saves pointer on D-\/\-Bus interface proxy for this module to be able to call methods through this proxy during fuzz testing. 
+\begin{DoxyParams}{Parameters}
+{\em dproxy} & Pointer on D-\/\-Bus interface proxy \\
+\hline
+\end{DoxyParams}
+\hypertarget{fuzz_8h_a1c82bea3b7905f6f86d1011c70611008}{\index{fuzz.\-h@{fuzz.\-h}!df\-\_\-fuzz\-\_\-clean\-\_\-method@{df\-\_\-fuzz\-\_\-clean\-\_\-method}}
+\index{df\-\_\-fuzz\-\_\-clean\-\_\-method@{df\-\_\-fuzz\-\_\-clean\-\_\-method}!fuzz.h@{fuzz.\-h}}
+\subsubsection[{df\-\_\-fuzz\-\_\-clean\-\_\-method}]{\setlength{\rightskip}{0pt plus 5cm}void df\-\_\-fuzz\-\_\-clean\-\_\-method (
+\begin{DoxyParamCaption}
+{}
+\end{DoxyParamCaption}
+)}}\label{fuzz_8h_a1c82bea3b7905f6f86d1011c70611008}
+Releases memory used by this module. This function must be called after \hyperlink{fuzz_8c_a671b0949c01c842f9be045ecc3ec894c}{df\-\_\-fuzz\-\_\-add\-\_\-method()} and \hyperlink{fuzz_8c_afdafa85aefdb33025ff92cb6d6af9ac1}{df\-\_\-fuzz\-\_\-add\-\_\-method\-\_\-arg()} functions calls after the end of fuzz testing. \hypertarget{fuzz_8h_a638f16feeb5a719fa7e69d1e7a50cff0}{\index{fuzz.\-h@{fuzz.\-h}!df\-\_\-fuzz\-\_\-test\-\_\-method@{df\-\_\-fuzz\-\_\-test\-\_\-method}}
+\index{df\-\_\-fuzz\-\_\-test\-\_\-method@{df\-\_\-fuzz\-\_\-test\-\_\-method}!fuzz.h@{fuzz.\-h}}
+\subsubsection[{df\-\_\-fuzz\-\_\-test\-\_\-method}]{\setlength{\rightskip}{0pt plus 5cm}void df\-\_\-fuzz\-\_\-test\-\_\-method (
+\begin{DoxyParamCaption}
+{}
+\end{DoxyParamCaption}
+)}}\label{fuzz_8h_a638f16feeb5a719fa7e69d1e7a50cff0}

@@ -20,6 +20,8 @@
 #ifndef DFUZZER_H
 #define DFUZZER_H
 
+#define MAXLEN 256
+
 
 /** Structure containing D-Bus name, object path and interface of application.
 */
@@ -29,6 +31,11 @@ struct fuzzing_target {		// names on D-Bus have the most MAXLEN characters
 	char interface[MAXLEN];
 };
 
+
+/** @function Displays an error message and exits with error code 1.
+	@param message Error message which will be printed before exiting program.
+*/
+void df_error(char *message);
 
 /** @function Parses program options and stores them into struct fuzzing_target.
 	@param argc Count of options

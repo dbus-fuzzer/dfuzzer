@@ -90,8 +90,8 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:a44b7cf4af3d6602046b4e74e05821a6c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="introspection_8h.html#a44b7cf4af3d6602046b4e74e05821a6c">df_init_introspection</a> (GDBusProxy *dproxy, char *interface)</td></tr>
-<tr class="separator:a44b7cf4af3d6602046b4e74e05821a6c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a48cabfa08665b71a962b76c5db915d77"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="introspection_8h.html#a48cabfa08665b71a962b76c5db915d77">df_init_introspection</a> (GDBusProxy *dproxy, char *interface)</td></tr>
+<tr class="separator:a48cabfa08665b71a962b76c5db915d77"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a306a73e8413280f60d10aea44d4a7722"><td class="memItemLeft" align="right" valign="top">GDBusMethodInfo *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="introspection_8h.html#a306a73e8413280f60d10aea44d4a7722">df_get_method</a> (void)</td></tr>
 <tr class="separator:a306a73e8413280f60d10aea44d4a7722"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a83b867ff028717279bb02a067b0062d2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="introspection_8h.html#a83b867ff028717279bb02a067b0062d2">df_next_method</a> (void)</td></tr>
@@ -138,12 +138,12 @@ Functions</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a44b7cf4af3d6602046b4e74e05821a6c"></a>
+<a class="anchor" id="a48cabfa08665b71a962b76c5db915d77"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">void df_init_introspection </td>
+          <td class="memname">int df_init_introspection </td>
           <td>(</td>
           <td class="paramtype">GDBusProxy *&#160;</td>
           <td class="paramname"><em>dproxy</em>, </td>
@@ -165,10 +165,11 @@ Functions</h2></td></tr>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramname">dproxy</td><td>Pointer on D-Bus interface proxy </td></tr>
-    <tr><td class="paramname">interface</td><td>Name of application interface</td></tr>
+    <tr><td class="paramname">interface</td><td>Name of application interface </td></tr>
   </table>
   </dd>
 </dl>
+<dl class="section return"><dt>Returns</dt><dd>0 on success, -1 on error</dd></dl>
 <p>Gets introspection of object pointed by dproxy (in XML format), then parses XML data and fills GDBusNodeInfo representing the data. At the end looks up information about an interface and initializes module global pointers on first method and its first argument. This function must be called before using any functions from this module. </p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
@@ -177,6 +178,7 @@ Functions</h2></td></tr>
   </table>
   </dd>
 </dl>
+<dl class="section return"><dt>Returns</dt><dd>0 on success, -1 on error </dd></dl>
 
 </div>
 </div>
@@ -226,7 +228,8 @@ Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Call when done with this module functions (only after <a class="el" href="introspection_8c.html#a44b7cf4af3d6602046b4e74e05821a6c">df_init_introspection()</a> function call). It frees memory used by introspection_data (GDBusNodeInfo *) which is used to look up information about the interface (methods, their arguments, etc.). </p>
+<p>Call when done with this module functions (only after <a class="el" href="introspection_8c.html#a48cabfa08665b71a962b76c5db915d77">df_init_introspection()</a> function call). It frees memory used by introspection_data (GDBusNodeInfo *) which is used to look up information about the interface (methods, their arguments, etc.).</p>
+<p>Call when done with this module functions (only after <a class="el" href="introspection_8c.html#a48cabfa08665b71a962b76c5db915d77">df_init_introspection()</a> function call). It frees memory used by df_introspection_data (GDBusNodeInfo *) which is used to look up information about the interface (methods, their arguments, etc.). </p>
 
 </div>
 </div>
