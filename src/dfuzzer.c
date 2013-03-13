@@ -23,7 +23,6 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "df_lib.h"
 #include "dfuzzer.h"
 #include "introspection.h"
 #include "fuzz.h"

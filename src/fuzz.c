@@ -141,8 +141,8 @@ value2 = g_variant_new ("()");
   g_variant_get (value2, "()");   // do nothing...
 }
 
-XXX: teda tie parametre pre metodu sa vykonstruuju volanim roznych funkcii
-		namiesto toho "Hello", 55, 77. (tie funkcie budu z modulu rand.o)
+XXX: parameters for method will be constructed by calling functions from
+	 module rand.o instead of the g_variant_new params.
 */
 }
 
