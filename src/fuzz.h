@@ -20,6 +20,9 @@
 #ifndef FUZZ_H
 #define FUZZ_H
 
+#define MAXSIG 255			// maximum length of D-Bus signature string
+#define MAXFMT MAXSIG * 2	// MAXSIG * 2 because of '@' character for every
+							// signature
 
 /** Structure contains a D-Bus signature of the argument and pointer to a next
 	argument (arguments belongs to the method df_method_name
@@ -27,6 +30,7 @@
 */
 struct df_signature {
 	char *sig;					// D-Bus signature of the argument
+	GVariant *var;
 	struct df_signature *next;
 };
 
@@ -42,8 +46,9 @@ struct df_sig_list {
 /** @function Saves pointer on D-Bus interface proxy for this module to be
 	able to call methods through this proxy during fuzz testing.
 	@param dproxy Pointer on D-Bus interface proxy
+	@return 0 on success, -1 on error
 */
-void df_fuzz_add_proxy(GDBusProxy *dproxy);
+int df_fuzz_add_proxy(GDBusProxy *dproxy);
 
 /** @function Initializes the global variable df_list (struct df_sig_list)
 	including allocationg memory for method name inside df_list.
@@ -60,14 +65,45 @@ int df_fuzz_add_method(char *name);
 */
 int df_fuzz_add_method_arg(char *signature);
 
-/** @function
+/** @function Function is testing a method in cycle, each cycle generates data
+	for function arguments, calls method and waits for result.
+	@return 0 on success, -1 on error
 */
-void df_fuzz_test_method();
+int df_fuzz_test_method(void);
+
+/** @function Creates GVariant tuple variable which contains all the signatures
+	of method arguments including their values. This tuple is constructed
+	from each signature of method argument by one call of g_variant_new()
+	function. This call is constructed dynamically (using libffi) as we don't
+	know number of function parameters on compile time.
+	@return Pointer on a new GVariant variable containing tuple with method
+	arguments
+*/
+GVariant * df_fuzz_create_variant(void);
+
+/** @function Generates data for each method argument according to argument
+	signature and stores it into Gvariant variable in items of linked list.
+	@return 0 on success, -1 on error
+*/
+int df_fuzz_create_list_variants(void);
+
+/** @function Creates format string (tuple) from method arguments signatures
+	with maximum length of n-1. The final string is saved in parameter fmt.
+	@return 0 on success, -1 on error
+*/
+int df_fuzz_create_fmt_string(char **fmt, int n);
+
+/** @function Calls method from df_list (using its name) with its arguments.
+	@param value GVariant tuple containing all method arguments signatures and
+	their values
+	@return 0 on success, -1 on error
+*/
+int df_fuzz_call_method(GVariant *value);
 
 /** @function Releases memory used by this module. This function must be called
 	after df_fuzz_add_method() and df_fuzz_add_method_arg() functions calls
-	after the end of fuzz testing.
+	after the end of fuzz testing of each method.
 */
-void df_fuzz_clean_method();
+void df_fuzz_clean_method(void);
 
 #endif

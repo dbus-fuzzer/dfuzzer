@@ -48,7 +48,7 @@ static GDBusArgInfo **df_in_args;
 int df_init_introspection(GDBusProxy *dproxy, char *interface)
 {
 	if (dproxy == NULL || interface == NULL) {
-		fprintf(stderr, "Passing NULL argument to function.\n");
+		fprintf(stderr, "Passing NULL argument to function\n");
 		return -1;
 	}
 
@@ -62,14 +62,14 @@ int df_init_introspection(GDBusProxy *dproxy, char *interface)
 		NULL, G_DBUS_CALL_FLAGS_NONE, -1, NULL, NULL);
 	if (response == NULL) {
 		fprintf(stderr, "Call of g_dbus_proxy_call_sync() returned NULL"
-						" pointer.\n");
+						" pointer\n");
 		return -1;
 	}
 
 	g_variant_get(response, "(s)", &introspection_xml);
 
 	#ifdef DEBUG
-		g_printf("XML INTROSPECTION:\n%s**********\n", introspection_xml);
+		//g_printf("XML INTROSPECTION:\n%s**********\n", introspection_xml);
 	#endif
 
 	// Parses introspection_xml and returns a GDBusNodeInfo representing
@@ -78,7 +78,7 @@ int df_init_introspection(GDBusProxy *dproxy, char *interface)
 														NULL);
 	if (df_introspection_data == NULL) {
 		fprintf(stderr, "Call of g_dbus_node_info_new_for_xml() returned NULL"
-						" pointer.\n");
+						" pointer\n");
 		return -1;
 	}
 
@@ -87,7 +87,7 @@ int df_init_introspection(GDBusProxy *dproxy, char *interface)
 														interface);
 	if (df_interface_data == NULL) {
 		fprintf(stderr, "Call of g_dbus_node_info_lookup_interface() returned"
-						" NULL pointer.\n");
+						" NULL pointer\n");
 		return -1;
 	}
 
@@ -95,7 +95,7 @@ int df_init_introspection(GDBusProxy *dproxy, char *interface)
 	// of interface.
 	df_methods = df_interface_data->methods;
 	if (*df_methods == NULL) {
-		fprintf(stderr, "Interface '%s' has no methods to test.\n", interface);
+		fprintf(stderr, "Interface '%s' has no methods to test\n", interface);
 		return -1;
 	}
 
@@ -146,7 +146,7 @@ void df_next_method_arg(void)
 	by df_introspection_data (GDBusNodeInfo *) which is used to look up
 	information about the interface (methods, their arguments, etc.).
 */
-void df_unref_introspection()
+void df_unref_introspection(void)
 {
 	g_dbus_node_info_unref(df_introspection_data);
 }

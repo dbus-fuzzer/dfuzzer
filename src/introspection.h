@@ -54,6 +54,6 @@ void df_next_method_arg(void);
 	by introspection_data (GDBusNodeInfo *) which is used to look up
 	information about the interface (methods, their arguments, etc.).
 */
-void df_unref_introspection();
+void df_unref_introspection(void);
 
 #endif

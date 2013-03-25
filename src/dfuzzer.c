@@ -66,7 +66,15 @@ int main(int argc, char **argv)
 
 	GDBusMethodInfo *m;
 	GDBusArgInfo *in_arg;
-	df_fuzz_add_proxy(dproxy);	// tells fuzz module to call methods on dproxy
+
+	// tells fuzz module to call methods on dproxy
+	if (df_fuzz_add_proxy(dproxy) == -1) {
+		df_unref_introspection();
+		g_object_unref(dproxy);
+		g_object_unref(dcon);
+		df_error("in df_fuzz_add_proxy()");
+	}
+		
 
 	for (; (m = df_get_method()) != NULL; df_next_method()) {
 		// adds method name to the fuzzing module
@@ -86,7 +94,12 @@ int main(int argc, char **argv)
 				df_error("in df_fuzz_add_method_arg()");
 			}
 		}
-		df_fuzz_test_method();
+		if (df_fuzz_test_method() == -1) {	// tests for method
+			df_unref_introspection();
+			g_object_unref(dproxy);
+			g_object_unref(dcon);
+			df_error("in df_fuzz_test_method()");
+		}
 
 		df_fuzz_clean_method();		// cleaning up after fuzzing of method
 	}
