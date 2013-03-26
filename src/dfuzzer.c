@@ -35,32 +35,62 @@ int main(int argc, char **argv)
 {
 	df_parse_parameters(argc, argv);
 
+	GError *error = NULL;		// must be set to NULL
 	GDBusConnection *dcon;		// D-Bus connection structure
 	GDBusProxy *dproxy;			// D-Bus interface proxy
+	int pid = -1;					// pid of tested process
+	GVariant *variant_pid = NULL;	// response from GetConnectionUnixProcessID
 
 	// Initializes the type system.
 	g_type_init();
 
 	// Synchronously connects to the message bus.
-	if ( (dcon = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, NULL)) == NULL )
-		df_error("in g_bus_get_sync() on connecting to the message bus");
+	if ( (dcon = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, &error)) == NULL ) {
+		df_error("Error in g_bus_get_sync() on connecting to the message bus",
+				error);
+	}
 
 	// Creates a proxy for accessing target_app.interface
 	// on the remote object at target_app.obj_path owned by target_app.name
 	// at dcon.
 	dproxy = g_dbus_proxy_new_sync(dcon, G_DBUS_PROXY_FLAGS_NONE, NULL,
-		target_app.name, target_app.obj_path, target_app.interface, NULL, NULL);
+	target_app.name, target_app.obj_path, target_app.interface, NULL, &error);
 
 	if (dproxy == NULL) {
 		g_object_unref(dcon);
-		df_error("in g_dbus_proxy_new_sync() on creating proxy");
+		df_error("Error in g_dbus_proxy_new_sync() on creating proxy", error);
 	}
+
+	/*
+	// TODO: get pid of tested app
+	// Synchronously invokes method GetConnectionUnixProcessID
+	variant_pid = g_dbus_proxy_call_sync(dproxy,
+		"org.freedesktop.DBus.GetConnectionUnixProcessID",
+		NULL, G_DBUS_CALL_FLAGS_NONE,
+		-1, NULL, &error);
+	if (variant_pid == NULL) {
+		g_object_unref(dproxy);
+		g_object_unref(dcon);
+		df_error("Error in g_dbus_proxy_call_sync() on calling"
+				" 'GetConnectionUnixProcessID' method", error);
+	}
+	g_variant_get(variant_pid, "i", &pid);
+	if (pid == -1) {
+		g_object_unref(dproxy);
+		g_object_unref(dcon);
+		g_variant_unref(variant_pid);
+		df_error("Error in g_variant_get() on getting pid from GVariant", error);
+	}
+	g_variant_unref(variant_pid);
+	fprintf(stderr, "pid = [%d]\n", pid);
+	*/
 
 	// Introspection of object through proxy.
 	if (df_init_introspection(dproxy, target_app.interface) == -1) {
 		g_object_unref(dproxy);
 		g_object_unref(dcon);
-		df_error("in df_init_introspection() on introspecting object");
+		df_error("Error in df_init_introspection() on introspecting object",
+				error);
 	}
 
 
@@ -72,9 +102,9 @@ int main(int argc, char **argv)
 		df_unref_introspection();
 		g_object_unref(dproxy);
 		g_object_unref(dcon);
-		df_error("in df_fuzz_add_proxy()");
+		df_error("Error in df_fuzz_add_proxy()", error);
 	}
-		
+
 
 	for (; (m = df_get_method()) != NULL; df_next_method()) {
 		// adds method name to the fuzzing module
@@ -82,7 +112,7 @@ int main(int argc, char **argv)
 			df_unref_introspection();
 			g_object_unref(dproxy);
 			g_object_unref(dcon);
-			df_error("in df_fuzz_add_method()");
+			df_error("Error in df_fuzz_add_method()", error);
 		}
 
 		for (; (in_arg = df_get_method_arg()) != NULL; df_next_method_arg()) {
@@ -91,14 +121,14 @@ int main(int argc, char **argv)
 				df_unref_introspection();
 				g_object_unref(dproxy);
 				g_object_unref(dcon);
-				df_error("in df_fuzz_add_method_arg()");
+				df_error("Error in df_fuzz_add_method_arg()", error);
 			}
 		}
 		if (df_fuzz_test_method() == -1) {	// tests for method
 			df_unref_introspection();
 			g_object_unref(dproxy);
 			g_object_unref(dcon);
-			df_error("in df_fuzz_test_method()");
+			df_error("Error in df_fuzz_test_method()", error);
 		}
 
 		df_fuzz_clean_method();		// cleaning up after fuzzing of method
@@ -112,15 +142,18 @@ int main(int argc, char **argv)
 }
 
 /** @function Displays an error message and exits with error code 1.
-	@param message Error message which will be printed before exiting program.
+	@param message Error message which will be printed before exiting program
+	@param error Pointer on GError structure containing error specification
 */
-void df_error(char *message)
+void df_error(char *message, GError *error)
 {
-	char errmsg[MAXLEN];
+	if (error == NULL)
+		fprintf(stderr, "%s\n", message);
+	else {
+		fprintf(stderr, "%s: %s\n", message, error->message);
+		g_error_free(error);
+	}
 
-	strcpy(errmsg, "Error ");
-	strncat(errmsg, message, MAXLEN-6);
-	perror(errmsg);
 	exit(1);
 }
 

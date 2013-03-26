@@ -25,6 +25,7 @@
 #include <ffi.h>		// dynamic function call construction
 
 #include "fuzz.h"
+#include "rand.h"
 
 
 /** Pointer on D-Bus interface proxy for calling methods. */
@@ -125,7 +126,8 @@ int df_fuzz_add_method_arg(char *signature)
 int df_fuzz_test_method(void)
 {
 	GVariant *value = NULL;
-
+	df_rand_init();
+/*
 	#ifdef DEBUG
 		struct df_signature *s = df_list.list;		// pointer on first signature
 		printf("Test of method\t\t%s(", df_list.df_method_name);
@@ -135,16 +137,33 @@ int df_fuzz_test_method(void)
 		printf(")\n");
 	#endif
 
-	// TODO: put this code into cycle (hint: rand module)
-	// XXX
-	// creates variant containing (fuzzed) method arguments
-	if ( (value = df_fuzz_create_variant()) == NULL) {
-		fprintf(stderr, "Call of df_fuzz_create_variant() returned NULL pointer\n");
-		return -1;
+	for (i = 0; i < 200; i++) {
+		char *buf;
+		if (df_rand_string(&buf) == -1) {
+			fprintf(stderr, "In df_rand_string()\n");
+			return -1;
+		}
+		printf("%s\n\n", buf);
+		free(buf);
 	}
+*/
 
-	df_fuzz_call_method(value);
-	// XXX
+	fprintf(stderr, "Testing %s() method...\n", df_list.df_method_name);
+	//while (1) {
+		// creates variant containing (fuzzed) method arguments
+		if ( (value = df_fuzz_create_variant()) == NULL) {
+			fprintf(stderr, "Call of df_fuzz_create_variant() returned NULL"
+					" pointer\n");
+			return -1;
+		}
+
+		if (df_fuzz_call_method(value) == -1) {
+			fprintf(stderr, "PROCESS DISCONNECTED FROM BUS!\n");
+			return -1;
+		}
+
+		// TODO: watch VmRSS in /proc/pid/status
+	//}
 
 	return 0;
 }
@@ -189,7 +208,7 @@ GVariant * df_fuzz_create_variant(void)
 	}
 
 	#ifdef DEBUG
-		printf("\nfmt string: [%s]\n\n", fmt);
+		//printf("fmt string: [%s]\nargs: [%d]\n\n", fmt, df_list.args);
 	#endif
 
 	// Initialize the argument info vectors
@@ -234,21 +253,87 @@ int df_fuzz_create_list_variants(void)
 		}
 		else if (len == 1) {	// one character argument
 			switch (s->sig[0]) {
-				// TODO: overwrite with functions for random data generation
-				case 's':
-					s->var = g_variant_new(s->sig, "fooooofoooo");
+				case 'y':
+					s->var = g_variant_new(s->sig, df_rand_guint8());
+					break;
+				case 'b':
+					s->var = g_variant_new(s->sig, df_rand_gboolean());
+					break;
+				case 'n':
+					s->var = g_variant_new(s->sig, df_rand_gint16());
+					break;
+				case 'q':
+					s->var = g_variant_new(s->sig, df_rand_guint16());
 					break;
 				case 'i':
-					s->var = g_variant_new("i", 1024);
+					s->var = g_variant_new(s->sig, df_rand_gint32());
 					break;
-				// case for every signature ...
+				case 'u':
+					s->var = g_variant_new(s->sig, df_rand_guint32());
+					break;
+				case 'x':
+					s->var = g_variant_new(s->sig, df_rand_gint64());
+					break;
+				case 't':
+					s->var = g_variant_new(s->sig, df_rand_guint64());
+					break;
+				case 'd':
+					s->var = g_variant_new(s->sig, df_rand_gdouble());
+					break;
+				case 's':
+					; gchar *buf;
+					if (df_rand_string(&buf) == -1) {
+						fprintf(stderr, "In df_rand_string()\n");
+						return -1;
+					}
+					s->var = g_variant_new(s->sig, buf);
+					free(buf);
+					break;
+				case 'o':
+					; gchar *obj;
+					if (df_rand_dbus_objpath_string(&obj) == -1) {
+						fprintf(stderr, "In df_rand_dbus_objpath_string()\n");
+						return -1;
+					}
+					s->var = g_variant_new(s->sig, obj);
+					free(obj);
+					break;
+				case 'g':
+					; gchar *sig;
+					if (df_rand_dbus_signature_string(&sig) == -1) {
+						fprintf(stderr, "In df_rand_dbus_signature_string()\n");
+						return -1;
+					}
+					s->var = g_variant_new(s->sig, sig);
+					free(sig);
+					break;
+				case 'v':
+					; GVariant *var;
+					if (df_rand_GVariant(&var) == -1) {
+						fprintf(stderr, "In df_rand_GVariant()\n");
+						return -1;
+					}
+					s->var = g_variant_new(sig, var);
+					g_variant_unref(var);
+					break;
+				case 'h':
+					s->var = g_variant_new(s->sig, df_rand_unixFD());
+					break;
 				default:
 					fprintf(stderr, "Unknown argument signature '%s'\n", s->sig);
 					return -1;
 			}
 		}
 		else {	// advanced argument (array of something, dictionary, ...)
-			;
+			// TODO
+			fprintf(stderr, "Advanced signatures not yet implemented\n");
+			return -1;
+		}
+
+		if (s->var == NULL) {
+			fprintf(stderr, "Failed to construct GVariant for '%s' signature\n",
+					s->sig);
+			return -1;
 		}
 		s = s->next;
 	}
@@ -268,7 +353,8 @@ int df_fuzz_create_fmt_string(char **fmt, int n)
 	char *ptr = *fmt;
 
 	// final fmt string, for example may look like this: "(@s@i)"
-	memcpy(ptr, "(", 1);
+	//memcpy(ptr, "(", 1);
+	*ptr = '(';
 	total_len++;
 	ptr++;
 
@@ -280,7 +366,7 @@ int df_fuzz_create_fmt_string(char **fmt, int n)
 							" signatures\n");
 			return -1;
 		}
-		memcpy(ptr, "@", 1);
+		*ptr = '@';
 		ptr++;
 		memcpy(ptr, s->sig, len);
 		ptr += len;
@@ -293,10 +379,10 @@ int df_fuzz_create_fmt_string(char **fmt, int n)
 						" signatures\n");
 		return -1;
 	}
-	memcpy(ptr, ")", 1);
+	*ptr = ')';
 	total_len++;
 	ptr++;
-	ptr = "0";
+	*ptr = '\0';
 
 	return 0;
 }
@@ -308,18 +394,22 @@ int df_fuzz_create_fmt_string(char **fmt, int n)
 */
 int df_fuzz_call_method(GVariant *value)
 {
+	GError *error = NULL;
 	GVariant *response;
 
 	// Synchronously invokes method with arguments stored in NULL terminated
 	// linked list from df_list global variable on df_dproxy.
 	// value (GVariant *) is consumed by g_dbus_proxy_call_sync().
-	// XXX: this hangs, when own server doesn't send response (try dbus apps)
 	response = g_dbus_proxy_call_sync(df_dproxy,
 		df_list.df_method_name,
-		value, G_DBUS_CALL_FLAGS_NONE, -1, NULL, NULL);
+		value, G_DBUS_CALL_FLAGS_NONE, -1, NULL, &error);
 	if (response == NULL) {
+		// XXX: here when NULL, it means that app has disconnected from DBus
+		// so we should note it into some log file
 		fprintf(stderr, "Call of g_dbus_proxy_call_sync() returned NULL"
-						" pointer -- for '%s' method\n", df_list.df_method_name);
+						" pointer -- for '%s' method: %s\n",
+						df_list.df_method_name, error->message);
+		g_error_free(error);
 		return -1;
 	}
 

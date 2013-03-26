@@ -33,9 +33,10 @@ struct fuzzing_target {		// names on D-Bus have the most MAXLEN characters
 
 
 /** @function Displays an error message and exits with error code 1.
-	@param message Error message which will be printed before exiting program.
+	@param message Error message which will be printed before exiting program
+	@param error Pointer on GError structure containing error specification
 */
-void df_error(char *message);
+void df_error(char *message, GError *error);
 
 /** @function Parses program options and stores them into struct fuzzing_target.
 	@param argc Count of options

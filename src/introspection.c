@@ -52,33 +52,33 @@ int df_init_introspection(GDBusProxy *dproxy, char *interface)
 		return -1;
 	}
 
-	GVariant *response;
-	gchar *introspection_xml;
+	GError *error = NULL;
+	GVariant *response = NULL;
+	gchar *introspection_xml = NULL;
 
 	// Synchronously invokes the org.freedesktop.DBus.Introspectable.Introspect
 	// method on dproxy to get introspection data in XML format
 	response = g_dbus_proxy_call_sync(dproxy,
 		"org.freedesktop.DBus.Introspectable.Introspect",
-		NULL, G_DBUS_CALL_FLAGS_NONE, -1, NULL, NULL);
+		NULL, G_DBUS_CALL_FLAGS_NONE, -1, NULL, &error);
 	if (response == NULL) {
 		fprintf(stderr, "Call of g_dbus_proxy_call_sync() returned NULL"
-						" pointer\n");
+						" pointer: %s\n", error->message);
+		g_error_free(error);
 		return -1;
 	}
 
 	g_variant_get(response, "(s)", &introspection_xml);
 
-	#ifdef DEBUG
-		//g_printf("XML INTROSPECTION:\n%s**********\n", introspection_xml);
-	#endif
 
 	// Parses introspection_xml and returns a GDBusNodeInfo representing
 	// the data.
 	df_introspection_data = g_dbus_node_info_new_for_xml(introspection_xml,
-														NULL);
+														&error);
 	if (df_introspection_data == NULL) {
 		fprintf(stderr, "Call of g_dbus_node_info_new_for_xml() returned NULL"
-						" pointer\n");
+						" pointer: %s\n", error->message);
+		g_error_free(error);
 		return -1;
 	}
 
