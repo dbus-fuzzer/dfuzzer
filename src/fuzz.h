@@ -24,6 +24,8 @@
 #define MAXFMT MAXSIG * 2	// MAXSIG * 2 because of '@' character for every
 							// signature
 
+volatile sig_atomic_t df_exit_flag;	// indicates SIGHUP, SIGINT signals
+
 /** Structure contains a D-Bus signature of the argument and pointer to a next
 	argument (arguments belongs to the method df_method_name
 	in structure df_sig_list).

@@ -32,6 +32,13 @@ struct fuzzing_target {		// names on D-Bus have the most MAXLEN characters
 };
 
 
+/** @function Function is called when SIGINT signal is emitted. It sets
+	flag df_exit_flag for fuzzer to know, that it should end testing, free
+	memory and exit.
+	@param sig Catched signal number
+*/
+void df_signal_handler(int sig);
+
 /** @function Displays an error message and exits with error code 1.
 	@param message Error message which will be printed before exiting program
 	@param error Pointer on GError structure containing error specification

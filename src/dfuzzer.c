@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <signal.h>
 
 #include "dfuzzer.h"
 #include "introspection.h"
@@ -29,6 +30,8 @@
 
 
 struct fuzzing_target target_app;
+extern volatile sig_atomic_t df_exit_flag;	// indicates SIGHUP, SIGINT signals
+											// (defined in fuzz.h)
 
 
 int main(int argc, char **argv)
@@ -38,8 +41,13 @@ int main(int argc, char **argv)
 	GError *error = NULL;		// must be set to NULL
 	GDBusConnection *dcon;		// D-Bus connection structure
 	GDBusProxy *dproxy;			// D-Bus interface proxy
+
+	GDBusProxy *pproxy;				// proxy for getting process PID
 	int pid = -1;					// pid of tested process
 	GVariant *variant_pid = NULL;	// response from GetConnectionUnixProcessID
+
+	signal(SIGINT, df_signal_handler);
+	signal(SIGHUP, df_signal_handler);		// terminal closed signal
 
 	// Initializes the type system.
 	g_type_init();
@@ -54,36 +62,50 @@ int main(int argc, char **argv)
 	// on the remote object at target_app.obj_path owned by target_app.name
 	// at dcon.
 	dproxy = g_dbus_proxy_new_sync(dcon, G_DBUS_PROXY_FLAGS_NONE, NULL,
-	target_app.name, target_app.obj_path, target_app.interface, NULL, &error);
-
+			target_app.name, target_app.obj_path, target_app.interface,
+			NULL, &error);
 	if (dproxy == NULL) {
 		g_object_unref(dcon);
 		df_error("Error in g_dbus_proxy_new_sync() on creating proxy", error);
 	}
 
-	/*
-	// TODO: get pid of tested app
+	// Uses dcon (GDBusConnection *) to create proxy for accessing
+	// org.freedesktop.DBus (for calling its method GetConnectionUnixProcessID)
+	pproxy = g_dbus_proxy_new_sync(dcon, G_DBUS_PROXY_FLAGS_NONE, NULL,
+			"org.freedesktop.DBus", "/org/freedesktop/DBus",
+			"org.freedesktop.DBus", NULL, &error);
+	if (pproxy == NULL) {
+		g_object_unref(dproxy);
+		g_object_unref(dcon);
+		df_error("Error in g_dbus_proxy_new_sync() on creating proxy", error);
+	}
+
 	// Synchronously invokes method GetConnectionUnixProcessID
-	variant_pid = g_dbus_proxy_call_sync(dproxy,
-		"org.freedesktop.DBus.GetConnectionUnixProcessID",
-		NULL, G_DBUS_CALL_FLAGS_NONE,
+	variant_pid = g_dbus_proxy_call_sync(pproxy,
+		"GetConnectionUnixProcessID",
+		g_variant_new("(s)", target_app.name), G_DBUS_CALL_FLAGS_NONE,
 		-1, NULL, &error);
 	if (variant_pid == NULL) {
+		g_object_unref(pproxy);
 		g_object_unref(dproxy);
 		g_object_unref(dcon);
 		df_error("Error in g_dbus_proxy_call_sync() on calling"
 				" 'GetConnectionUnixProcessID' method", error);
 	}
-	g_variant_get(variant_pid, "i", &pid);
-	if (pid == -1) {
+	g_variant_get(variant_pid, "(u)", &pid);
+	if (pid < 0) {
+		g_object_unref(pproxy);
 		g_object_unref(dproxy);
 		g_object_unref(dcon);
 		g_variant_unref(variant_pid);
 		df_error("Error in g_variant_get() on getting pid from GVariant", error);
 	}
 	g_variant_unref(variant_pid);
-	fprintf(stderr, "pid = [%d]\n", pid);
-	*/
+	g_object_unref(pproxy);
+
+	#ifdef DEBUG
+		fprintf(stderr, "pid = [%d]\n", pid);
+	#endif
 
 	// Introspection of object through proxy.
 	if (df_init_introspection(dproxy, target_app.interface) == -1) {
@@ -131,7 +153,12 @@ int main(int argc, char **argv)
 			df_error("Error in df_fuzz_test_method()", error);
 		}
 
-		df_fuzz_clean_method();		// cleaning up after fuzzing of method
+		df_fuzz_clean_method();		// cleaning up after testing
+
+		if (df_exit_flag) {
+			fprintf(stderr, "\nExiting %s...\n", argv[0]);
+			break;
+		}
 	}
 
 
@@ -139,6 +166,18 @@ int main(int argc, char **argv)
 	g_object_unref(dproxy);
 	g_object_unref(dcon);
 	return 0;
+}
+
+/** @function Function is called when SIGINT signal is emitted. It sets
+	flag df_exit_flag for fuzzer to know, that it should end testing, free
+	memory and exit.
+	@param sig Catched signal number
+*/
+void df_signal_handler(int sig)
+{
+	// Blocks SIGINT signal before manipulating with exit_flag
+	if (sig == SIGINT || sig == SIGHUP)
+		df_exit_flag++;
 }
 
 /** @function Displays an error message and exits with error code 1.

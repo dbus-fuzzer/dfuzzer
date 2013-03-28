@@ -126,18 +126,18 @@ int df_fuzz_add_method_arg(char *signature)
 int df_fuzz_test_method(void)
 {
 	GVariant *value = NULL;
-	df_rand_init();
+	int i;
+	struct df_signature *s = df_list.list;		// pointer on first signature
+
+
+	printf("Testing %s(", df_list.df_method_name);
+	for (i = 0; i < df_list.args; i++, s = s->next)
+		printf( ((i < df_list.args-1) ? "%s, " : "%s"), s->sig);
+	printf(")...\n");
+
 /*
 	#ifdef DEBUG
-		struct df_signature *s = df_list.list;		// pointer on first signature
-		printf("Test of method\t\t%s(", df_list.df_method_name);
-		int i;
-		for (i = 0; i < df_list.args; i++, s = s->next)
-			printf( ((i < df_list.args-1) ? "%s, " : "%s"), s->sig);
-		printf(")\n");
-	#endif
-
-	for (i = 0; i < 200; i++) {
+	for (i = 0; i < 50; i++) {
 		char *buf;
 		if (df_rand_string(&buf) == -1) {
 			fprintf(stderr, "In df_rand_string()\n");
@@ -146,10 +146,12 @@ int df_fuzz_test_method(void)
 		printf("%s\n\n", buf);
 		free(buf);
 	}
+	#endif
 */
 
-	fprintf(stderr, "Testing %s() method...\n", df_list.df_method_name);
-	//while (1) {
+	df_rand_init();		// initialization of random module
+
+	while (1) {		// TODO: add sensible condition
 		// creates variant containing (fuzzed) method arguments
 		if ( (value = df_fuzz_create_variant()) == NULL) {
 			fprintf(stderr, "Call of df_fuzz_create_variant() returned NULL"
@@ -163,7 +165,11 @@ int df_fuzz_test_method(void)
 		}
 
 		// TODO: watch VmRSS in /proc/pid/status
-	//}
+		// + add signal handler for app lost name event
+
+		if (df_exit_flag)
+			return 0;
+	}
 
 	return 0;
 }
@@ -395,7 +401,7 @@ int df_fuzz_create_fmt_string(char **fmt, int n)
 int df_fuzz_call_method(GVariant *value)
 {
 	GError *error = NULL;
-	GVariant *response;
+	GVariant *response = NULL;
 
 	// Synchronously invokes method with arguments stored in NULL terminated
 	// linked list from df_list global variable on df_dproxy.
