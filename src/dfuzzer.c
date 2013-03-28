@@ -175,7 +175,6 @@ int main(int argc, char **argv)
 */
 void df_signal_handler(int sig)
 {
-	// Blocks SIGINT signal before manipulating with exit_flag
 	if (sig == SIGINT || sig == SIGHUP)
 		df_exit_flag++;
 }
