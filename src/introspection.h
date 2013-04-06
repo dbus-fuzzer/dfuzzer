@@ -1,6 +1,6 @@
 /** @file introspection.h *//*
 
-	dfuzzer - tool for testing applications communicating through D-Bus.
+	dfuzzer - tool for testing processes communicating through D-Bus.
 	Copyright (C) 2013  Matus Marhefka
 
 	This program is free software: you can redistribute it and/or modify
@@ -25,7 +25,7 @@
 	At the end looks up information about an interface and initializes module
 	global pointers on first method and its first argument.
 	@param dproxy Pointer on D-Bus interface proxy
-	@param interface Name of application interface
+	@param interface Name of process interface
 	@return 0 on success, -1 on error
 */
 int df_init_introspection(GDBusProxy *dproxy, char *interface);

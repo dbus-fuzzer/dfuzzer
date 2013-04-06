@@ -1,6 +1,6 @@
 /** @file fuzz.c *//*
 
-	dfuzzer - tool for testing applications communicating through D-Bus.
+	dfuzzer - tool for testing processes communicating through D-Bus.
 	Copyright (C) 2013  Matus Marhefka
 
 	This program is free software: you can redistribute it and/or modify
@@ -22,6 +22,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <ctype.h>
 #include <ffi.h>		// dynamic function call construction
 
 #include "fuzz.h"
@@ -37,19 +40,43 @@ static struct df_sig_list df_list;
 /** Pointer on the last item of the linked list in the global var. df_list. */
 static struct df_signature *df_last;
 
+/** Initial memory size of process is saved into this variable */
+static long df_initial_mem = -1;
+
+/** Memory limit for tested process in kB - if tested process exceeds this
+	limit it will be noted into log file */
+static long df_mem_limit;
+
 
 /** @function Saves pointer on D-Bus interface proxy for this module to be
-	able to call methods through this proxy during fuzz testing.
+	able to call methods through this proxy during fuzz testing. Also saves
+	process initial memory size to global var. df_initial_mem from file
+	described by statfd.
 	@param dproxy Pointer on D-Bus interface proxy
+	@param statfd FD of process status file
+	@param mem_limit Memory limit in kB - if tested process exceeds this limit
+	it will be noted into log file
 	@return 0 on success, -1 on error
 */
-int df_fuzz_add_proxy(GDBusProxy *dproxy)
+int df_fuzz_init(GDBusProxy *dproxy, int statfd, long mem_limit)
 {
 	if (dproxy == NULL) {
 		fprintf(stderr, "Passing NULL argument to function.\n");
 		return -1;
 	}
 	df_dproxy = dproxy;
+
+	df_initial_mem = df_fuzz_get_proc_mem_size(statfd);
+	if (df_initial_mem == -1) {
+		fprintf(stderr, "Error in df_fuzz_get_proc_mem_size()\n");
+		return -1;
+	}
+
+	if (mem_limit <= 0)
+		df_mem_limit = 3 * df_initial_mem;
+	else
+		df_mem_limit = mem_limit;
+
 	return 0;
 }
 
@@ -119,40 +146,91 @@ int df_fuzz_add_method_arg(char *signature)
 	return 0;
 }
 
+/** @function Parses VmRSS (Resident Set Size) value from statfd and returns it
+	as process memory size.
+	@param statfd FD of process status file
+	@return Process memory size or -1 on error
+*/
+long df_fuzz_get_proc_mem_size(int statfd)
+{
+	long mem_size = -1;
+	char buf[MAXLINE];		// buffer for reading from file
+	char *ptr;				// pointer into buf buffer
+
+	// rewinds file position to the beginning
+	lseek(statfd, 0L, SEEK_SET);
+
+	int stopr = 0;
+	while (!stopr) {
+		int n = read(statfd, buf, MAXLINE-1);
+		if (n == -1) {
+			fprintf(stderr, "Error on reading process status file\n");
+			return -1;
+		}
+		if (n == 0)
+			stopr++;
+		buf[n] = '\0';
+
+		ptr = strstr(buf, "VmRSS:");
+
+		// check for new line (that whole memory size number is in buffer)
+		char *nl = ptr;
+		while (*nl != '\0') {
+			if (*nl == '\n') {
+				stopr++;
+				break;
+			}
+			nl++;
+		}
+	}
+
+	// now ptr points to VmRSS:
+	while (isdigit(*ptr) == 0)
+		ptr++;
+
+	mem_size = atol(ptr);
+	return mem_size;
+}
+
 /** @function Function is testing a method in cycle, each cycle generates data
 	for function arguments, calls method and waits for result.
+	@param statfd FD of process status file
+	@param logfd FD of log file
 	@return 0 on success, -1 on error
 */
-int df_fuzz_test_method(void)
+int df_fuzz_test_method(int statfd, int logfd)
 {
 	GVariant *value = NULL;
 	int i;
+	long used_memory = 0;		// memory used by process in kB
 	struct df_signature *s = df_list.list;		// pointer on first signature
 
+	char *ptr, log_buffer[5000];
+	int len = 0;
+	ptr = log_buffer;
 
-	printf("Testing %s(", df_list.df_method_name);
+	// writes to log file which method is going to be tested
+	ptr += sprintf(ptr, "method %s(", df_list.df_method_name);
 	for (i = 0; i < df_list.args; i++, s = s->next)
-		printf( ((i < df_list.args-1) ? "%s, " : "%s"), s->sig);
-	printf(")...\n");
+		ptr += sprintf(ptr, ((i < df_list.args-1) ? "%s, " : "%s"), s->sig);
+	ptr += sprintf(ptr, "):\n");
+	len = strlen(log_buffer);
+	write(logfd, log_buffer, len);
 
-/*
-	#ifdef DEBUG
-	for (i = 0; i < 50; i++) {
-		char *buf;
-		if (df_rand_string(&buf) == -1) {
-			fprintf(stderr, "In df_rand_string()\n");
-			return -1;
-		}
-		printf("%s\n\n", buf);
-		free(buf);
-	}
-	#endif
-*/
+	// restarts position in log_buffer
+	log_buffer[0] = '\0';
+	ptr = log_buffer;
 
 	df_rand_init();		// initialization of random module
 
-	while (1) {		// TODO: add sensible condition
-		// creates variant containing (fuzzed) method arguments
+
+	while (1) {		// condition from rand module - string length
+					// XXX: string length should be less than log_buffer size!
+		// creates variant containing all (fuzzed) method arguments
+		// TODO: can we create something like empty valid GVariant for
+		// advanced data types in this function ?
+		// If not, the unsupported string in logfd has no meaning as the whole
+		// method is uncallable!
 		if ( (value = df_fuzz_create_variant()) == NULL) {
 			fprintf(stderr, "Call of df_fuzz_create_variant() returned NULL"
 					" pointer\n");
@@ -161,11 +239,27 @@ int df_fuzz_test_method(void)
 
 		if (df_fuzz_call_method(value) == -1) {
 			fprintf(stderr, "PROCESS DISCONNECTED FROM BUS!\n");
+			// TODO: write to logfd
+			// here we need to make function, which will get data
+			// for all of the method arguments from GVariant ( similar
+			// to df_fuzz_create_list_variants() )
 			return -1;
 		}
 
-		// TODO: watch VmRSS in /proc/pid/status
-		// + add signal handler for app lost name event
+		// df_fuzz_call_method() returned 0, so it is safe to look
+		// at process memory
+		used_memory = df_fuzz_get_proc_mem_size(statfd);
+		if (used_memory == -1) {
+			fprintf(stderr, "Error in df_fuzz_get_proc_mem_size()\n");
+			return -1;
+		}
+
+		// OUTPUT
+		// TODO: save to logfd also for what input (all method arguments) this
+		// condition happened
+		if (used_memory > df_mem_limit)
+			printf("\tInitial memory:\t%ld kB !!!", df_initial_mem);
+		printf("\tCurrent memory:\t%ld kB\r", used_memory);
 
 		if (df_exit_flag)
 			return 0;
@@ -410,7 +504,7 @@ int df_fuzz_call_method(GVariant *value)
 		df_list.df_method_name,
 		value, G_DBUS_CALL_FLAGS_NONE, -1, NULL, &error);
 	if (response == NULL) {
-		// XXX: here when NULL, it means that app has disconnected from DBus
+		// XXX: here when NULL, it means that proc has disconnected from DBus
 		// so we should note it into some log file
 		fprintf(stderr, "Call of g_dbus_proxy_call_sync() returned NULL"
 						" pointer -- for '%s' method: %s\n",
@@ -436,7 +530,6 @@ void df_fuzz_clean_method(void)
 	while (df_list.list != NULL) {
 		tmp = df_list.list->next;
 		free(df_list.list->sig);
-		// free also df_list.list->var ?? -- probably not
 		free(df_list.list);
 		df_list.list = tmp;
 	}

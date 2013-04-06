@@ -1,6 +1,6 @@
 /** @file dfuzzer.c *//*
 
-	dfuzzer - tool for testing applications communicating through D-Bus.
+	dfuzzer - tool for testing processes communicating through D-Bus.
 	Copyright (C) 2013  Matus Marhefka
 
 	This program is free software: you can redistribute it and/or modify
@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <signal.h>
 
 #include "dfuzzer.h"
@@ -29,15 +30,21 @@
 #include "fuzz.h"
 
 
-struct fuzzing_target target_app;
-extern volatile sig_atomic_t df_exit_flag;	// indicates SIGHUP, SIGINT signals
-											// (defined in fuzz.h)
+struct fuzzing_target target_proc;
+
+/** Indicates SIGHUP, SIGINT signals (defined in fuzz.h) */
+extern volatile sig_atomic_t df_exit_flag;
+
+/** Memory limit for tested process in kB - if tested process exceeds this
+	limit it will be noted into log file */
+static long df_mem_limit;
 
 
 int main(int argc, char **argv)
 {
-	df_parse_parameters(argc, argv);
-
+	char *log_file = "./log.log";	// file for logs
+	int logfd;						// FD for log_file
+	int statfd;					// FD for process status file
 	GError *error = NULL;		// must be set to NULL
 	GDBusConnection *dcon;		// D-Bus connection structure
 	GDBusProxy *dproxy;			// D-Bus interface proxy
@@ -49,6 +56,9 @@ int main(int argc, char **argv)
 	signal(SIGINT, df_signal_handler);
 	signal(SIGHUP, df_signal_handler);		// terminal closed signal
 
+	// do not free log_file - it points to argv
+	df_parse_parameters(argc, argv, &log_file);
+
 	// Initializes the type system.
 	g_type_init();
 
@@ -58,11 +68,11 @@ int main(int argc, char **argv)
 				error);
 	}
 
-	// Creates a proxy for accessing target_app.interface
-	// on the remote object at target_app.obj_path owned by target_app.name
+	// Creates a proxy for accessing target_proc.interface
+	// on the remote object at target_proc.obj_path owned by target_proc.name
 	// at dcon.
 	dproxy = g_dbus_proxy_new_sync(dcon, G_DBUS_PROXY_FLAGS_NONE, NULL,
-			target_app.name, target_app.obj_path, target_app.interface,
+			target_proc.name, target_proc.obj_path, target_proc.interface,
 			NULL, &error);
 	if (dproxy == NULL) {
 		g_object_unref(dcon);
@@ -83,7 +93,7 @@ int main(int argc, char **argv)
 	// Synchronously invokes method GetConnectionUnixProcessID
 	variant_pid = g_dbus_proxy_call_sync(pproxy,
 		"GetConnectionUnixProcessID",
-		g_variant_new("(s)", target_app.name), G_DBUS_CALL_FLAGS_NONE,
+		g_variant_new("(s)", target_proc.name), G_DBUS_CALL_FLAGS_NONE,
 		-1, NULL, &error);
 	if (variant_pid == NULL) {
 		g_object_unref(pproxy);
@@ -103,34 +113,51 @@ int main(int argc, char **argv)
 	g_variant_unref(variant_pid);
 	g_object_unref(pproxy);
 
-	#ifdef DEBUG
-		fprintf(stderr, "pid = [%d]\n", pid);
-	#endif
 
 	// Introspection of object through proxy.
-	if (df_init_introspection(dproxy, target_app.interface) == -1) {
+	if (df_init_introspection(dproxy, target_proc.interface) == -1) {
 		g_object_unref(dproxy);
 		g_object_unref(dcon);
 		df_error("Error in df_init_introspection() on introspecting object",
 				error);
 	}
 
+	// opens process status file
+	if ((statfd = df_open_proc_status_file(pid)) == -1) {
+		df_unref_introspection();
+		g_object_unref(dproxy);
+		g_object_unref(dcon);
+		df_error("Error in df_open_proc_status_file()", error);
+	}
 
-	GDBusMethodInfo *m;
-	GDBusArgInfo *in_arg;
-
-	// tells fuzz module to call methods on dproxy
-	if (df_fuzz_add_proxy(dproxy) == -1) {
+	// tells fuzz module to call methods on dproxy, use FD statfd
+	// for monitoring tested process and memory limit for process
+	if (df_fuzz_init(dproxy, statfd, df_mem_limit) == -1) {
+		close(statfd);
 		df_unref_introspection();
 		g_object_unref(dproxy);
 		g_object_unref(dcon);
 		df_error("Error in df_fuzz_add_proxy()", error);
 	}
 
+	// opens log file - all test events is going to be noted here
+	logfd = open(log_file, O_WRONLY|O_CREAT, S_IRUSR|S_IWUSR);
+	if (logfd == -1) {
+		close(statfd);
+		df_unref_introspection();
+		g_object_unref(dproxy);
+		g_object_unref(dcon);
+		df_error("Error on opening log file", error);
+	}
 
+
+	GDBusMethodInfo *m;
+	GDBusArgInfo *in_arg;
 	for (; (m = df_get_method()) != NULL; df_next_method()) {
 		// adds method name to the fuzzing module
 		if (df_fuzz_add_method(m->name) == -1) {
+			close(statfd);
+			close(logfd);
 			df_unref_introspection();
 			g_object_unref(dproxy);
 			g_object_unref(dcon);
@@ -140,13 +167,17 @@ int main(int argc, char **argv)
 		for (; (in_arg = df_get_method_arg()) != NULL; df_next_method_arg()) {
 			// adds method argument signature to the fuzzing module
 			if (df_fuzz_add_method_arg(in_arg->signature) == -1) {
+				close(statfd);
+				close(logfd);
 				df_unref_introspection();
 				g_object_unref(dproxy);
 				g_object_unref(dcon);
 				df_error("Error in df_fuzz_add_method_arg()", error);
 			}
 		}
-		if (df_fuzz_test_method() == -1) {	// tests for method
+		if (df_fuzz_test_method(statfd, logfd) == -1) {	// tests for method
+			close(statfd);
+			close(logfd);
 			df_unref_introspection();
 			g_object_unref(dproxy);
 			g_object_unref(dcon);
@@ -161,10 +192,11 @@ int main(int argc, char **argv)
 		}
 	}
 
-
 	df_unref_introspection();
 	g_object_unref(dproxy);
 	g_object_unref(dcon);
+	close(statfd);
+	close(logfd);
 	return 0;
 }
 
@@ -195,43 +227,80 @@ void df_error(char *message, GError *error)
 	exit(1);
 }
 
+/** @function Opens process status file.
+	@param pid PID - identifier of process
+	@return FD of status file on success, -1 on error
+*/
+int df_open_proc_status_file(int pid)
+{
+	char file_path[20];		// "/proc/(max5chars)/status"
+	sprintf(file_path, "/proc/%d/status", pid);
+
+	int statfd = open(file_path, O_RDONLY);
+	if (statfd == -1) {
+		fprintf(stderr, "Error on opening '%s' file\n", file_path);
+		return -1;
+	}
+	return statfd;
+}
+
 /** @function Parses program options and stores them into struct fuzzing_target.
+	If error occures function ends program.
 	@param argc Count of options
 	@param argv Pointer on strings containing options of program
+	@param log_file File for logs
 */
-void df_parse_parameters(int argc, char **argv)
+void df_parse_parameters(int argc, char **argv, char **log_file)
 {
 	int c = 0;
 	int nflg = 0, oflg = 0, iflg = 0;
 
-	while ( (c = getopt(argc, argv, "n:o:i:vh")) != -1 ) {
+	while ( (c = getopt(argc, argv, "n:o:i:l:m:h")) != -1 ) {
 		switch (c) {
 			case 'n':
 				if (nflg != 0) {
-					fprintf(stderr, "%s: no duplicate options 'n'\n", argv[0]);
+					fprintf(stderr, "%s: no duplicate options -- 'n'\n",
+							argv[0]);
 					df_print_help(argv[0]);
 					exit(1);
 				}
 				nflg++;
-				strncpy(target_app.name, optarg, MAXLEN-2);
+				// copy everything including null byte
+				memcpy(target_proc.name, optarg, MAXLEN);
 				break;
 			case 'o':
 				if (oflg != 0) {
-					fprintf(stderr, "%s: no duplicate options 'o'\n", argv[0]);
+					fprintf(stderr, "%s: no duplicate options -- 'o'\n",
+							argv[0]);
 					df_print_help(argv[0]);
 					exit(1);
 				}
 				oflg++;
-				strncpy(target_app.obj_path, optarg, MAXLEN-2);
+				// copy everything including null byte
+				memcpy(target_proc.obj_path, optarg, MAXLEN);
 				break;
 			case 'i':
 				if (iflg != 0) {
-					fprintf(stderr, "%s: no duplicate options 'i'\n", argv[0]);
+					fprintf(stderr, "%s: no duplicate options -- 'i'\n",
+							argv[0]);
 					df_print_help(argv[0]);
 					exit(1);
 				}
 				iflg++;
-				strncpy(target_app.interface, optarg, MAXLEN-2);
+				// copy everything including null byte
+				memcpy(target_proc.interface, optarg, MAXLEN);
+				break;
+			case 'l':
+				*log_file = optarg;
+				break;
+			case 'm':
+				df_mem_limit = atol(optarg);
+				if (df_mem_limit <= 0) {
+					fprintf(stderr, "%s: invalid value for option -- 'm'\n",
+							argv[0]);
+					df_print_help(argv[0]);
+					exit(1);
+				}
 				break;
 			case 'h':
 				df_print_help(argv[0]);
@@ -245,7 +314,7 @@ void df_parse_parameters(int argc, char **argv)
 	}
 
 	if (!nflg || !oflg || !iflg) {
-		fprintf(stderr, "%s: parameters 'n', 'o' and 'i' must be set\n",
+		fprintf(stderr, "%s: options 'n', 'o' and 'i' must be set\n",
 				argv[0]);
 		df_print_help(argv[0]);
 		exit(1);
@@ -257,10 +326,16 @@ void df_parse_parameters(int argc, char **argv)
 */
 void df_print_help(char *name)
 {
-	printf("%s: D-Bus fuzzer\n\n"
-			"REQUIRED OPTIONS:\n\t-n name\n"
-			"\t-o object path\n"
-			"\t-i interface\n\n"
+	printf("dfuzzer - Tool for testing processes communicating through D-Bus\n\n"
+			"REQUIRED OPTIONS:\n\t-n <name>\n"
+			"\t-o <object path>\n"
+			"\t-i <interface>\n\n"
+			"OTHER OPTIONS:\n"
+			"\t-l <log file>\n\t   If not set, the log.log file is created.\n"
+			"\t-m <memory limit in kB>\n\t   When tested"
+			" process exceeds this limit it will be noted into log\n"
+			"\t   file. Default value for this limit is 3x intial memory"
+			" of process.\n\n"
 			"Example:\n%s -n org.gnome.Shell -o /org/gnome/Shell"
-			" -i org.gnome.Shell\n", name, name);
+			" -i org.gnome.Shell\n", name);
 }

@@ -1,6 +1,6 @@
 /** @file fuzz.h *//*
 
-	dfuzzer - tool for testing applications communicating through D-Bus.
+	dfuzzer - tool for testing processes communicating through D-Bus.
 	Copyright (C) 2013  Matus Marhefka
 
 	This program is free software: you can redistribute it and/or modify
@@ -23,6 +23,7 @@
 #define MAXSIG 255			// maximum length of D-Bus signature string
 #define MAXFMT MAXSIG * 2	// MAXSIG * 2 because of '@' character for every
 							// signature
+#define MAXLINE 1024		// maximum length read from file
 
 volatile sig_atomic_t df_exit_flag;	// indicates SIGHUP, SIGINT signals
 
@@ -46,11 +47,16 @@ struct df_sig_list {
 
 
 /** @function Saves pointer on D-Bus interface proxy for this module to be
-	able to call methods through this proxy during fuzz testing.
+	able to call methods through this proxy during fuzz testing. Also saves
+	process initial memory size to global var. df_initial_mem from file
+	described by statfd.
 	@param dproxy Pointer on D-Bus interface proxy
+	@param statfd FD of process status file
+	@param mem_limit Memory limit in kB - if tested process exceeds this limit
+	it will be noted into log file
 	@return 0 on success, -1 on error
 */
-int df_fuzz_add_proxy(GDBusProxy *dproxy);
+int df_fuzz_init(GDBusProxy *dproxy, int statfd, long mem_limit);
 
 /** @function Initializes the global variable df_list (struct df_sig_list)
 	including allocationg memory for method name inside df_list.
@@ -67,11 +73,20 @@ int df_fuzz_add_method(char *name);
 */
 int df_fuzz_add_method_arg(char *signature);
 
+/** @function Parses VmRSS (Resident Set Size) value from statfd and returns it
+	as process memory size.
+	@param statfd FD of process status file
+	@return Process memory size or -1 on error
+*/
+long df_fuzz_get_proc_mem_size(int statfd);
+
 /** @function Function is testing a method in cycle, each cycle generates data
 	for function arguments, calls method and waits for result.
+	@param statfd FD of process status file
+	@param logfd FD of log file
 	@return 0 on success, -1 on error
 */
-int df_fuzz_test_method(void);
+int df_fuzz_test_method(int statfd, int logfd);
 
 /** @function Creates GVariant tuple variable which contains all the signatures
 	of method arguments including their values. This tuple is constructed
