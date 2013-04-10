@@ -1,4 +1,5 @@
-/** @file fuzz.h *//*
+/** @file fuzz.h */
+/*
 
 	dfuzzer - tool for testing processes communicating through D-Bus.
 	Copyright (C) 2013  Matus Marhefka
@@ -46,7 +47,8 @@ struct df_sig_list {
 };
 
 
-/** @function Saves pointer on D-Bus interface proxy for this module to be
+/**
+	@function Saves pointer on D-Bus interface proxy for this module to be
 	able to call methods through this proxy during fuzz testing. Also saves
 	process initial memory size to global var. df_initial_mem from file
 	described by statfd.
@@ -58,14 +60,16 @@ struct df_sig_list {
 */
 int df_fuzz_init(GDBusProxy *dproxy, int statfd, long mem_limit);
 
-/** @function Initializes the global variable df_list (struct df_sig_list)
+/**
+	@function Initializes the global variable df_list (struct df_sig_list)
 	including allocationg memory for method name inside df_list.
 	@param name Name of method which will be tested
 	@return 0 on success, -1 on error
 */
 int df_fuzz_add_method(char *name);
 
-/** @function Adds item (struct df_signature) at the end of the linked list
+/**
+	@function Adds item (struct df_signature) at the end of the linked list
 	in the global variable df_list (struct df_sig_list). This includes
 	allocating memory for item and for signature string.
 	@param signature D-Bus signature of the argument
@@ -73,15 +77,19 @@ int df_fuzz_add_method(char *name);
 */
 int df_fuzz_add_method_arg(char *signature);
 
-/** @function Function is testing a method in cycle, each cycle generates data
+/**
+	@function Function is testing a method in cycle, each cycle generates data
 	for function arguments, calls method and waits for result.
 	@param statfd FD of process status file
 	@param logfd FD of log file
+	@param buf_size Maximum buffer size for generated strings
+	by rand module (in Bytes)
 	@return 0 on success, -1 on error
 */
-int df_fuzz_test_method(int statfd, int logfd);
+int df_fuzz_test_method(int statfd, int logfd, unsigned long buf_size);
 
-/** @function Releases memory used by this module. This function must be called
+/**
+	@function Releases memory used by this module. This function must be called
 	after df_fuzz_add_method() and df_fuzz_add_method_arg() functions calls
 	after the end of fuzz testing of each method.
 */

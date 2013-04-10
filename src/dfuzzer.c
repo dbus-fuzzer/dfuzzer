@@ -1,4 +1,5 @@
-/** @file dfuzzer.c *//*
+/** @file dfuzzer.c */
+/*
 
 	dfuzzer - tool for testing processes communicating through D-Bus.
 	Copyright (C) 2013  Matus Marhefka
@@ -30,35 +31,39 @@
 #include "fuzz.h"
 
 
+/** Structure containing D-Bus name, object path and interface of process */
 struct fuzzing_target target_proc;
 
 /** Indicates SIGHUP, SIGINT signals (defined in fuzz.h) */
 extern volatile sig_atomic_t df_exit_flag;
-
-/** Memory limit for tested process in kB - if tested process exceeds this
-	limit it will be noted into log file */
-static long df_mem_limit;
 
 
 int main(int argc, char **argv)
 {
 	char *log_file = "./log.log";	// file for logs
 	int logfd;						// FD for log_file
-	int statfd;					// FD for process status file
-	GError *error = NULL;		// must be set to NULL
-	GDBusConnection *dcon;		// D-Bus connection structure
-	GDBusProxy *dproxy;			// D-Bus interface proxy
+	int statfd;						// FD for process status file
+	unsigned long buf_size = 0;		// maximum buffer size for generated strings
+									// by rand module (in Bytes)
+	unsigned long mem_limit = 0;// Memory limit for tested process in kB - if
+								// tested process exceeds this limit it will be
+								// noted into log file
+
+	GError *error = NULL;			// must be set to NULL
+	GDBusConnection *dcon;			// D-Bus connection structure
+	GDBusProxy *dproxy;				// D-Bus interface proxy
 
 	GDBusProxy *pproxy;				// proxy for getting process PID
 	int pid = -1;					// pid of tested process
 	GVariant *variant_pid = NULL;	// response from GetConnectionUnixProcessID
+
 
 	signal(SIGINT, df_signal_handler);
 	signal(SIGHUP, df_signal_handler);		// terminal closed signal
 
 
 	// do not free log_file - it points to argv
-	df_parse_parameters(argc, argv, &log_file);
+	df_parse_parameters(argc, argv, &log_file, &buf_size, &mem_limit);
 
 	// Initializes the type system.
 	g_type_init();
@@ -138,7 +143,7 @@ int main(int argc, char **argv)
 
 	// tells fuzz module to call methods on dproxy, use FD statfd
 	// for monitoring tested process and memory limit for process
-	if (df_fuzz_init(dproxy, statfd, df_mem_limit) == -1) {
+	if (df_fuzz_init(dproxy, statfd, mem_limit) == -1) {
 		close(statfd);
 		df_unref_introspection();
 		g_object_unref(dproxy);
@@ -157,6 +162,8 @@ int main(int argc, char **argv)
 	}
 
 
+	printf("Fuzzing:\n\tname:\t\t'%s'\n\tinterface:\t'%s'\n", target_proc.name,
+			target_proc.interface);
 	GDBusMethodInfo *m;
 	GDBusArgInfo *in_arg;
 	for (; (m = df_get_method()) != NULL; df_next_method()) {
@@ -181,7 +188,9 @@ int main(int argc, char **argv)
 				df_error("Error in df_fuzz_add_method_arg()", error);
 			}
 		}
-		if (df_fuzz_test_method(statfd, logfd) == -1) {	// tests for method
+
+		// tests for method
+		if (df_fuzz_test_method(statfd, logfd, buf_size) == -1) {
 			close(statfd);
 			close(logfd);
 			df_unref_introspection();
@@ -192,21 +201,24 @@ int main(int argc, char **argv)
 
 		df_fuzz_clean_method();		// cleaning up after testing
 
-		if (df_exit_flag) {
-			fprintf(stderr, "\nExiting %s...\n", argv[0]);
+		if (df_exit_flag)
 			break;
-		}
 	}
 
+	printf("\nEnd of fuzzing.");
+	printf("\nLook into '%s' for results of fuzzing.", log_file);
+	printf("\nReleasing all used memory...");
 	df_unref_introspection();
 	g_object_unref(dproxy);
 	g_object_unref(dcon);
 	close(statfd);
 	close(logfd);
+	printf("\nExiting...\n");
 	return 0;
 }
 
-/** @function Function is called when SIGINT signal is emitted. It sets
+/**
+	@function Function is called when SIGINT signal is emitted. It sets
 	flag df_exit_flag for fuzzer to know, that it should end testing, free
 	memory and exit.
 	@param sig Catched signal number
@@ -217,7 +229,8 @@ void df_signal_handler(int sig)
 		df_exit_flag++;
 }
 
-/** @function Displays an error message and exits with error code 1.
+/**
+	@function Displays an error message and exits with error code 1.
 	@param message Error message which will be printed before exiting program
 	@param error Pointer on GError structure containing error specification
 */
@@ -233,7 +246,8 @@ void df_error(char *message, GError *error)
 	exit(1);
 }
 
-/** @function Opens process status file.
+/**
+	@function Opens process status file.
 	@param pid PID - identifier of process
 	@return FD of status file on success, -1 on error
 */
@@ -250,18 +264,23 @@ int df_open_proc_status_file(int pid)
 	return statfd;
 }
 
-/** @function Parses program options and stores them into struct fuzzing_target.
+/**
+	@function Parses program options and stores them into struct fuzzing_target.
 	If error occures function ends program.
 	@param argc Count of options
 	@param argv Pointer on strings containing options of program
 	@param log_file File for logs
+	@param buf_size Maximum buffer size for generated strings
+	by rand module (in Bytes)
+	@param mem_limit Memory limit for tested process in kB
 */
-void df_parse_parameters(int argc, char **argv, char **log_file)
+void df_parse_parameters(int argc, char **argv, char **log_file,
+						unsigned long *buf_size, unsigned long *mem_limit)
 {
 	int c = 0;
-	int nflg = 0, oflg = 0, iflg = 0;
+	int nflg = 0, oflg = 0, iflg = 0, lflg = 0, mflg = 0, bflg = 0;
 
-	while ( (c = getopt(argc, argv, "n:o:i:l:m:h")) != -1 ) {
+	while ( (c = getopt(argc, argv, "n:o:i:l:m:b:h")) != -1 ) {
 		switch (c) {
 			case 'n':
 				if (nflg != 0) {
@@ -297,13 +316,43 @@ void df_parse_parameters(int argc, char **argv, char **log_file)
 				memcpy(target_proc.interface, optarg, MAXLEN);
 				break;
 			case 'l':
+				if (lflg != 0) {
+					fprintf(stderr, "%s: no duplicate options -- 'l'\n",
+							argv[0]);
+					df_print_help(argv[0]);
+					exit(1);
+				}
+				lflg++;
 				*log_file = optarg;
 				break;
 			case 'm':
-				df_mem_limit = atol(optarg);
-				if (df_mem_limit <= 0) {
+				if (mflg != 0) {
+					fprintf(stderr, "%s: no duplicate options -- 'm'\n",
+							argv[0]);
+					df_print_help(argv[0]);
+					exit(1);
+				}
+				mflg++;
+				*mem_limit = atol(optarg);
+				if (*mem_limit == 0) {
 					fprintf(stderr, "%s: invalid value for option -- 'm'\n",
 							argv[0]);
+					df_print_help(argv[0]);
+					exit(1);
+				}
+				break;
+			case 'b':
+				if (bflg != 0) {
+					fprintf(stderr, "%s: no duplicate options -- 'b'\n",
+							argv[0]);
+					df_print_help(argv[0]);
+					exit(1);
+				}
+				bflg++;
+				*buf_size = atol(optarg);
+				if (*buf_size < MINLEN) {
+					fprintf(stderr, "%s: invalid value for option -- 'b'\n"
+							" -- at least %d B are required\n", argv[0], MINLEN);
 					df_print_help(argv[0]);
 					exit(1);
 				}
@@ -320,14 +369,15 @@ void df_parse_parameters(int argc, char **argv, char **log_file)
 	}
 
 	if (!nflg || !oflg || !iflg) {
-		fprintf(stderr, "%s: options 'n', 'o' and 'i' must be set\n",
+		fprintf(stderr, "%s: options 'n', 'o' and 'i' are required\n",
 				argv[0]);
 		df_print_help(argv[0]);
 		exit(1);
 	}
 }
 
-/** @function Prints help.
+/**
+	@function Prints help.
 	@param name Name of program
 */
 void df_print_help(char *name)
@@ -338,10 +388,16 @@ void df_print_help(char *name)
 			"\t-i <interface>\n\n"
 			"OTHER OPTIONS:\n"
 			"\t-l <log file>\n\t   If not set, the log.log file is created.\n"
-			"\t-m <memory limit in kB>\n\t   When tested"
-			" process exceeds this limit it will be noted into log\n"
-			"\t   file. Default value for this limit is 3x intial memory"
-			" of process.\n\n"
+			"\t-m <memory limit in kB>\n"
+			"\t   When tested process exceeds this limit it will be noted into\n"
+			"\t   log file. Default value for this limit is 3x process intial\n"
+			"\t   memory size. If set memory limit value is less than or\n"
+			"\t   equal to process initial memory size, it will be adjusted\n"
+			"\t   to default value (3x process intial memory size).\n"
+			"\t-b <maximum buffer size in B>\n"
+			"\t   Maximum buffer size for generated strings, minimum is 256 B.\n"
+			"\t   Default maximum size is 5000000 B ~= 5 MB.\n"
+			"\n"
 			"Example:\n%s -n org.gnome.Shell -o /org/gnome/Shell"
 			" -i org.gnome.Shell\n", name);
 }

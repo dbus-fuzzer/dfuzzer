@@ -1,4 +1,5 @@
-/** @file fuzz.c *//*
+/** @file fuzz.c */
+/*
 
 	dfuzzer - tool for testing processes communicating through D-Bus.
 	Copyright (C) 2013  Matus Marhefka
@@ -49,19 +50,21 @@ static long df_mem_limit;
 
 /** Flag for unsupported method signature, 1 means signature is unsupported */
 static int unsupported_sig;
+/** Pointer on unsupported signature string (do not free it) */
 static char *unsupported_sig_str;
 
 
 /* Module static functions */
 static long df_fuzz_get_proc_mem_size(int statfd);
-static int df_fuzz_write_log(int logfd);
+static int df_fuzz_write_log(int logfd, unsigned long buf_size);
 static GVariant * df_fuzz_create_variant(void);
 static int df_fuzz_create_list_variants(void);
 static int df_fuzz_create_fmt_string(char **fmt, int n);
 static int df_fuzz_call_method(GVariant *value);
 
 
-/** @function Saves pointer on D-Bus interface proxy for this module to be
+/**
+	@function Saves pointer on D-Bus interface proxy for this module to be
 	able to call methods through this proxy during fuzz testing. Also saves
 	process initial memory size to global var. df_initial_mem from file
 	described by statfd.
@@ -85,7 +88,7 @@ int df_fuzz_init(GDBusProxy *dproxy, int statfd, long mem_limit)
 		return -1;
 	}
 
-	if (mem_limit <= 0)
+	if (mem_limit <= df_initial_mem)
 		df_mem_limit = 3 * df_initial_mem;
 	else
 		df_mem_limit = mem_limit;
@@ -93,7 +96,8 @@ int df_fuzz_init(GDBusProxy *dproxy, int statfd, long mem_limit)
 	return 0;
 }
 
-/** @function Initializes the global variable df_list (struct df_sig_list)
+/**
+	@function Initializes the global variable df_list (struct df_sig_list)
 	including allocationg memory for method name inside df_list.
 	@param name Name of method which will be tested
 	@return 0 on success, -1 on error
@@ -120,7 +124,8 @@ int df_fuzz_add_method(char *name)
 	return 0;
 }
 
-/** @function Adds item (struct df_signature) at the end of the linked list
+/**
+	@function Adds item (struct df_signature) at the end of the linked list
 	in the global variable df_list (struct df_sig_list). This includes
 	allocating memory for item and for signature string.
 	@param signature D-Bus signature of the argument
@@ -159,7 +164,8 @@ int df_fuzz_add_method_arg(char *signature)
 	return 0;
 }
 
-/** @function Parses VmRSS (Resident Set Size) value from statfd and returns it
+/**
+	@function Parses VmRSS (Resident Set Size) value from statfd and returns it
 	as process memory size.
 	@param statfd FD of process status file
 	@return Process memory size on success, 0 when statfd is not readable (that
@@ -208,14 +214,18 @@ static long df_fuzz_get_proc_mem_size(int statfd)
 	return mem_size;
 }
 
-/** @function
+/**
+	@function Writes all method signatures and their values into the log file.
+	@param logfd FD of log file
+	@param buf_size Maximum buffer size for generated strings
+	by rand module (in Bytes)
 */
-static int df_fuzz_write_log(int logfd)
-{
+static int df_fuzz_write_log(int logfd, unsigned long buf_size)
+{	// TODO: try g_variant_get_data()
 	struct df_signature *s = df_list.list;		// pointer on first signature
 	int len;
 	int str_len = -1;
-	char *buf = malloc(sizeof(char) * MAX_STR_LEN);
+	char *buf = malloc(sizeof(char) * buf_size);
 	char *ptr = buf;
 
 	while (s != NULL) {
@@ -330,13 +340,16 @@ static int df_fuzz_write_log(int logfd)
 	return 0;
 }
 
-/** @function Function is testing a method in cycle, each cycle generates data
+/**
+	@function Function is testing a method in cycle, each cycle generates data
 	for function arguments, calls method and waits for result.
 	@param statfd FD of process status file
 	@param logfd FD of log file
+	@param buf_size Maximum buffer size for generated strings
+	by rand module (in Bytes)
 	@return 0 on success, -1 on error
 */
-int df_fuzz_test_method(int statfd, int logfd)
+int df_fuzz_test_method(int statfd, int logfd, unsigned long buf_size)
 {
 	struct df_signature *s = df_list.list;		// pointer on first signature
 	GVariant *value = NULL;
@@ -346,7 +359,7 @@ int df_fuzz_test_method(int statfd, int logfd)
 	long max_memory = df_mem_limit;		// maximum normal memory size used
 										// by process in kB
 
-	char *ptr, *log_buffer = malloc(sizeof(char) * MAX_STR_LEN);
+	char *ptr, *log_buffer = malloc(sizeof(char) * buf_size);
 	ptr = log_buffer;
 
 
@@ -362,7 +375,8 @@ int df_fuzz_test_method(int statfd, int logfd)
 	// restarts position in log_buffer
 	ptr = log_buffer;
 
-	df_rand_init();		// initialization of random module
+
+	df_rand_init(buf_size);		// initialization of random module
 
 
 	i = 1;			// log number for current method
@@ -382,7 +396,7 @@ int df_fuzz_test_method(int statfd, int logfd)
 			write(logfd, log_buffer, strlen(log_buffer));
 			ptr = log_buffer;
 			i++;
-			df_fuzz_write_log(logfd);
+			df_fuzz_write_log(logfd, buf_size);
 
 			g_variant_unref(value);
 			free(log_buffer);
@@ -416,7 +430,7 @@ int df_fuzz_test_method(int statfd, int logfd)
 			write(logfd, log_buffer, strlen(log_buffer));
 			ptr = log_buffer;
 			i++;
-			df_fuzz_write_log(logfd);
+			df_fuzz_write_log(logfd, buf_size);
 
 			g_variant_unref(value);
 			free(log_buffer);
@@ -435,7 +449,7 @@ int df_fuzz_test_method(int statfd, int logfd)
 			ptr = log_buffer;
 			i++;
 			max_memory *= 3;
-			df_fuzz_write_log(logfd);
+			df_fuzz_write_log(logfd, buf_size);
 		}
 
 
@@ -458,7 +472,8 @@ int df_fuzz_test_method(int statfd, int logfd)
 	return 0;
 }
 
-/** @function Creates GVariant tuple variable which contains all the signatures
+/**
+	@function Creates GVariant tuple variable which contains all the signatures
 	of method arguments including their values. This tuple is constructed
 	from each signature of method argument by one call of g_variant_new()
 	function. This call is constructed dynamically (using libffi) as we don't
@@ -545,7 +560,8 @@ static GVariant * df_fuzz_create_variant(void)
 	return val;
 }
 
-/** @function Generates data for each method argument according to argument
+/**
+	@function Generates data for each method argument according to argument
 	signature and stores it into Gvariant variable in items of linked list.
 	@return 0 on success, 1 on unsupported method signature, -1 on error
 */
@@ -654,8 +670,11 @@ static int df_fuzz_create_list_variants(void)
 	return 0;
 }
 
-/** @function Creates format string (tuple) from method arguments signatures
+/**
+	@function Creates format string (tuple) from method arguments signatures
 	with maximum length of n-1. The final string is saved in parameter fmt.
+	@param fmt Pointer on buffer where format string should be stored
+	@param n Size of buffer
 	@return 0 on success, -1 on error
 */
 static int df_fuzz_create_fmt_string(char **fmt, int n)
@@ -699,7 +718,8 @@ static int df_fuzz_create_fmt_string(char **fmt, int n)
 	return 0;
 }
 
-/** @function Calls method from df_list (using its name) with its arguments.
+/**
+	@function Calls method from df_list (using its name) with its arguments.
 	@param value GVariant tuple containing all method arguments signatures and
 	their values
 	@return 0 on success, -1 on error
@@ -716,8 +736,6 @@ static int df_fuzz_call_method(GVariant *value)
 		df_list.df_method_name,
 		value, G_DBUS_CALL_FLAGS_NONE, -1, NULL, &error);
 	if (response == NULL) {
-		// XXX: here when NULL, it means that proc has disconnected from DBus
-		// so we should note it into some log file
 		fprintf(stderr, "Call of g_dbus_proxy_call_sync() returned NULL"
 						" pointer -- for '%s' method: %s\n",
 						df_list.df_method_name, error->message);
@@ -729,7 +747,8 @@ static int df_fuzz_call_method(GVariant *value)
 	return 0;
 }
 
-/** @function Releases memory used by this module. This function must be called
+/**
+	@function Releases memory used by this module. This function must be called
 	after df_fuzz_add_method() and df_fuzz_add_method_arg() functions calls
 	after the end of fuzz testing of each method.
 */

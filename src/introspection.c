@@ -1,4 +1,5 @@
-/** @file introspection.c *//*
+/** @file introspection.c */
+/*
 
 	dfuzzer - tool for testing processes communicating through D-Bus.
 	Copyright (C) 2013  Matus Marhefka
@@ -36,7 +37,8 @@ static GDBusMethodInfo **df_methods;
 static GDBusArgInfo **df_in_args;
 
 
-/** @function Gets introspection of object pointed by dproxy (in XML format),
+/**
+	@function Gets introspection of object pointed by dproxy (in XML format),
 	then parses XML data and fills GDBusNodeInfo representing the data.
 	At the end looks up information about an interface and initializes module
 	global pointers on first method and its first argument.
@@ -107,7 +109,8 @@ int df_init_introspection(GDBusProxy *dproxy, char *interface)
 	return 0;
 }
 
-/** @return Pointer on GDBusMethodInfo which contains information about method
+/**
+	@return Pointer on GDBusMethodInfo which contains information about method
 	(do not free it).
 */
 GDBusMethodInfo * df_get_method(void)
@@ -115,7 +118,8 @@ GDBusMethodInfo * df_get_method(void)
 	return *df_methods;
 }
 
-/** @function Function is used as "iterator" for interface methods.
+/**
+	@function Function is used as "iterator" for interface methods.
 */
 void df_next_method(void)
 {
@@ -125,7 +129,8 @@ void df_next_method(void)
 		df_in_args = (*df_methods)->in_args;
 }
 
-/** @return Pointer on GDBusArgInfo which contains information about argument
+/**
+	@return Pointer on GDBusArgInfo which contains information about argument
 	of current (df_get_method()) method (do not free it).
 */
 GDBusArgInfo * df_get_method_arg(void)
@@ -133,7 +138,8 @@ GDBusArgInfo * df_get_method_arg(void)
 	return *df_in_args;
 }
 
-/** @function Function is used as "iterator" for interface current
+/**
+	@function Function is used as "iterator" for interface current
 	(df_get_method()) method arguments.
 */
 void df_next_method_arg(void)
@@ -141,7 +147,8 @@ void df_next_method_arg(void)
 	df_in_args++;
 }
 
-/** @function Call when done with this module functions (only after
+/**
+	@function Call when done with this module functions (only after
 	df_init_introspection() function call). It frees memory used
 	by df_introspection_data (GDBusNodeInfo *) which is used to look up
 	information about the interface (methods, their arguments, etc.).

@@ -1,4 +1,5 @@
-/** @file dfuzzer.h *//*
+/** @file dfuzzer.h */
+/*
 
 	dfuzzer - tool for testing processes communicating through D-Bus.
 	Copyright (C) 2013  Matus Marhefka
@@ -20,6 +21,7 @@
 #ifndef DFUZZER_H
 #define DFUZZER_H
 
+#define MINLEN 256				// minimal buffer size for generated strings
 #define MAXLEN 256			// maximum length of strings containing D-Bus name,
 							// interface and object path
 
@@ -33,34 +35,43 @@ struct fuzzing_target {		// names on D-Bus have the most MAXLEN characters
 };
 
 
-/** @function Function is called when SIGINT signal is emitted. It sets
+/**
+	@function Function is called when SIGINT signal is emitted. It sets
 	flag df_exit_flag for fuzzer to know, that it should end testing, free
 	memory and exit.
 	@param sig Catched signal number
 */
 void df_signal_handler(int sig);
 
-/** @function Displays an error message and exits with error code 1.
+/**
+	@function Displays an error message and exits with error code 1.
 	@param message Error message which will be printed before exiting program
 	@param error Pointer on GError structure containing error specification
 */
 void df_error(char *message, GError *error);
 
-/** @function Opens process status file.
+/**
+	@function Opens process status file.
 	@param pid PID - identifier of process
 	@return FD of status file on success, -1 on error
 */
 int df_open_proc_status_file(int pid);
 
-/** @function Parses program options and stores them into struct fuzzing_target.
+/**
+	@function Parses program options and stores them into struct fuzzing_target.
 	If error occures function ends program.
 	@param argc Count of options
 	@param argv Pointer on strings containing options of program
 	@param log_file File for logs
+	@param buf_size Maximum buffer size for generated strings
+	by rand module (in Bytes)
+	@param mem_limit Memory limit for tested process in kB
 */
-void df_parse_parameters(int argc, char **argv, char **log_file);
+void df_parse_parameters(int argc, char **argv, char **log_file,
+						unsigned long *buf_size, unsigned long *mem_limit);
 
-/** @function Prints help.
+/**
+	@function Prints help.
 	@param name Name of program
 */
 void df_print_help(char *name);

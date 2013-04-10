@@ -1,4 +1,5 @@
-/** @file rand.h *//*
+/** @file rand.h */
+/*
 
 	dfuzzer - tool for testing processes communicating through D-Bus.
 	Copyright (C) 2013  Matus Marhefka
@@ -20,86 +21,105 @@
 #ifndef RAND_H
 #define RAND_H
 
-// XXX: make it as parameter, tester choose max. buf. len. in bytes
-#define MAX_STR_LEN 50000		// maximum buffer length for generated string
+#define MINLEN 256				// minimal buffer size for generated strings
+#define MAX_BUF_LEN 5000000		// maximum buffer size for generated strings,
+								// default is cca 5 MB
 
 
-/** @function Initializes global flag variables and seeds pseudo-random
+/**
+	@function Initializes global flag variables and seeds pseudo-random
 	numbers generators.
+	@param buf_size Maximum buffer size for generated strings (in Bytes)
 */
-void df_rand_init(void);
+void df_rand_init(unsigned long buf_size);
 
-/** @return Generated pseudo-random 8-bit unsigned integer value
+/**
+	@return Generated pseudo-random 8-bit unsigned integer value
 */
 guint8 df_rand_guint8(void);
 
-/** @return Generated pseudo-random boolean value
+/**
+	@return Generated pseudo-random boolean value
 */
 gboolean df_rand_gboolean(void);
 
-/** @return Generated pseudo-random 16-bit integer value
+/**
+	@return Generated pseudo-random 16-bit integer value
 */
 gint16 df_rand_gint16(void);
 
-/** @return Generated pseudo-random 16-bit unsigned integer value
+/**
+	@return Generated pseudo-random 16-bit unsigned integer value
 */
 guint16 df_rand_guint16(void);
 
-/** @return Generated pseudo-random 32-bit integer value
+/**
+	@return Generated pseudo-random 32-bit integer value
 */
 gint32 df_rand_gint32(void);
 
-/** @return Generated pseudo-random 32-bit unsigned integer value
+/**
+	@return Generated pseudo-random 32-bit unsigned integer value
 */
 guint32 df_rand_guint32(void);
 
-/** @return Generated pseudo-random 64-bit (long) integer value
+/**
+	@return Generated pseudo-random 64-bit (long) integer value
 */
 gint64 df_rand_gint64(void);
 
-/** @return Generated pseudo-random 64-bit (long) unsigned integer value
+/**
+	@return Generated pseudo-random 64-bit (long) unsigned integer value
 */
 guint64 df_rand_guint64(void);
 
-/** @return Generated pseudo-random double precision floating point number
+/**
+	@return Generated pseudo-random double precision floating point number
 	from interval <0, 1>
 */
-inline double drand();
+inline double drand(void);
 
-/** @return Generated pseudo-random double precision floating point number
+/**
+	@return Generated pseudo-random double precision floating point number
 */
 gdouble df_rand_gdouble(void);
 
-/** @function Tells callee whether to continue testing according to current size
-	of generated strings not to exceed MAX_STR_LEN length.
+/**
+	@function Tells callee whether to continue testing according to current size
+	of generated strings not to exceed df_buf_size length.
 	@return 1 when callee should continue, 0 otherwise
 */
 int df_rand_continue(void);
 
-/** @function Allocates memory for pseudo-random string of size counted
+/**
+	@function Allocates memory for pseudo-random string of size counted
 	by adding generated pseudo-random number from interval <0, CHAR_MAX>
 	to df_str_len (this mechanism is responsible for generating bigger strings
 	by every call of df_rand_string(). Then pseudo-random string is generated
 	and stored int buf. Warning: buffer should be freed outside this module
 	by callee of this function.
-	@param buf Pointer on buffer where will be stored generated string
+	@param buf Pointer on buffer where generated string will be stored
 	@return 0 on success, -1 on error
 */
 int df_rand_string(gchar **buf);
 
-/** @function
+/**
+	@function
 */
 int df_rand_dbus_objpath_string(gchar **buf);
 
-/** @function
+/**
+	@function
 */
 int df_rand_dbus_signature_string(gchar **buf);
 
-/** @function
+/**
+	@function
 */
 int df_rand_GVariant(GVariant **var);
 
-/** @function
+/**
+	@function
 */
 int df_rand_unixFD(void);
 
