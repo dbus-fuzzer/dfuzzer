@@ -20,6 +20,10 @@
 #ifndef RAND_H
 #define RAND_H
 
+// XXX: make it as parameter, tester choose max. buf. len. in bytes
+#define MAX_STR_LEN 50000		// maximum buffer length for generated string
+
+
 /** @function Initializes global flag variables and seeds pseudo-random
 	numbers generators.
 */
@@ -65,6 +69,12 @@ inline double drand();
 /** @return Generated pseudo-random double precision floating point number
 */
 gdouble df_rand_gdouble(void);
+
+/** @function Tells callee whether to continue testing according to current size
+	of generated strings not to exceed MAX_STR_LEN length.
+	@return 1 when callee should continue, 0 otherwise
+*/
+int df_rand_continue(void);
 
 /** @function Allocates memory for pseudo-random string of size counted
 	by adding generated pseudo-random number from interval <0, CHAR_MAX>

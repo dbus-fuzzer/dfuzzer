@@ -56,17 +56,20 @@ int main(int argc, char **argv)
 	signal(SIGINT, df_signal_handler);
 	signal(SIGHUP, df_signal_handler);		// terminal closed signal
 
+
 	// do not free log_file - it points to argv
 	df_parse_parameters(argc, argv, &log_file);
 
 	// Initializes the type system.
 	g_type_init();
 
+
 	// Synchronously connects to the message bus.
 	if ( (dcon = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, &error)) == NULL ) {
 		df_error("Error in g_bus_get_sync() on connecting to the message bus",
 				error);
 	}
+
 
 	// Creates a proxy for accessing target_proc.interface
 	// on the remote object at target_proc.obj_path owned by target_proc.name
@@ -79,6 +82,7 @@ int main(int argc, char **argv)
 		df_error("Error in g_dbus_proxy_new_sync() on creating proxy", error);
 	}
 
+
 	// Uses dcon (GDBusConnection *) to create proxy for accessing
 	// org.freedesktop.DBus (for calling its method GetConnectionUnixProcessID)
 	pproxy = g_dbus_proxy_new_sync(dcon, G_DBUS_PROXY_FLAGS_NONE, NULL,
@@ -89,6 +93,7 @@ int main(int argc, char **argv)
 		g_object_unref(dcon);
 		df_error("Error in g_dbus_proxy_new_sync() on creating proxy", error);
 	}
+
 
 	// Synchronously invokes method GetConnectionUnixProcessID
 	variant_pid = g_dbus_proxy_call_sync(pproxy,
@@ -112,6 +117,7 @@ int main(int argc, char **argv)
 	}
 	g_variant_unref(variant_pid);
 	g_object_unref(pproxy);
+
 
 
 	// Introspection of object through proxy.

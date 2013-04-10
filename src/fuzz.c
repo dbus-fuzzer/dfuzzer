@@ -47,6 +47,19 @@ static long df_initial_mem = -1;
 	limit it will be noted into log file */
 static long df_mem_limit;
 
+/** Flag for unsupported method signature, 1 means signature is unsupported */
+static int unsupported_sig;
+static char *unsupported_sig_str;
+
+
+/* Module static functions */
+static long df_fuzz_get_proc_mem_size(int statfd);
+static int df_fuzz_write_log(int logfd);
+static GVariant * df_fuzz_create_variant(void);
+static int df_fuzz_create_list_variants(void);
+static int df_fuzz_create_fmt_string(char **fmt, int n);
+static int df_fuzz_call_method(GVariant *value);
+
 
 /** @function Saves pointer on D-Bus interface proxy for this module to be
 	able to call methods through this proxy during fuzz testing. Also saves
@@ -149,16 +162,18 @@ int df_fuzz_add_method_arg(char *signature)
 /** @function Parses VmRSS (Resident Set Size) value from statfd and returns it
 	as process memory size.
 	@param statfd FD of process status file
-	@return Process memory size or -1 on error
+	@return Process memory size on success, 0 when statfd is not readable (that
+	means process disconnected from D-Bus) or -1 on error
 */
-long df_fuzz_get_proc_mem_size(int statfd)
+static long df_fuzz_get_proc_mem_size(int statfd)
 {
 	long mem_size = -1;
 	char buf[MAXLINE];		// buffer for reading from file
 	char *ptr;				// pointer into buf buffer
 
 	// rewinds file position to the beginning
-	lseek(statfd, 0L, SEEK_SET);
+	if (lseek(statfd, 0L, SEEK_SET) == -1)
+		return 0;
 
 	int stopr = 0;
 	while (!stopr) {
@@ -171,7 +186,8 @@ long df_fuzz_get_proc_mem_size(int statfd)
 			stopr++;
 		buf[n] = '\0';
 
-		ptr = strstr(buf, "VmRSS:");
+		if ( (ptr = strstr(buf, "VmRSS:")) == NULL)
+			return 0;
 
 		// check for new line (that whole memory size number is in buffer)
 		char *nl = ptr;
@@ -192,6 +208,128 @@ long df_fuzz_get_proc_mem_size(int statfd)
 	return mem_size;
 }
 
+/** @function
+*/
+static int df_fuzz_write_log(int logfd)
+{
+	struct df_signature *s = df_list.list;		// pointer on first signature
+	int len;
+	int str_len = -1;
+	char *buf = malloc(sizeof(char) * MAX_STR_LEN);
+	char *ptr = buf;
+
+	while (s != NULL) {
+		len = strlen(s->sig);
+		if (len <= 0) {
+			fprintf(stderr, "No argument signature\n");
+			return -1;
+		}
+		else if (len == 1) {	// one character argument
+			switch (s->sig[0]) {
+				case 'y':
+					; guint8 tmp;
+					g_variant_get(s->var, s->sig, &tmp);
+					sprintf(ptr, "%u", tmp);
+					break;
+				case 'b':
+					; gboolean tmp1;
+					g_variant_get(s->var, s->sig, &tmp1);
+					sprintf(ptr, "%s", ((tmp1 == 1) ? "true" : "false"));
+					break;
+				case 'n':
+					; gint16 tmp2;
+					g_variant_get(s->var, s->sig, &tmp2);
+					sprintf(ptr, "%d", tmp2);
+					break;
+				case 'q':
+					; guint16 tmp3;
+					g_variant_get(s->var, s->sig, &tmp3);
+					sprintf(ptr, "%u", tmp3);
+					break;
+				case 'i':
+					; gint32 tmp4;
+					g_variant_get(s->var, s->sig, &tmp4);
+					sprintf(ptr, "%d", tmp4);
+					break;
+				case 'u':
+					; guint32 tmp5;
+					g_variant_get(s->var, s->sig, &tmp5);
+					sprintf(ptr, "%u", tmp5);
+					break;
+				case 'x':
+					; gint64 tmp6;
+					g_variant_get(s->var, s->sig, &tmp6);
+					sprintf(ptr, "%ld", tmp6);
+					break;
+				case 't':
+					; guint64 tmp7;
+					g_variant_get(s->var, s->sig, &tmp7);
+					sprintf(ptr, "%lu", tmp7);
+					break;
+				case 'd':
+					; gdouble tmp8;
+					g_variant_get(s->var, s->sig, &tmp8);
+					sprintf(ptr, "%lg", tmp8);
+					break;
+				case 's':
+					; gchar *tmp9 = NULL;
+					g_variant_get(s->var, s->sig, &tmp9);
+					str_len = strlen(tmp9);
+					if (tmp9 != NULL)
+						sprintf(ptr, " [length: %d B]-- '%s", str_len, tmp9);
+					break;
+				case 'o':
+					; gchar *tmp10 = NULL;
+					g_variant_get(s->var, s->sig, &tmp10);
+					str_len = strlen(tmp10);
+					if (tmp10 != NULL)
+						sprintf(ptr, " [length: %d B]-- '%s", str_len, tmp10);
+					break;
+				case 'g':
+					; gchar *tmp11 = NULL;
+					g_variant_get(s->var, s->sig, &tmp11);
+					str_len = strlen(tmp11);
+					if (tmp11 != NULL)
+						sprintf(ptr, " [length: %d B]-- '%s", str_len, tmp11);
+					break;
+				case 'v':
+					; GVariant *var = NULL; gchar *tmp12 = NULL;
+					g_variant_get(s->var, s->sig, var);
+					g_variant_get(var, "s", &tmp12);
+					str_len = strlen(tmp12);
+					if (tmp12 != NULL)
+						sprintf(ptr, " [length: %d B]-- '%s", str_len, tmp12);
+					break;
+				case 'h':
+					; gint32 tmp13;
+					g_variant_get(s->var, s->sig, &tmp13);
+					sprintf(ptr, "%d", tmp13);
+					break;
+				default:
+					fprintf(stderr, "Unknown argument signature '%s'\n", s->sig);
+					return -1;
+			}
+		}
+		else {	// advanced argument (array of something, dictionary, ...)
+			fprintf(stderr, "Not yet implemented in df_fuzz_write_log()\n");
+		}
+
+		write(logfd, "  --", 4);
+		write(logfd, s->sig, len);
+		if (str_len == -1)	// no string, no length printing
+			write(logfd, "-- '", 4);
+		write(logfd, buf, strlen(buf));
+		write(logfd, "'\n", 2);
+
+		str_len = -1;
+		ptr = buf;
+		s = s->next;
+	}
+
+	free(buf);
+	return 0;
+}
+
 /** @function Function is testing a method in cycle, each cycle generates data
 	for function arguments, calls method and waits for result.
 	@param statfd FD of process status file
@@ -200,71 +338,123 @@ long df_fuzz_get_proc_mem_size(int statfd)
 */
 int df_fuzz_test_method(int statfd, int logfd)
 {
+	struct df_signature *s = df_list.list;		// pointer on first signature
 	GVariant *value = NULL;
 	int i;
-	long used_memory = 0;		// memory used by process in kB
-	struct df_signature *s = df_list.list;		// pointer on first signature
+	long used_memory = 0;				// memory size used by process in kB
+	long prev_memory = 0;				// last known memory size
+	long max_memory = df_mem_limit;		// maximum normal memory size used
+										// by process in kB
 
-	char *ptr, log_buffer[5000];
-	int len = 0;
+	char *ptr, *log_buffer = malloc(sizeof(char) * MAX_STR_LEN);
 	ptr = log_buffer;
 
+
 	// writes to log file which method is going to be tested
-	ptr += sprintf(ptr, "method %s(", df_list.df_method_name);
+	ptr += sprintf(ptr,"==========================================="
+						"===================================\n");
+	ptr += sprintf(ptr, "testing method %s(", df_list.df_method_name);
 	for (i = 0; i < df_list.args; i++, s = s->next)
 		ptr += sprintf(ptr, ((i < df_list.args-1) ? "%s, " : "%s"), s->sig);
 	ptr += sprintf(ptr, "):\n");
-	len = strlen(log_buffer);
-	write(logfd, log_buffer, len);
+	write(logfd, log_buffer, strlen(log_buffer));
 
 	// restarts position in log_buffer
-	log_buffer[0] = '\0';
 	ptr = log_buffer;
 
 	df_rand_init();		// initialization of random module
 
 
-	while (1) {		// condition from rand module - string length
-					// XXX: string length should be less than log_buffer size!
+	i = 1;			// log number for current method
+	while (df_rand_continue()) {
+		// parsing proces memory size from its status file described by statfd
+		used_memory = df_fuzz_get_proc_mem_size(statfd);
+		if (used_memory == -1) {
+			fprintf(stderr, "Error in df_fuzz_get_proc_mem_size()\n");
+			g_variant_unref(value);
+			return -1;
+		}
+		if (used_memory == 0) {
+			fprintf(stderr, "PROCESS DISCONNECTED FROM D-BUS!\n");
+			sprintf(ptr, "[LOG %d]\n  process disconnected from D-Bus\n"
+							"  last known process memory size: [%ld kB]\n"
+							"  on input:\n", i, prev_memory);
+			write(logfd, log_buffer, strlen(log_buffer));
+			ptr = log_buffer;
+			i++;
+			df_fuzz_write_log(logfd);
+
+			g_variant_unref(value);
+			free(log_buffer);
+			return -1;
+		}
+		prev_memory = used_memory;
+
 		// creates variant containing all (fuzzed) method arguments
-		// TODO: can we create something like empty valid GVariant for
-		// advanced data types in this function ?
-		// If not, the unsupported string in logfd has no meaning as the whole
-		// method is uncallable!
 		if ( (value = df_fuzz_create_variant()) == NULL) {
+			if (unsupported_sig) {
+				unsupported_sig = 0;
+				// writes to the logfd to let tester know
+				ptr += sprintf(ptr, "  unsupported argument by dfuzzer: ");
+				ptr += sprintf(ptr, "%s\n", unsupported_sig_str);
+				write(logfd, log_buffer, strlen(log_buffer));
+				unsupported_sig_str = NULL;
+				free(log_buffer);
+				return 0;
+			}
 			fprintf(stderr, "Call of df_fuzz_create_variant() returned NULL"
 					" pointer\n");
 			return -1;
 		}
 
+
 		if (df_fuzz_call_method(value) == -1) {
-			fprintf(stderr, "PROCESS DISCONNECTED FROM BUS!\n");
-			// TODO: write to logfd
-			// here we need to make function, which will get data
-			// for all of the method arguments from GVariant ( similar
-			// to df_fuzz_create_list_variants() )
+			fprintf(stderr, "PROCESS DISCONNECTED FROM D-BUS!\n");
+			sprintf(ptr, "[LOG %d]\n  process disconnected from D-Bus\n"
+							"  last known process memory size: [%ld kB]\n"
+							"  on input:\n", i, prev_memory);
+			write(logfd, log_buffer, strlen(log_buffer));
+			ptr = log_buffer;
+			i++;
+			df_fuzz_write_log(logfd);
+
+			g_variant_unref(value);
+			free(log_buffer);
 			return -1;
 		}
 
-		// df_fuzz_call_method() returned 0, so it is safe to look
-		// at process memory
-		used_memory = df_fuzz_get_proc_mem_size(statfd);
-		if (used_memory == -1) {
-			fprintf(stderr, "Error in df_fuzz_get_proc_mem_size()\n");
-			return -1;
+
+		// process memory size exceeded maximum normal memory size
+		if (used_memory >= max_memory) {
+			sprintf(ptr, "[LOG %d]\n  warning: process memory size exceeded"
+							" set memory limit [%ld kB]\n    initial memory: "
+							"[%ld kB]\n    current process memory size: "
+							"[%ld kB]\n  on input:\n",
+							i, df_mem_limit, df_initial_mem, used_memory);
+			write(logfd, log_buffer, strlen(log_buffer));
+			ptr = log_buffer;
+			i++;
+			max_memory *= 3;
+			df_fuzz_write_log(logfd);
 		}
 
-		// OUTPUT
-		// TODO: save to logfd also for what input (all method arguments) this
-		// condition happened
-		if (used_memory > df_mem_limit)
-			printf("\tInitial memory:\t%ld kB !!!", df_initial_mem);
-		printf("\tCurrent memory:\t%ld kB\r", used_memory);
 
-		if (df_exit_flag)
+		if (df_exit_flag) {
+			g_variant_unref(value);
+			free(log_buffer);
 			return 0;
+		}
+
+		g_variant_unref(value);
 	}
 
+	ptr += sprintf(ptr,"==========================================="
+						"===================================\n");
+	ptr += sprintf(ptr, "END OF FUZZING OF METHOD '%s'\n",
+						df_list.df_method_name);
+	write(logfd, log_buffer, strlen(log_buffer));
+
+	free(log_buffer);
 	return 0;
 }
 
@@ -276,13 +466,19 @@ int df_fuzz_test_method(int statfd, int logfd)
 	@return Pointer on a new GVariant variable containing tuple with method
 	arguments
 */
-GVariant * df_fuzz_create_variant(void)
+static GVariant * df_fuzz_create_variant(void)
 {
 	struct df_signature *s = df_list.list;		// pointer on first signature
 
 	// creates GVariant for every item signature in linked list
-	if (df_fuzz_create_list_variants() == -1) {
+	int ret = df_fuzz_create_list_variants();
+	if (ret == -1) {
 		fprintf(stderr, "Error in df_fuzz_create_list_variants()\n");
+		return NULL;
+	}
+
+	if (ret == 1) {		// unsupported method signature
+		unsupported_sig++;
 		return NULL;
 	}
 
@@ -332,15 +528,28 @@ GVariant * df_fuzz_create_variant(void)
 		return NULL;
 	}
 
+	// GVariant containing method parameters must not be floating, because
+	// it would be consumed by g_dbus_proxy_call_sync() function and as
+	// result we couldn't have get GVariant values from items of linked list
+	// (needed for loging into log file)
+	val = g_variant_ref_sink(val);	// converts floating to normal reference
+									// so val cannot be consumed
+									// by g_dbus_proxy_call_sync() function
+	if (g_variant_is_floating(val)) {
+		fprintf(stderr, "GVariant containing '%s()' method parameters must not"
+				" be floating\n", df_list.df_method_name);
+		return NULL;
+	}
+
 	free(fmt);
 	return val;
 }
 
 /** @function Generates data for each method argument according to argument
 	signature and stores it into Gvariant variable in items of linked list.
-	@return 0 on success, -1 on error
+	@return 0 on success, 1 on unsupported method signature, -1 on error
 */
-int df_fuzz_create_list_variants(void)
+static int df_fuzz_create_list_variants(void)
 {
 	struct df_signature *s = df_list.list;		// pointer on first signature
 	int len;
@@ -427,7 +636,11 @@ int df_fuzz_create_list_variants(void)
 		else {	// advanced argument (array of something, dictionary, ...)
 			// TODO
 			fprintf(stderr, "Advanced signatures not yet implemented\n");
-			return -1;
+			unsupported_sig_str = s->sig;
+			// TODO: can we create something like empty valid GVariant for
+			// advanced data types in this function ?
+			// If yes, remove whole unsupported thing
+			return 1;	// unsupported method signature
 		}
 
 		if (s->var == NULL) {
@@ -445,7 +658,7 @@ int df_fuzz_create_list_variants(void)
 	with maximum length of n-1. The final string is saved in parameter fmt.
 	@return 0 on success, -1 on error
 */
-int df_fuzz_create_fmt_string(char **fmt, int n)
+static int df_fuzz_create_fmt_string(char **fmt, int n)
 {
 	struct df_signature *s = df_list.list;		// pointer on first signature
 	int total_len = 0;
@@ -453,7 +666,6 @@ int df_fuzz_create_fmt_string(char **fmt, int n)
 	char *ptr = *fmt;
 
 	// final fmt string, for example may look like this: "(@s@i)"
-	//memcpy(ptr, "(", 1);
 	*ptr = '(';
 	total_len++;
 	ptr++;
@@ -492,7 +704,7 @@ int df_fuzz_create_fmt_string(char **fmt, int n)
 	their values
 	@return 0 on success, -1 on error
 */
-int df_fuzz_call_method(GVariant *value)
+static int df_fuzz_call_method(GVariant *value)
 {
 	GError *error = NULL;
 	GVariant *response = NULL;

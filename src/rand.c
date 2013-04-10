@@ -42,6 +42,10 @@ static unsigned short df_gdouf;
 static int df_str_len;
 
 
+// TODO: some array of strings which we want to try, for example: "rm * /" and
+// similar...
+
+
 /** @function Generates pseudo-random string of size size.
 	@param buf Pointer on buffer where will be stored generated string
 	@param size Size of buffer
@@ -309,6 +313,18 @@ gdouble df_rand_gdouble(void)
 	return gdou;
 }
 
+/** @function Tells callee whether to continue testing according to current size
+	of generated strings not to exceed MAX_STR_LEN length.
+	@return 1 when callee should continue, 0 otherwise
+*/
+int df_rand_continue(void)
+{
+	if (df_str_len >= MAX_STR_LEN)
+		return 0;
+
+	return 1;
+}
+
 /** @function Generates pseudo-random string of size size.
 	@param buf Pointer on buffer where will be stored generated string
 	@param size Size of buffer
@@ -336,6 +352,8 @@ int df_rand_string(gchar **buf)
 {
 	// TODO: add %n (+ other fmt strings) and similar stuff
 	df_str_len += (rand() % CHAR_MAX) + 1;
+	if (df_str_len >= MAX_STR_LEN)
+		df_str_len = MAX_STR_LEN;
 
 	*buf = malloc(sizeof(gchar) * df_str_len);
 	if (*buf == NULL) {
@@ -368,7 +386,8 @@ int df_rand_dbus_signature_string(gchar **buf)
 */
 int df_rand_GVariant(GVariant **var)
 {
-	*var = g_variant_new("s", "fooo");
+	// always string !!!
+	*var = g_variant_new("s", "fooooooooof");
 	return 0;
 }
 
@@ -377,4 +396,5 @@ int df_rand_GVariant(GVariant **var)
 int df_rand_unixFD(void)
 {
 	return 2;	// FD for stderr
+	/// XXX: can return also -1 !
 }

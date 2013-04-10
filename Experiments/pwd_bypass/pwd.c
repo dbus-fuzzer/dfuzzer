@@ -22,7 +22,7 @@
 // its adress 0x00000000004006ae, so we need to replace return
 // adress of check_pwd function with adress 0x00000000004006ae.
 // The vulnerability is in function check_pwd at the line
-// 36 -> strcpy(pwd_buffer, pwd); this command is copying
+// 42 -> strcpy(pwd_buffer, pwd); this command is copying
 // argv[1] to local variable on stack withou bounds checking.
 //
 // Distance between the return address and the start of the pwd_buffer can

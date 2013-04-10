@@ -73,13 +73,6 @@ int df_fuzz_add_method(char *name);
 */
 int df_fuzz_add_method_arg(char *signature);
 
-/** @function Parses VmRSS (Resident Set Size) value from statfd and returns it
-	as process memory size.
-	@param statfd FD of process status file
-	@return Process memory size or -1 on error
-*/
-long df_fuzz_get_proc_mem_size(int statfd);
-
 /** @function Function is testing a method in cycle, each cycle generates data
 	for function arguments, calls method and waits for result.
 	@param statfd FD of process status file
@@ -87,35 +80,6 @@ long df_fuzz_get_proc_mem_size(int statfd);
 	@return 0 on success, -1 on error
 */
 int df_fuzz_test_method(int statfd, int logfd);
-
-/** @function Creates GVariant tuple variable which contains all the signatures
-	of method arguments including their values. This tuple is constructed
-	from each signature of method argument by one call of g_variant_new()
-	function. This call is constructed dynamically (using libffi) as we don't
-	know number of function parameters on compile time.
-	@return Pointer on a new GVariant variable containing tuple with method
-	arguments
-*/
-GVariant * df_fuzz_create_variant(void);
-
-/** @function Generates data for each method argument according to argument
-	signature and stores it into Gvariant variable in items of linked list.
-	@return 0 on success, -1 on error
-*/
-int df_fuzz_create_list_variants(void);
-
-/** @function Creates format string (tuple) from method arguments signatures
-	with maximum length of n-1. The final string is saved in parameter fmt.
-	@return 0 on success, -1 on error
-*/
-int df_fuzz_create_fmt_string(char **fmt, int n);
-
-/** @function Calls method from df_list (using its name) with its arguments.
-	@param value GVariant tuple containing all method arguments signatures and
-	their values
-	@return 0 on success, -1 on error
-*/
-int df_fuzz_call_method(GVariant *value);
 
 /** @function Releases memory used by this module. This function must be called
 	after df_fuzz_add_method() and df_fuzz_add_method_arg() functions calls
