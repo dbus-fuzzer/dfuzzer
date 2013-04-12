@@ -42,6 +42,8 @@ struct df_signature {
 struct df_sig_list {
 	char *df_method_name;			// name of current fuzzed method
 	int args;						// number of arguments for method
+	int fuzz_on_str_len;			// if 1, fuzzing will be controlled
+									// by generated random strings lengths
 	struct df_signature *list;		// if no arguments - NULL, otherwise
 									// NULL terminated linked list
 };

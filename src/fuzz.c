@@ -122,6 +122,7 @@ int df_fuzz_add_method(char *name)
 	// of df_list contains junk
 	df_list.list = NULL;	// no arguments so far
 	df_list.args = 0;
+	df_list.fuzz_on_str_len = 0;
 
 	return 0;
 }
@@ -153,6 +154,10 @@ int df_fuzz_add_method_arg(char *signature)
 		return -1;
 	}
 	strcpy(s->sig, signature);
+
+	// fuzzing controlled by generated random strings lengths
+	if (strstr(s->sig, "s") != NULL)
+		df_list.fuzz_on_str_len++;
 
 	if (df_list.list == NULL) {
 		df_list.list = s;
@@ -229,7 +234,7 @@ static long df_fuzz_get_proc_mem_size(int statfd)
 	@return 0 on success, -1 on error
 */
 static int df_fuzz_write_log(int logfd, long buf_size)
-{	// TODO: try g_variant_get_data()
+{
 	struct df_signature *s = df_list.list;		// pointer on first signature
 	int len;
 	int str_len = -1;
@@ -359,6 +364,7 @@ static int df_fuzz_write_log(int logfd, long buf_size)
 */
 int df_fuzz_test_method(int statfd, int logfd, long buf_size)
 {
+// TODO: add CPU usage limit - when exceeded log it
 	struct df_signature *s = df_list.list;		// pointer on first signature
 	GVariant *value = NULL;
 	int i;
@@ -390,7 +396,7 @@ int df_fuzz_test_method(int statfd, int logfd, long buf_size)
 
 
 	i = 1;			// log number for current method
-	while (df_rand_continue()) {
+	while (df_rand_continue(df_list.fuzz_on_str_len)) {
 		// parsing proces memory size from its status file described by statfd
 		used_memory = df_fuzz_get_proc_mem_size(statfd);
 		if (used_memory == -1) {
@@ -400,9 +406,10 @@ int df_fuzz_test_method(int statfd, int logfd, long buf_size)
 		}
 		if (used_memory == 0) {
 			fprintf(stderr, "PROCESS DISCONNECTED FROM D-BUS!\n");
-			sprintf(ptr, "[LOG %d]\n  process disconnected from D-Bus\n"
+			sprintf(ptr, "[%s LOG %d]\n  process disconnected from D-Bus\n"
 							"  last known process memory size: [%ld kB]\n"
-							"  on input:\n", i, prev_memory);
+							"  on input:\n",
+							df_list.df_method_name, i, prev_memory);
 			write(logfd, log_buffer, strlen(log_buffer));
 			ptr = log_buffer;
 			i++;
@@ -437,9 +444,10 @@ int df_fuzz_test_method(int statfd, int logfd, long buf_size)
 			used_memory = df_fuzz_get_proc_mem_size(statfd);
 			if (used_memory == -1 || used_memory == 0) {
 				fprintf(stderr, "PROCESS DISCONNECTED FROM D-BUS!\n");
-				sprintf(ptr, "[LOG %d]\n  process disconnected from D-Bus\n"
+				sprintf(ptr, "[%s LOG %d]\n  process disconnected from D-Bus\n"
 								"  last known process memory size: [%ld kB]\n"
-								"  on input:\n", i, prev_memory);
+								"  on input:\n",
+								df_list.df_method_name, i, prev_memory);
 				write(logfd, log_buffer, strlen(log_buffer));
 				ptr = log_buffer;
 				i++;
@@ -455,11 +463,12 @@ int df_fuzz_test_method(int statfd, int logfd, long buf_size)
 		// process memory size exceeded maximum normal memory size
 		// (this is just warning message)
 		if (used_memory >= max_memory) {
-			sprintf(ptr, "[LOG %d]\n  warning: process memory size exceeded"
+			sprintf(ptr, "[%s LOG %d]\n  warning: process memory size exceeded"
 							" set memory limit [%ld kB]\n    initial memory: "
 							"[%ld kB]\n    current process memory size: "
 							"[%ld kB]\n  on input:\n",
-							i, df_mem_limit, df_initial_mem, used_memory);
+							df_list.df_method_name, i, df_mem_limit,
+							df_initial_mem, used_memory);
 			write(logfd, log_buffer, strlen(log_buffer));
 			ptr = log_buffer;
 			i++;

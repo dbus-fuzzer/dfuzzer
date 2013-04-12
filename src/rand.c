@@ -32,6 +32,11 @@
 /** Maximum buffer size for generated strings (in Bytes) */
 static long df_buf_size;
 
+/** Counter for fuzzing methods which have only numbers as their parameters.
+	Every call for some number generation increments this counter.
+	See function df_rand_continue() how this counter is used. */
+static unsigned int df_num_fuzz_counter;
+
 /* Flag variables for controlling pseudo-random numbers generation */
 static unsigned short df_gu8f;
 static unsigned short df_gi16f;
@@ -47,7 +52,7 @@ static long df_str_len;
 // ...
 
 // TODO: some array of strings which we want to try, for example: "rm * /" and
-// similar...
+// similar... it will be loaded from some file
 
 
 /* Module static functions */
@@ -105,6 +110,8 @@ guint8 df_rand_guint8(void)
 	else
 		df_gu8f = 0;
 
+	if (df_num_fuzz_counter < USHRT_MAX)
+		df_num_fuzz_counter++;
 	return gu8;
 }
 
@@ -113,6 +120,8 @@ guint8 df_rand_guint8(void)
 */
 gboolean df_rand_gboolean(void)
 {
+	if (df_num_fuzz_counter < USHRT_MAX)
+		df_num_fuzz_counter++;
 	return ((gboolean) (rand() % 2));
 }
 
@@ -144,6 +153,8 @@ gint16 df_rand_gint16(void)
 	else
 		df_gi16f = 0;
 
+	if (df_num_fuzz_counter < USHRT_MAX)
+		df_num_fuzz_counter++;
 	return gi16;
 }
 
@@ -171,6 +182,8 @@ guint16 df_rand_guint16(void)
 	else
 		df_gu16f = 0;
 
+	if (df_num_fuzz_counter < USHRT_MAX)
+		df_num_fuzz_counter++;
 	return gu16;
 }
 
@@ -202,6 +215,8 @@ gint32 df_rand_gint32(void)
 	else
 		df_gi32f = 0;
 
+	if (df_num_fuzz_counter < USHRT_MAX)
+		df_num_fuzz_counter++;
 	return gi32;
 }
 
@@ -229,6 +244,8 @@ guint32 df_rand_guint32(void)
 	else
 		df_gu32f = 0;
 
+	if (df_num_fuzz_counter < USHRT_MAX)
+		df_num_fuzz_counter++;
 	return gu32;
 }
 
@@ -260,6 +277,8 @@ gint64 df_rand_gint64(void)
 	else
 		df_gi64f = 0;
 
+	if (df_num_fuzz_counter < USHRT_MAX)
+		df_num_fuzz_counter++;
 	return gi64;
 }
 
@@ -287,6 +306,8 @@ guint64 df_rand_guint64(void)
 	else
 		df_gu64f = 0;
 
+	if (df_num_fuzz_counter < USHRT_MAX)
+		df_num_fuzz_counter++;
 	return gu64;
 }
 
@@ -329,24 +350,38 @@ gdouble df_rand_gdouble(void)
 	else
 		df_gdouf = 0;
 
+	if (df_num_fuzz_counter < USHRT_MAX)
+		df_num_fuzz_counter++;
 	return gdou;
 }
 
 /**
 	@function Tells callee whether to continue testing according to current size
 	of generated strings not to exceed df_buf_size length.
+	@param fuzz_on_str_len If 1, fuzzing will be controlled by generated random
+	strings lengths
 	@return 1 when callee should continue, 0 otherwise
 */
-int df_rand_continue(void)
+int df_rand_continue(int fuzz_on_str_len)
 {
 	static int counter = 0;		// makes sure to test biggest strings more times
 
-	if (df_str_len == df_buf_size) {// it will never be more than df_buf_size
-		if (counter >= 10) {
-			counter = 0;
+	if (fuzz_on_str_len)
+	{
+		if (df_str_len == df_buf_size) {// it will never be more than df_buf_size
+			if (counter >= 10) {
+				counter = 0;
+				return 0;
+			}
+			counter++;
+		}
+	}
+	else
+	{
+		if (df_num_fuzz_counter == USHRT_MAX) {
+			df_num_fuzz_counter = 0;
 			return 0;
 		}
-		counter++;
 	}
 
 	return 1;
@@ -432,5 +467,5 @@ int df_rand_GVariant(GVariant **var)
 int df_rand_unixFD(void)
 {
 	return 2;	// FD for stderr
-	/// XXX: can return also -1 !
+	/// XXX: try return also -1 !
 }
