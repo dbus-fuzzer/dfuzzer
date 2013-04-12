@@ -31,7 +31,7 @@
 	numbers generators.
 	@param buf_size Maximum buffer size for generated strings (in Bytes)
 */
-void df_rand_init(unsigned long buf_size);
+void df_rand_init(long buf_size);
 
 /**
 	@return Generated pseudo-random 8-bit unsigned integer value

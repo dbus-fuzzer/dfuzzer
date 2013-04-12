@@ -86,7 +86,7 @@ int df_fuzz_add_method_arg(char *signature);
 	by rand module (in Bytes)
 	@return 0 on success, -1 on error
 */
-int df_fuzz_test_method(int statfd, int logfd, unsigned long buf_size);
+int df_fuzz_test_method(int statfd, int logfd, long buf_size);
 
 /**
 	@function Releases memory used by this module. This function must be called

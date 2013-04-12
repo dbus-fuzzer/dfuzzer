@@ -25,6 +25,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <signal.h>
+#include <errno.h>
 
 #include "dfuzzer.h"
 #include "introspection.h"
@@ -43,11 +44,11 @@ int main(int argc, char **argv)
 	char *log_file = "./log.log";	// file for logs
 	int logfd;						// FD for log_file
 	int statfd;						// FD for process status file
-	unsigned long buf_size = 0;		// maximum buffer size for generated strings
-									// by rand module (in Bytes)
-	unsigned long mem_limit = 0;// Memory limit for tested process in kB - if
-								// tested process exceeds this limit it will be
-								// noted into log file
+	long buf_size = 0;			// maximum buffer size for generated strings
+								// by rand module (in Bytes)
+	long mem_limit = 0;		// Memory limit for tested process in kB - if
+							// tested process exceeds this limit it will be
+							// noted into log file
 
 	GError *error = NULL;			// must be set to NULL
 	GDBusConnection *dcon;			// D-Bus connection structure
@@ -275,7 +276,7 @@ int df_open_proc_status_file(int pid)
 	@param mem_limit Memory limit for tested process in kB
 */
 void df_parse_parameters(int argc, char **argv, char **log_file,
-						unsigned long *buf_size, unsigned long *mem_limit)
+						long *buf_size, long *mem_limit)
 {
 	int c = 0;
 	int nflg = 0, oflg = 0, iflg = 0, lflg = 0, mflg = 0, bflg = 0;
@@ -286,7 +287,6 @@ void df_parse_parameters(int argc, char **argv, char **log_file,
 				if (nflg != 0) {
 					fprintf(stderr, "%s: no duplicate options -- 'n'\n",
 							argv[0]);
-					df_print_help(argv[0]);
 					exit(1);
 				}
 				nflg++;
@@ -297,7 +297,6 @@ void df_parse_parameters(int argc, char **argv, char **log_file,
 				if (oflg != 0) {
 					fprintf(stderr, "%s: no duplicate options -- 'o'\n",
 							argv[0]);
-					df_print_help(argv[0]);
 					exit(1);
 				}
 				oflg++;
@@ -308,7 +307,6 @@ void df_parse_parameters(int argc, char **argv, char **log_file,
 				if (iflg != 0) {
 					fprintf(stderr, "%s: no duplicate options -- 'i'\n",
 							argv[0]);
-					df_print_help(argv[0]);
 					exit(1);
 				}
 				iflg++;
@@ -319,7 +317,6 @@ void df_parse_parameters(int argc, char **argv, char **log_file,
 				if (lflg != 0) {
 					fprintf(stderr, "%s: no duplicate options -- 'l'\n",
 							argv[0]);
-					df_print_help(argv[0]);
 					exit(1);
 				}
 				lflg++;
@@ -329,15 +326,13 @@ void df_parse_parameters(int argc, char **argv, char **log_file,
 				if (mflg != 0) {
 					fprintf(stderr, "%s: no duplicate options -- 'm'\n",
 							argv[0]);
-					df_print_help(argv[0]);
 					exit(1);
 				}
 				mflg++;
-				*mem_limit = atol(optarg);
-				if (*mem_limit == 0) {
+				*mem_limit = strtol(optarg, NULL, 10);
+				if (*mem_limit <= 0 || errno == ERANGE || errno == EINVAL) {
 					fprintf(stderr, "%s: invalid value for option -- 'm'\n",
 							argv[0]);
-					df_print_help(argv[0]);
 					exit(1);
 				}
 				break;
@@ -345,15 +340,13 @@ void df_parse_parameters(int argc, char **argv, char **log_file,
 				if (bflg != 0) {
 					fprintf(stderr, "%s: no duplicate options -- 'b'\n",
 							argv[0]);
-					df_print_help(argv[0]);
 					exit(1);
 				}
 				bflg++;
-				*buf_size = atol(optarg);
-				if (*buf_size < MINLEN) {
+				*buf_size = strtol(optarg, NULL, 10);
+				if (*buf_size < MINLEN || errno == ERANGE || errno == EINVAL) {
 					fprintf(stderr, "%s: invalid value for option -- 'b'\n"
 							" -- at least %d B are required\n", argv[0], MINLEN);
-					df_print_help(argv[0]);
 					exit(1);
 				}
 				break;
@@ -362,7 +355,6 @@ void df_parse_parameters(int argc, char **argv, char **log_file,
 				exit(0);
 				break;
 			default:	// '?'
-				df_print_help(argv[0]);
 				exit(1);
 				break;
 		}
@@ -371,7 +363,6 @@ void df_parse_parameters(int argc, char **argv, char **log_file,
 	if (!nflg || !oflg || !iflg) {
 		fprintf(stderr, "%s: options 'n', 'o' and 'i' are required\n",
 				argv[0]);
-		df_print_help(argv[0]);
 		exit(1);
 	}
 }

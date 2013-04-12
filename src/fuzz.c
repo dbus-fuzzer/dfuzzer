@@ -26,6 +26,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <ctype.h>
+#include <errno.h>
 #include <ffi.h>		// dynamic function call construction
 
 #include "fuzz.h"
@@ -50,13 +51,14 @@ static long df_mem_limit;
 
 /** Flag for unsupported method signature, 1 means signature is unsupported */
 static int unsupported_sig;
+
 /** Pointer on unsupported signature string (do not free it) */
 static char *unsupported_sig_str;
 
 
 /* Module static functions */
 static long df_fuzz_get_proc_mem_size(int statfd);
-static int df_fuzz_write_log(int logfd, unsigned long buf_size);
+static int df_fuzz_write_log(int logfd, long buf_size);
 static GVariant * df_fuzz_create_variant(void);
 static int df_fuzz_create_list_variants(void);
 static int df_fuzz_create_fmt_string(char **fmt, int n);
@@ -210,7 +212,12 @@ static long df_fuzz_get_proc_mem_size(int statfd)
 	while (isdigit(*ptr) == 0)
 		ptr++;
 
-	mem_size = atol(ptr);
+	mem_size = strtol(ptr, NULL, 10);
+	if (errno == ERANGE || errno == EINVAL) {
+		fprintf(stderr, "Error on conversion of process memory to a long"
+						" integer\n");
+		return -1;
+	}
 	return mem_size;
 }
 
@@ -219,8 +226,9 @@ static long df_fuzz_get_proc_mem_size(int statfd)
 	@param logfd FD of log file
 	@param buf_size Maximum buffer size for generated strings
 	by rand module (in Bytes)
+	@return 0 on success, -1 on error
 */
-static int df_fuzz_write_log(int logfd, unsigned long buf_size)
+static int df_fuzz_write_log(int logfd, long buf_size)
 {	// TODO: try g_variant_get_data()
 	struct df_signature *s = df_list.list;		// pointer on first signature
 	int len;
@@ -349,7 +357,7 @@ static int df_fuzz_write_log(int logfd, unsigned long buf_size)
 	by rand module (in Bytes)
 	@return 0 on success, -1 on error
 */
-int df_fuzz_test_method(int statfd, int logfd, unsigned long buf_size)
+int df_fuzz_test_method(int statfd, int logfd, long buf_size)
 {
 	struct df_signature *s = df_list.list;		// pointer on first signature
 	GVariant *value = NULL;
@@ -359,6 +367,10 @@ int df_fuzz_test_method(int statfd, int logfd, unsigned long buf_size)
 	long max_memory = df_mem_limit;		// maximum normal memory size used
 										// by process in kB
 
+	if (buf_size < MINLEN)
+		buf_size = MAX_BUF_LEN;
+
+
 	char *ptr, *log_buffer = malloc(sizeof(char) * buf_size);
 	ptr = log_buffer;
 
@@ -366,14 +378,12 @@ int df_fuzz_test_method(int statfd, int logfd, unsigned long buf_size)
 	// writes to log file which method is going to be tested
 	ptr += sprintf(ptr,"==========================================="
 						"===================================\n");
-	ptr += sprintf(ptr, "testing method %s(", df_list.df_method_name);
+	ptr += sprintf(ptr, "fuzzing method %s(", df_list.df_method_name);
 	for (i = 0; i < df_list.args; i++, s = s->next)
 		ptr += sprintf(ptr, ((i < df_list.args-1) ? "%s, " : "%s"), s->sig);
 	ptr += sprintf(ptr, "):\n");
 	write(logfd, log_buffer, strlen(log_buffer));
-
-	// restarts position in log_buffer
-	ptr = log_buffer;
+	ptr = log_buffer;			// restarts position in log_buffer
 
 
 	df_rand_init(buf_size);		// initialization of random module
@@ -386,7 +396,7 @@ int df_fuzz_test_method(int statfd, int logfd, unsigned long buf_size)
 		if (used_memory == -1) {
 			fprintf(stderr, "Error in df_fuzz_get_proc_mem_size()\n");
 			g_variant_unref(value);
-			return -1;
+			goto err_label;
 		}
 		if (used_memory == 0) {
 			fprintf(stderr, "PROCESS DISCONNECTED FROM D-BUS!\n");
@@ -398,9 +408,7 @@ int df_fuzz_test_method(int statfd, int logfd, unsigned long buf_size)
 			i++;
 			df_fuzz_write_log(logfd, buf_size);
 
-			g_variant_unref(value);
-			free(log_buffer);
-			return -1;
+			goto err_label;
 		}
 		prev_memory = used_memory;
 
@@ -413,32 +421,39 @@ int df_fuzz_test_method(int statfd, int logfd, unsigned long buf_size)
 				ptr += sprintf(ptr, "%s\n", unsupported_sig_str);
 				write(logfd, log_buffer, strlen(log_buffer));
 				unsupported_sig_str = NULL;
-				free(log_buffer);
-				return 0;
+				goto ok_label;
 			}
 			fprintf(stderr, "Call of df_fuzz_create_variant() returned NULL"
 					" pointer\n");
-			return -1;
+			goto err_label;
 		}
 
 
 		if (df_fuzz_call_method(value) == -1) {
-			fprintf(stderr, "PROCESS DISCONNECTED FROM D-BUS!\n");
-			sprintf(ptr, "[LOG %d]\n  process disconnected from D-Bus\n"
-							"  last known process memory size: [%ld kB]\n"
-							"  on input:\n", i, prev_memory);
-			write(logfd, log_buffer, strlen(log_buffer));
-			ptr = log_buffer;
-			i++;
-			df_fuzz_write_log(logfd, buf_size);
+			// Here we look at process status file to be sure it really
+			// disconnected. If file is readable it means process is
+			// processing long string(s) and that is the reason it
+			// didn't respond so we continue.
+			used_memory = df_fuzz_get_proc_mem_size(statfd);
+			if (used_memory == -1 || used_memory == 0) {
+				fprintf(stderr, "PROCESS DISCONNECTED FROM D-BUS!\n");
+				sprintf(ptr, "[LOG %d]\n  process disconnected from D-Bus\n"
+								"  last known process memory size: [%ld kB]\n"
+								"  on input:\n", i, prev_memory);
+				write(logfd, log_buffer, strlen(log_buffer));
+				ptr = log_buffer;
+				i++;
+				df_fuzz_write_log(logfd, buf_size);
 
-			g_variant_unref(value);
-			free(log_buffer);
-			return -1;
+				g_variant_unref(value);
+				goto err_label;
+			}
+			prev_memory = used_memory;
 		}
 
 
 		// process memory size exceeded maximum normal memory size
+		// (this is just warning message)
 		if (used_memory >= max_memory) {
 			sprintf(ptr, "[LOG %d]\n  warning: process memory size exceeded"
 							" set memory limit [%ld kB]\n    initial memory: "
@@ -455,21 +470,33 @@ int df_fuzz_test_method(int statfd, int logfd, unsigned long buf_size)
 
 		if (df_exit_flag) {
 			g_variant_unref(value);
-			free(log_buffer);
-			return 0;
+			goto ok_label;
 		}
 
 		g_variant_unref(value);
 	}
 
+ok_label:
+	ptr += sprintf(ptr, "\nend of fuzzing of method '%s'\n",
+						df_list.df_method_name);
 	ptr += sprintf(ptr,"==========================================="
 						"===================================\n");
-	ptr += sprintf(ptr, "END OF FUZZING OF METHOD '%s'\n",
-						df_list.df_method_name);
 	write(logfd, log_buffer, strlen(log_buffer));
+
 
 	free(log_buffer);
 	return 0;
+
+
+err_label:
+	ptr += sprintf(ptr, "\nend of fuzzing of method '%s'\n",
+						df_list.df_method_name);
+	ptr += sprintf(ptr,"==========================================="
+						"===================================\n");
+	write(logfd, log_buffer, strlen(log_buffer));
+
+	free(log_buffer);
+	return -1;
 }
 
 /**

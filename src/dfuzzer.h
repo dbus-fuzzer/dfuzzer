@@ -68,7 +68,7 @@ int df_open_proc_status_file(int pid);
 	@param mem_limit Memory limit for tested process in kB
 */
 void df_parse_parameters(int argc, char **argv, char **log_file,
-						unsigned long *buf_size, unsigned long *mem_limit);
+						long *buf_size, long *mem_limit);
 
 /**
 	@function Prints help.

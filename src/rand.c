@@ -30,7 +30,7 @@
 
 
 /** Maximum buffer size for generated strings (in Bytes) */
-static unsigned long df_buf_size;
+static long df_buf_size;
 
 /* Flag variables for controlling pseudo-random numbers generation */
 static unsigned short df_gu8f;
@@ -43,7 +43,7 @@ static unsigned short df_gu64f;
 static unsigned short df_gdouf;
 
 /* Lengths of  pseudo-random strings */
-static unsigned long df_str_len;
+static long df_str_len;
 // ...
 
 // TODO: some array of strings which we want to try, for example: "rm * /" and
@@ -51,7 +51,7 @@ static unsigned long df_str_len;
 
 
 /* Module static functions */
-static void df_rand_random_string(char *buf, unsigned long size);
+static void df_rand_random_string(char *buf, long size);
 
 
 /**
@@ -59,12 +59,12 @@ static void df_rand_random_string(char *buf, unsigned long size);
 	numbers generators.
 	@param buf_size Maximum buffer size for generated strings (in Bytes)
 */
-void df_rand_init(unsigned long buf_size)
+void df_rand_init(long buf_size)
 {
 	srand(time(NULL));		// for int rand()
 	srandom(time(NULL));	// for long int random()
 
-	if (buf_size == 0)
+	if (buf_size < MINLEN)
 		df_buf_size = MAX_BUF_LEN;
 	else
 		df_buf_size = buf_size;
@@ -357,13 +357,13 @@ int df_rand_continue(void)
 	@param buf Pointer on buffer where generated string will be stored
 	@param size Size of buffer
 */
-static void df_rand_random_string(char *buf, unsigned long size)
+static void df_rand_random_string(char *buf, long size)
 {
 	if (size < 1)
 		return;
 
-	unsigned long i;
-	unsigned long n = size - 1;		// number of generated characters
+	long i;
+	long n = size - 1;		// number of generated characters
 
 	for (i = 0; i < n; ++i)
 		buf[i] = rand() % (127 - 32) + 32;	// only printable characters
