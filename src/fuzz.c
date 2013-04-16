@@ -377,7 +377,7 @@ int df_fuzz_test_method(int statfd, int logfd, long buf_size)
 	long max_memory = df_mem_limit;		// maximum normal memory size used
 										// by process in kB
 	int proc_crashed = 0;
-	short max_calls = 0;		// maximum method calls when function
+	char max_calls = 0;			// maximum method calls when function
 								// df_fuzz_call_method() returns error
 
 	if (buf_size < MINLEN)
@@ -474,7 +474,7 @@ int df_fuzz_test_method(int statfd, int logfd, long buf_size)
 			}
 
 			max_calls++;
-			if (max_calls == SHRT_MAX) {
+			if (max_calls == CHAR_MAX) {
 				sprintf(ptr, "[%s LOG %d]\n  method '%s' not responding\n"
 								"  last known process memory size: [%ld kB]\n"
 								"  on input:\n",
