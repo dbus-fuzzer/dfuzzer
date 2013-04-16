@@ -1,7 +1,7 @@
 /** @file dfuzzer.h */
 /*
 
-	dfuzzer - tool for testing processes communicating through D-Bus.
+	dfuzzer - tool for fuzzing processes communicating through D-Bus.
 	Copyright (C) 2013  Matus Marhefka
 
 	This program is free software: you can redistribute it and/or modify
@@ -66,9 +66,11 @@ int df_open_proc_status_file(int pid);
 	@param buf_size Maximum buffer size for generated strings
 	by rand module (in Bytes)
 	@param mem_limit Memory limit for tested process in kB
+	@param cont_flg When 1 and tested process crashes, it is relaunched
+	and testing continue; 0 means end of testing after crash
 */
 void df_parse_parameters(int argc, char **argv, char **log_file,
-						long *buf_size, long *mem_limit);
+						long *buf_size, long *mem_limit, int *cont_flg);
 
 /**
 	@function Prints help.

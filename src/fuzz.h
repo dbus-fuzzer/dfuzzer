@@ -1,7 +1,7 @@
 /** @file fuzz.h */
 /*
 
-	dfuzzer - tool for testing processes communicating through D-Bus.
+	dfuzzer - tool for fuzzing processes communicating through D-Bus.
 	Copyright (C) 2013  Matus Marhefka
 
 	This program is free software: you can redistribute it and/or modify
@@ -86,7 +86,7 @@ int df_fuzz_add_method_arg(char *signature);
 	@param logfd FD of log file
 	@param buf_size Maximum buffer size for generated strings
 	by rand module (in Bytes)
-	@return 0 on success, -1 on error
+	@return 0 on success, -1 on error or 1 on tested process crash
 */
 int df_fuzz_test_method(int statfd, int logfd, long buf_size);
 

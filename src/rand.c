@@ -1,7 +1,7 @@
 /** @file rand.c */
 /*
 
-	dfuzzer - tool for testing processes communicating through D-Bus.
+	dfuzzer - tool for fuzzing processes communicating through D-Bus.
 	Copyright (C) 2013  Matus Marhefka
 
 	This program is free software: you can redistribute it and/or modify
@@ -19,7 +19,6 @@
 
 */
 #include <gio/gio.h>
-#include <glib/gstdio.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

@@ -1,7 +1,7 @@
 /** @file fuzz.c */
 /*
 
-	dfuzzer - tool for testing processes communicating through D-Bus.
+	dfuzzer - tool for fuzzing processes communicating through D-Bus.
 	Copyright (C) 2013  Matus Marhefka
 
 	This program is free software: you can redistribute it and/or modify
@@ -19,7 +19,6 @@
 
 */
 #include <gio/gio.h>
-#include <glib/gstdio.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -360,11 +359,11 @@ static int df_fuzz_write_log(int logfd, long buf_size)
 	@param logfd FD of log file
 	@param buf_size Maximum buffer size for generated strings
 	by rand module (in Bytes)
-	@return 0 on success, -1 on error
+	@return 0 on success, -1 on error or 1 on tested process crash
 */
 int df_fuzz_test_method(int statfd, int logfd, long buf_size)
 {
-// TODO: add CPU usage limit - when exceeded log it
+// TODO: add CPU usage limit - when exceeded, log it
 	struct df_signature *s = df_list.list;		// pointer on first signature
 	GVariant *value = NULL;
 	int i;
@@ -372,6 +371,7 @@ int df_fuzz_test_method(int statfd, int logfd, long buf_size)
 	long prev_memory = 0;				// last known memory size
 	long max_memory = df_mem_limit;		// maximum normal memory size used
 										// by process in kB
+	int proc_crashed = 0;
 
 	if (buf_size < MINLEN)
 		buf_size = MAX_BUF_LEN;
@@ -414,7 +414,7 @@ int df_fuzz_test_method(int statfd, int logfd, long buf_size)
 			ptr = log_buffer;
 			i++;
 			df_fuzz_write_log(logfd, buf_size);
-
+			proc_crashed++;
 			goto err_label;
 		}
 		prev_memory = used_memory;
@@ -454,6 +454,7 @@ int df_fuzz_test_method(int statfd, int logfd, long buf_size)
 				df_fuzz_write_log(logfd, buf_size);
 
 				g_variant_unref(value);
+				proc_crashed++;
 				goto err_label;
 			}
 			prev_memory = used_memory;
@@ -505,6 +506,8 @@ err_label:
 	write(logfd, log_buffer, strlen(log_buffer));
 
 	free(log_buffer);
+	if (proc_crashed)
+		return 1;
 	return -1;
 }
 

@@ -1,7 +1,7 @@
 /** @file dfuzzer.c */
 /*
 
-	dfuzzer - tool for testing processes communicating through D-Bus.
+	dfuzzer - tool for fuzzing processes communicating through D-Bus.
 	Copyright (C) 2013  Matus Marhefka
 
 	This program is free software: you can redistribute it and/or modify
@@ -19,7 +19,7 @@
 
 */
 #include <gio/gio.h>
-#include <glib/gstdio.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -49,6 +49,9 @@ int main(int argc, char **argv)
 	long mem_limit = 0;		// Memory limit for tested process in kB - if
 							// tested process exceeds this limit it will be
 							// noted into log file
+	int cont_flg = 0;			// when tested process crashes and this
+								// flag is set to 1, it is relaunched
+								// and testing continue
 
 	GError *error = NULL;			// must be set to NULL
 	GDBusConnection *dcon;			// D-Bus connection structure
@@ -64,7 +67,7 @@ int main(int argc, char **argv)
 
 
 	// do not free log_file - it points to argv
-	df_parse_parameters(argc, argv, &log_file, &buf_size, &mem_limit);
+	df_parse_parameters(argc, argv, &log_file, &buf_size, &mem_limit, &cont_flg);
 
 	// Initializes the type system.
 	g_type_init();
@@ -167,7 +170,8 @@ int main(int argc, char **argv)
 			target_proc.interface);
 	GDBusMethodInfo *m;
 	GDBusArgInfo *in_arg;
-	for (; (m = df_get_method()) != NULL; df_next_method()) {
+	for (; (m = df_get_method()) != NULL; df_next_method())
+	{
 		// adds method name to the fuzzing module
 		if (df_fuzz_add_method(m->name) == -1) {
 			close(statfd);
@@ -191,7 +195,8 @@ int main(int argc, char **argv)
 		}
 
 		// tests for method
-		if (df_fuzz_test_method(statfd, logfd, buf_size) == -1) {
+		int ret = df_fuzz_test_method(statfd, logfd, buf_size);
+		if (ret == -1) {
 			close(statfd);
 			close(logfd);
 			df_unref_introspection();
@@ -204,8 +209,28 @@ int main(int argc, char **argv)
 
 		if (df_exit_flag)
 			break;
+
+		// launch process again after crash
+		if (ret == 1 && cont_flg) {
+			g_object_unref(dproxy);
+			dproxy = g_dbus_proxy_new_sync(dcon, G_DBUS_PROXY_FLAGS_NONE, NULL,
+				target_proc.name, target_proc.obj_path, target_proc.interface,
+				NULL, &error);
+			if (dproxy == NULL) {
+				close(statfd);
+				close(logfd);
+				df_unref_introspection();
+				g_object_unref(dproxy);
+				g_object_unref(dcon);
+				df_error("Error in g_dbus_proxy_new_sync() on creating"
+						" proxy", error);
+			}
+		}
+		else if (ret == 1 && !cont_flg)	// end of fuzzing after process crash
+			goto end_label;
 	}
 
+end_label:
 	printf("\nEnd of fuzzing.");
 	printf("\nLook into '%s' for results of fuzzing.", log_file);
 	printf("\nReleasing all used memory...");
@@ -274,14 +299,16 @@ int df_open_proc_status_file(int pid)
 	@param buf_size Maximum buffer size for generated strings
 	by rand module (in Bytes)
 	@param mem_limit Memory limit for tested process in kB
+	@param cont_flg When 1 and tested process crashes, it is relaunched
+	and testing continue; 0 means end of testing after crash
 */
 void df_parse_parameters(int argc, char **argv, char **log_file,
-						long *buf_size, long *mem_limit)
+						long *buf_size, long *mem_limit, int *cont_flg)
 {
 	int c = 0;
-	int nflg = 0, oflg = 0, iflg = 0, lflg = 0, mflg = 0, bflg = 0;
+	int nflg = 0, oflg = 0, iflg = 0, lflg = 0, mflg = 0, bflg = 0, cflg = 0;
 
-	while ( (c = getopt(argc, argv, "n:o:i:l:m:b:h")) != -1 ) {
+	while ( (c = getopt(argc, argv, "n:o:i:l:m:b:ch")) != -1 ) {
 		switch (c) {
 			case 'n':
 				if (nflg != 0) {
@@ -290,6 +317,11 @@ void df_parse_parameters(int argc, char **argv, char **log_file,
 					exit(1);
 				}
 				nflg++;
+				if (strlen(optarg) >= MAXLEN) {
+					fprintf(stderr, "%s: maximum %d characters for option --"
+							" 'n'\n", argv[0], MAXLEN-1);
+					exit(1);
+				}
 				// copy everything including null byte
 				memcpy(target_proc.name, optarg, MAXLEN);
 				break;
@@ -300,6 +332,11 @@ void df_parse_parameters(int argc, char **argv, char **log_file,
 					exit(1);
 				}
 				oflg++;
+				if (strlen(optarg) >= MAXLEN) {
+					fprintf(stderr, "%s: maximum %d characters for option --"
+							" 'o'\n", argv[0], MAXLEN-1);
+					exit(1);
+				}
 				// copy everything including null byte
 				memcpy(target_proc.obj_path, optarg, MAXLEN);
 				break;
@@ -310,6 +347,11 @@ void df_parse_parameters(int argc, char **argv, char **log_file,
 					exit(1);
 				}
 				iflg++;
+				if (strlen(optarg) >= MAXLEN) {
+					fprintf(stderr, "%s: maximum %d characters for option --"
+							" 'i'\n", argv[0], MAXLEN-1);
+					exit(1);
+				}
 				// copy everything including null byte
 				memcpy(target_proc.interface, optarg, MAXLEN);
 				break;
@@ -350,6 +392,15 @@ void df_parse_parameters(int argc, char **argv, char **log_file,
 					exit(1);
 				}
 				break;
+			case 'c':
+				if (cflg != 0) {
+					fprintf(stderr, "%s: no duplicate options -- 'c'\n",
+							argv[0]);
+					exit(1);
+				}
+				cflg++;
+				(*cont_flg)++;
+				break;
 			case 'h':
 				df_print_help(argv[0]);
 				exit(0);
@@ -388,7 +439,11 @@ void df_print_help(char *name)
 			"\t-b <maximum buffer size in B>\n"
 			"\t   Maximum buffer size for generated strings, minimum is 256 B.\n"
 			"\t   Default maximum size is 5000000 B ~= 5 MB.\n"
+			"\t-c\n"
+			"\t   If tested process crashes during fuzzing and this option is\n"
+			"\t   set, crashed process will be launched again and testing will\n"
+			"\t   continue."
 			"\n"
 			"Example:\n%s -n org.gnome.Shell -o /org/gnome/Shell"
-			" -i org.gnome.Shell\n", name);
+			" -i org.gnome.Shell -c\n", name);
 }
