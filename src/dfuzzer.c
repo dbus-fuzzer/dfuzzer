@@ -196,6 +196,11 @@ int main(int argc, char **argv)
 						" proxy", error);
 			}
 
+			if (sleep(5)) {		// wait for application to launch
+				if (df_exit_flag)
+					goto end_label;
+			}
+
 			// gets pid of tested process
 			pid = df_get_pid(dcon);
 			if (pid < 0) {
@@ -217,11 +222,6 @@ int main(int argc, char **argv)
 				g_object_unref(dproxy);
 				g_object_unref(dcon);
 				df_error("Error in df_open_proc_status_file()", error);
-			}
-
-			if (sleep(5)) {		// wait for application to launch
-				if (df_exit_flag)
-					goto end_label;
 			}
 		}
 		else if (ret == 1 && !cont_flg)	// end of fuzzing after process crash
