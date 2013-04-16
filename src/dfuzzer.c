@@ -95,7 +95,7 @@ int main(int argc, char **argv)
 	if (pid < 0) {
 		g_object_unref(dproxy);
 		g_object_unref(dcon);
-		df_error("Error in g_variant_get() on getting pid from GVariant", error);
+		df_error("Error in df_get_pid() on getting pid of process", error);
 	}
 
 
@@ -209,7 +209,7 @@ int main(int argc, char **argv)
 				df_unref_introspection();
 				g_object_unref(dproxy);
 				g_object_unref(dcon);
-				df_error("Error in g_variant_get() on getting pid from GVariant",
+				df_error("Error in df_get_pid() on getting pid of process",
 						error);
 			}
 
@@ -316,8 +316,10 @@ int df_get_pid(GDBusConnection *dcon)
 	pproxy = g_dbus_proxy_new_sync(dcon, G_DBUS_PROXY_FLAGS_NONE, NULL,
 			"org.freedesktop.DBus", "/org/freedesktop/DBus",
 			"org.freedesktop.DBus", NULL, NULL);
-	if (pproxy == NULL)
+	if (pproxy == NULL) {
+		fprintf(stderr, "Error on creating proxy for getting process pid\n");
 		return -1;
+	}
 
 
 	// Synchronously invokes method GetConnectionUnixProcessID
@@ -326,6 +328,8 @@ int df_get_pid(GDBusConnection *dcon)
 		g_variant_new("(s)", target_proc.name), G_DBUS_CALL_FLAGS_NONE,
 		-1, NULL, NULL);
 	if (variant_pid == NULL) {
+		fprintf(stderr, "Error on calling GetConnectionUnixProcessID"
+				" through D-Bus\n");
 		g_object_unref(pproxy);
 		return -1;
 	}

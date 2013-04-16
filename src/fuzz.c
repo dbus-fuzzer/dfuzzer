@@ -362,12 +362,12 @@ static int df_fuzz_write_log(int logfd, long buf_size)
 	@return 0 on success, -1 on error or 1 on tested process crash
 */
 int df_fuzz_test_method(int statfd, int logfd, long buf_size)
-{
+{	// TODO: add CPU usage limit ?
+
 	// methods with no arguments are not tested
 	if (df_list.args == 0)
 		return 0;
 
-// TODO: add CPU usage limit - when exceeded, log it
 
 	struct df_signature *s = df_list.list;		// pointer on first signature
 	GVariant *value = NULL;
@@ -475,6 +475,12 @@ int df_fuzz_test_method(int statfd, int logfd, long buf_size)
 
 			max_calls++;
 			if (max_calls == CHAR_MAX) {
+				sprintf(ptr, "[%s LOG %d]\n  method '%s' does not respond\n"
+								"  last known process memory size: [%ld kB]\n",
+								df_list.df_method_name, i, df_list.df_method_name,
+								prev_memory);
+				write(logfd, log_buffer, strlen(log_buffer));
+
 				if (value != NULL)
 					g_variant_unref(value);
 				goto ok_label;
@@ -597,7 +603,10 @@ static GVariant * df_fuzz_create_variant(void)
 		&ffi_type_pointer, args) == FFI_OK)
 	{
 		ffi_call(&cif, g_variant_new, &val, values);
-		// val now holds the result of the call to g_variant_new()
+		// val now holds the result of the call to g_variant_new().
+		// When val will be freed, all the floating Gvariants which
+		// was used to create it will be freed too, because val is
+		// their owner
 	}
 	else {
 		fprintf(stderr, "ffi_prep_cif() failed on initializing cif\n");
@@ -790,9 +799,8 @@ static int df_fuzz_call_method(GVariant *value)
 	GError *error = NULL;
 	GVariant *response = NULL;
 
-	// Synchronously invokes method with arguments stored in NULL terminated
-	// linked list from df_list global variable on df_dproxy.
-	// value (GVariant *) is consumed by g_dbus_proxy_call_sync().
+	// Synchronously invokes method with arguments stored in value (GVariant *)
+	// on df_dproxy. value (GVariant *) is consumed by g_dbus_proxy_call_sync().
 	response = g_dbus_proxy_call_sync(df_dproxy,
 		df_list.df_method_name,
 		value, G_DBUS_CALL_FLAGS_NONE, -1, NULL, &error);
