@@ -57,9 +57,7 @@ int main(int argc, char **argv)
 	GDBusConnection *dcon;			// D-Bus connection structure
 	GDBusProxy *dproxy;				// D-Bus interface proxy
 
-	GDBusProxy *pproxy;				// proxy for getting process PID
 	int pid = -1;					// pid of tested process
-	GVariant *variant_pid = NULL;	// response from GetConnectionUnixProcessID
 
 
 	signal(SIGINT, df_signal_handler);
@@ -92,41 +90,13 @@ int main(int argc, char **argv)
 	}
 
 
-	// Uses dcon (GDBusConnection *) to create proxy for accessing
-	// org.freedesktop.DBus (for calling its method GetConnectionUnixProcessID)
-	pproxy = g_dbus_proxy_new_sync(dcon, G_DBUS_PROXY_FLAGS_NONE, NULL,
-			"org.freedesktop.DBus", "/org/freedesktop/DBus",
-			"org.freedesktop.DBus", NULL, &error);
-	if (pproxy == NULL) {
-		g_object_unref(dproxy);
-		g_object_unref(dcon);
-		df_error("Error in g_dbus_proxy_new_sync() on creating proxy", error);
-	}
-
-
-	// Synchronously invokes method GetConnectionUnixProcessID
-	variant_pid = g_dbus_proxy_call_sync(pproxy,
-		"GetConnectionUnixProcessID",
-		g_variant_new("(s)", target_proc.name), G_DBUS_CALL_FLAGS_NONE,
-		-1, NULL, &error);
-	if (variant_pid == NULL) {
-		g_object_unref(pproxy);
-		g_object_unref(dproxy);
-		g_object_unref(dcon);
-		df_error("Error in g_dbus_proxy_call_sync() on calling"
-				" 'GetConnectionUnixProcessID' method", error);
-	}
-	g_variant_get(variant_pid, "(u)", &pid);
+	// gets pid of tested process
+	pid = df_get_pid(dcon);
 	if (pid < 0) {
-		g_object_unref(pproxy);
 		g_object_unref(dproxy);
 		g_object_unref(dcon);
-		g_variant_unref(variant_pid);
 		df_error("Error in g_variant_get() on getting pid from GVariant", error);
 	}
-	g_variant_unref(variant_pid);
-	g_object_unref(pproxy);
-
 
 
 	// Introspection of object through proxy.
@@ -204,13 +174,14 @@ int main(int argc, char **argv)
 			df_error("Error in df_fuzz_test_method()", error);
 		}
 
-		df_fuzz_clean_method();		// cleaning up after testing
+		df_fuzz_clean_method();		// cleaning up after testing method
 
 		if (df_exit_flag)
-			break;
+			goto end_label;
 
 		// launch process again after crash
-		if (ret == 1 && cont_flg) {
+		if (ret == 1 && cont_flg)
+		{
 			g_object_unref(dproxy);
 			dproxy = g_dbus_proxy_new_sync(dcon, G_DBUS_PROXY_FLAGS_NONE, NULL,
 				target_proc.name, target_proc.obj_path, target_proc.interface,
@@ -223,6 +194,34 @@ int main(int argc, char **argv)
 				g_object_unref(dcon);
 				df_error("Error in g_dbus_proxy_new_sync() on creating"
 						" proxy", error);
+			}
+
+			// gets pid of tested process
+			pid = df_get_pid(dcon);
+			if (pid < 0) {
+				close(statfd);
+				close(logfd);
+				df_unref_introspection();
+				g_object_unref(dproxy);
+				g_object_unref(dcon);
+				df_error("Error in g_variant_get() on getting pid from GVariant",
+						error);
+			}
+
+			// opens process status file
+			close(statfd);
+			if ((statfd = df_open_proc_status_file(pid)) == -1) {
+				close(statfd);
+				close(logfd);
+				df_unref_introspection();
+				g_object_unref(dproxy);
+				g_object_unref(dcon);
+				df_error("Error in df_open_proc_status_file()", error);
+			}
+
+			if (sleep(5)) {		// wait for application to launch
+				if (df_exit_flag)
+					goto end_label;
 			}
 		}
 		else if (ret == 1 && !cont_flg)	// end of fuzzing after process crash
@@ -287,6 +286,43 @@ int df_open_proc_status_file(int pid)
 		return -1;
 	}
 	return statfd;
+}
+
+/**
+	@function Calls method GetConnectionUnixProcessID on the interface
+	org.freedesktop.DBus to get process pid.
+	@param dcon D-Bus connection structure
+	@return Process PID on success, -1 on error
+*/
+int df_get_pid(GDBusConnection *dcon)
+{
+	GDBusProxy *pproxy;				// proxy for getting process PID
+	GVariant *variant_pid = NULL;	// response from GetConnectionUnixProcessID
+	int pid = -1;
+
+	// Uses dcon (GDBusConnection *) to create proxy for accessing
+	// org.freedesktop.DBus (for calling its method GetConnectionUnixProcessID)
+	pproxy = g_dbus_proxy_new_sync(dcon, G_DBUS_PROXY_FLAGS_NONE, NULL,
+			"org.freedesktop.DBus", "/org/freedesktop/DBus",
+			"org.freedesktop.DBus", NULL, NULL);
+	if (pproxy == NULL)
+		return -1;
+
+
+	// Synchronously invokes method GetConnectionUnixProcessID
+	variant_pid = g_dbus_proxy_call_sync(pproxy,
+		"GetConnectionUnixProcessID",
+		g_variant_new("(s)", target_proc.name), G_DBUS_CALL_FLAGS_NONE,
+		-1, NULL, NULL);
+	if (variant_pid == NULL) {
+		g_object_unref(pproxy);
+		return -1;
+	}
+	g_variant_get(variant_pid, "(u)", &pid);
+	g_variant_unref(variant_pid);
+	g_object_unref(pproxy);
+
+	return pid;
 }
 
 /**

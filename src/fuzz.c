@@ -396,12 +396,15 @@ int df_fuzz_test_method(int statfd, int logfd, long buf_size)
 
 
 	i = 1;			// log number for current method
-	while (df_rand_continue(df_list.fuzz_on_str_len)) {
+	while (df_rand_continue(df_list.fuzz_on_str_len))
+	{
+
 		// parsing proces memory size from its status file described by statfd
 		used_memory = df_fuzz_get_proc_mem_size(statfd);
 		if (used_memory == -1) {
 			fprintf(stderr, "Error in df_fuzz_get_proc_mem_size()\n");
-			g_variant_unref(value);
+			if (value != NULL)
+				g_variant_unref(value);
 			goto err_label;
 		}
 		if (used_memory == 0) {
@@ -415,9 +418,12 @@ int df_fuzz_test_method(int statfd, int logfd, long buf_size)
 			i++;
 			df_fuzz_write_log(logfd, buf_size);
 			proc_crashed++;
+			if (value != NULL)
+				g_variant_unref(value);
 			goto err_label;
 		}
 		prev_memory = used_memory;
+
 
 		// creates variant containing all (fuzzed) method arguments
 		if ( (value = df_fuzz_create_variant()) == NULL) {
@@ -453,7 +459,8 @@ int df_fuzz_test_method(int statfd, int logfd, long buf_size)
 				i++;
 				df_fuzz_write_log(logfd, buf_size);
 
-				g_variant_unref(value);
+				if (value != NULL)
+					g_variant_unref(value);
 				proc_crashed++;
 				goto err_label;
 			}

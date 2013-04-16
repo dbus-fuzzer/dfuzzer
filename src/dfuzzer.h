@@ -58,6 +58,14 @@ void df_error(char *message, GError *error);
 int df_open_proc_status_file(int pid);
 
 /**
+	@function Calls method GetConnectionUnixProcessID on the interface
+	org.freedesktop.DBus to get process pid.
+	@param dcon D-Bus connection structure
+	@return Process PID on success, -1 on error
+*/
+int df_get_pid(GDBusConnection *dcon);
+
+/**
 	@function Parses program options and stores them into struct fuzzing_target.
 	If error occures function ends program.
 	@param argc Count of options
