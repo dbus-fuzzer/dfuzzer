@@ -166,8 +166,7 @@ int main(int argc, char **argv)
 	}
 
 
-	printf("Fuzzing:\n\tname:\t\t'%s'\n\tinterface:\t'%s'\n", target_proc.name,
-			target_proc.interface);
+	printf("Fuzzing '%s'\n", target_proc.name);
 	GDBusMethodInfo *m;
 	GDBusArgInfo *in_arg;
 	for (; (m = df_get_method()) != NULL; df_next_method())
