@@ -363,7 +363,12 @@ static int df_fuzz_write_log(int logfd, long buf_size)
 */
 int df_fuzz_test_method(int statfd, int logfd, long buf_size)
 {
+	// methods with no arguments are not tested
+	if (df_list.args == 0)
+		return 0;
+
 // TODO: add CPU usage limit - when exceeded, log it
+
 	struct df_signature *s = df_list.list;		// pointer on first signature
 	GVariant *value = NULL;
 	int i;
