@@ -475,16 +475,6 @@ int df_fuzz_test_method(int statfd, int logfd, long buf_size)
 
 			max_calls++;
 			if (max_calls == CHAR_MAX) {
-				sprintf(ptr, "[%s LOG %d]\n  method '%s' not responding\n"
-								"  last known process memory size: [%ld kB]\n"
-								"  on input:\n",
-								df_list.df_method_name, i, df_list.df_method_name,
-								prev_memory);
-				write(logfd, log_buffer, strlen(log_buffer));
-				ptr = log_buffer;
-				i++;
-				df_fuzz_write_log(logfd, buf_size);
-
 				if (value != NULL)
 					g_variant_unref(value);
 				goto ok_label;
