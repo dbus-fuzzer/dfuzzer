@@ -377,6 +377,8 @@ int df_fuzz_test_method(int statfd, int logfd, long buf_size)
 	long max_memory = df_mem_limit;		// maximum normal memory size used
 										// by process in kB
 	int proc_crashed = 0;
+	short max_calls = 0;		// maximum method calls when function
+								// df_fuzz_call_method() returns error
 
 	if (buf_size < MINLEN)
 		buf_size = MAX_BUF_LEN;
@@ -447,11 +449,12 @@ int df_fuzz_test_method(int statfd, int logfd, long buf_size)
 		}
 
 
-		if (df_fuzz_call_method(value) == -1) {
+		if (df_fuzz_call_method(value) == -1)
+		{
 			// Here we look at process status file to be sure it really
 			// disconnected. If file is readable it means process is
 			// processing long string(s) and that is the reason it
-			// didn't respond so we continue.
+			// didn't respond so we continue. (also some other errors may occure)
 			used_memory = df_fuzz_get_proc_mem_size(statfd);
 			if (used_memory == -1 || used_memory == 0) {
 				fprintf(stderr, "PROCESS DISCONNECTED FROM D-BUS!\n");
@@ -468,6 +471,23 @@ int df_fuzz_test_method(int statfd, int logfd, long buf_size)
 					g_variant_unref(value);
 				proc_crashed++;
 				goto err_label;
+			}
+
+			max_calls++;
+			if (max_calls == SHRT_MAX) {
+				sprintf(ptr, "[%s LOG %d]\n  method '%s' not responding\n"
+								"  last known process memory size: [%ld kB]\n"
+								"  on input:\n",
+								df_list.df_method_name, i, df_list.df_method_name,
+								prev_memory);
+				write(logfd, log_buffer, strlen(log_buffer));
+				ptr = log_buffer;
+				i++;
+				df_fuzz_write_log(logfd, buf_size);
+
+				if (value != NULL)
+					g_variant_unref(value);
+				goto ok_label;
 			}
 			prev_memory = used_memory;
 		}
