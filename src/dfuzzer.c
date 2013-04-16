@@ -223,6 +223,17 @@ int main(int argc, char **argv)
 				g_object_unref(dcon);
 				df_error("Error in df_open_proc_status_file()", error);
 			}
+
+			// tells fuzz module to call methods on different dproxy nad to use
+			// new status file of process with PID pid
+			if (df_fuzz_init(dproxy, statfd, mem_limit) == -1) {
+				close(statfd);
+				close(logfd);
+				df_unref_introspection();
+				g_object_unref(dproxy);
+				g_object_unref(dcon);
+				df_error("Error in df_fuzz_add_proxy()", error);
+			}
 		}
 		else if (ret == 1 && !cont_flg)	// end of fuzzing after process crash
 			goto end_label;
