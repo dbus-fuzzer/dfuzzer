@@ -334,6 +334,7 @@ static int df_fuzz_write_log(int logfd, long buf_size)
 		}
 		else {	// advanced argument (array of something, dictionary, ...)
 			fprintf(stderr, "Not yet implemented in df_fuzz_write_log()\n");
+			return 0;
 		}
 
 		write(logfd, "  --", 4);
@@ -362,8 +363,7 @@ static int df_fuzz_write_log(int logfd, long buf_size)
 	@return 0 on success, -1 on error or 1 on tested process crash
 */
 int df_fuzz_test_method(int statfd, int logfd, long buf_size)
-{	// TODO: add CPU usage limit ?
-
+{
 	// methods with no arguments are not tested
 	if (df_list.args == 0)
 		return 0;
@@ -472,7 +472,7 @@ int df_fuzz_test_method(int statfd, int logfd, long buf_size)
 				proc_crashed++;
 				goto err_label;
 			}
-
+			prev_memory = used_memory;
 			max_calls++;
 			if (max_calls == CHAR_MAX) {
 				sprintf(ptr, "[%s LOG %d]\n  method '%s' does not respond\n"
@@ -485,7 +485,6 @@ int df_fuzz_test_method(int statfd, int logfd, long buf_size)
 					g_variant_unref(value);
 				goto ok_label;
 			}
-			prev_memory = used_memory;
 		}
 
 

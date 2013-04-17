@@ -98,9 +98,10 @@ int df_rand_continue(int fuzz_on_str_len);
 	by adding generated pseudo-random number from interval <0, CHAR_MAX>
 	to df_str_len (this mechanism is responsible for generating bigger strings
 	by every call of df_rand_string(). Then pseudo-random string is generated
-	and stored int buf. Warning: buffer should be freed outside this module
-	by callee of this function.
-	@param buf Pointer on buffer where generated string will be stored
+	and stored in buf. At the beginning strings from global array df_str_def
+	are used. Warning: buffer should be freed outside this module by callee
+	of this function.
+	@param buf Address of pointer on buffer where generated string will be stored
 	@return 0 on success, -1 on error
 */
 int df_rand_string(gchar **buf);
@@ -116,12 +117,15 @@ int df_rand_dbus_objpath_string(gchar **buf);
 int df_rand_dbus_signature_string(gchar **buf);
 
 /**
-	@function
+	@function Creates Gvariant containing pseudo-random string. At the beginning
+	strings from global array df_str_def are used.
+	@param Address of pointer on GVariant where new Gvariant value will be stored
+	@return 0 on success, -1 on error
 */
 int df_rand_GVariant(GVariant **var);
 
 /**
-	@function
+	@return Generated pseudo-random FD number from interval <-1, INT_MAX)
 */
 int df_rand_unixFD(void);
 

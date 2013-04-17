@@ -50,8 +50,23 @@ static unsigned short df_gdouf;
 static long df_str_len;
 // ...
 
-// TODO: some array of strings which we want to try, for example: "rm * /" and
-// similar... it will be loaded from some file
+
+/**
+	Array of strings, which will be send to tested process if it has any string
+	parameters. Feel free to include any strings here (only valid UTF-8).
+	Array must be terminated by NULL string.
+*/
+char *df_str_def[] =
+{
+	"%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n",
+	"%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s",
+	"%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n"
+	"%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n",
+	"%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n"
+	"%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n",
+	"%s%s%s%s%s%s%s%s%s%n%s%n%n%n%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s",
+	NULL
+};
 
 
 /* Module static functions */
@@ -92,11 +107,11 @@ guint8 df_rand_guint8(void)
 {
 	guint8 gu8;
 
-	if (df_gu8f < 20)
+	if (df_gu8f < 100)
 		gu8 = G_MAXUINT8;
-	else if (df_gu8f < 40)
+	else if (df_gu8f < 200)
 		gu8 = G_MAXUINT8 / 2;
-	else if (df_gu8f < 50)
+	else if (df_gu8f < 250)
 		gu8 = 0;
 	else {
 		gu8 = rand() % G_MAXUINT8;
@@ -131,11 +146,11 @@ gint16 df_rand_gint16(void)
 {
 	gint16 gi16;
 
-	if (df_gi16f < 20)
+	if (df_gi16f < 100)
 		gi16 = G_MAXINT16;
-	else if (df_gi16f < 40)
+	else if (df_gi16f < 200)
 		gi16 = G_MAXINT16 / 2;
-	else if (df_gi16f < 50)
+	else if (df_gi16f < 250)
 		gi16 = 0;
 	else {
 		gi16 = rand() % G_MAXINT16;
@@ -164,11 +179,11 @@ guint16 df_rand_guint16(void)
 {
 	guint16 gu16;
 
-	if (df_gu16f < 20)
+	if (df_gu16f < 100)
 		gu16 = G_MAXUINT16;
-	else if (df_gu16f < 40)
+	else if (df_gu16f < 200)
 		gu16 = G_MAXUINT16 / 2;
-	else if (df_gu16f < 50)
+	else if (df_gu16f < 250)
 		gu16 = 0;
 	else {
 		gu16 = rand() % G_MAXUINT16;
@@ -193,11 +208,11 @@ gint32 df_rand_gint32(void)
 {
 	gint32 gi32;
 
-	if (df_gi32f < 20)
+	if (df_gi32f < 100)
 		gi32 = G_MAXINT32;
-	else if (df_gi32f < 40)
+	else if (df_gi32f < 200)
 		gi32 = G_MAXINT32 / 2;
-	else if (df_gi32f < 50)
+	else if (df_gi32f < 250)
 		gi32 = 0;
 	else {
 		gi32 = rand() % G_MAXINT32;
@@ -226,11 +241,11 @@ guint32 df_rand_guint32(void)
 {
 	guint32 gu32;
 
-	if (df_gu32f < 20)
+	if (df_gu32f < 100)
 		gu32 = G_MAXUINT32;
-	else if (df_gu32f < 40)
+	else if (df_gu32f < 200)
 		gu32 = G_MAXUINT32 / 2;
-	else if (df_gu32f < 50)
+	else if (df_gu32f < 250)
 		gu32 = 0;
 	else {
 		gu32 = random() % G_MAXUINT32;
@@ -255,11 +270,11 @@ gint64 df_rand_gint64(void)
 {
 	gint64 gi64;
 
-	if (df_gi64f < 20)
+	if (df_gi64f < 100)
 		gi64 = G_MAXINT64;
-	else if (df_gi64f < 40)
+	else if (df_gi64f < 200)
 		gi64 = G_MAXINT64 / 2;
-	else if (df_gi64f < 50)
+	else if (df_gi64f < 250)
 		gi64 = 0;
 	else {
 		gi64 = random() % G_MAXINT64;
@@ -288,11 +303,11 @@ guint64 df_rand_guint64(void)
 {
 	guint64 gu64;
 
-	if (df_gu64f < 20)
+	if (df_gu64f < 100)
 		gu64 = G_MAXUINT64;
-	else if (df_gu64f < 40)
+	else if (df_gu64f < 200)
 		gu64 = G_MAXUINT64 / 2;
-	else if (df_gu64f < 50)
+	else if (df_gu64f < 250)
 		gu64 = 0;
 	else {
 		gu64 = random() % G_MAXUINT64;
@@ -326,13 +341,13 @@ gdouble df_rand_gdouble(void)
 {
 	gdouble gdou;
 
-	if (df_gdouf < 20)
+	if (df_gdouf < 100)
 		gdou = G_MAXDOUBLE;
-	else if (df_gdouf < 40)
+	else if (df_gdouf < 200)
 		gdou = G_MAXDOUBLE / 2.0;
-	else if (df_gdouf < 50)
+	else if (df_gdouf < 250)
 		gdou = 0.0;
-	else if (df_gdouf < 70)
+	else if (df_gdouf < 350)
 		gdou = G_MINDOUBLE;
 	else {
 		gdou = (double) random();
@@ -365,8 +380,7 @@ int df_rand_continue(int fuzz_on_str_len)
 {
 	static int counter = 0;		// makes sure to test biggest strings more times
 
-	if (fuzz_on_str_len)
-	{
+	if (fuzz_on_str_len) {
 		if (df_str_len == df_buf_size) {// it will never be more than df_buf_size
 			if (counter >= 10) {
 				counter = 0;
@@ -375,8 +389,7 @@ int df_rand_continue(int fuzz_on_str_len)
 			counter++;
 		}
 	}
-	else
-	{
+	else {
 		if (df_num_fuzz_counter == USHRT_MAX) {
 			df_num_fuzz_counter = 0;
 			return 0;
@@ -409,17 +422,22 @@ static void df_rand_random_string(char *buf, long size)
 	by adding generated pseudo-random number from interval <0, CHAR_MAX>
 	to df_str_len (this mechanism is responsible for generating bigger strings
 	by every call of df_rand_string(). Then pseudo-random string is generated
-	and stored int buf. Warning: buffer should be freed outside this module
-	by callee of this function.
-	@param buf Pointer on buffer where generated string will be stored
+	and stored in buf. At the beginning strings from global array df_str_def
+	are used. Warning: buffer should be freed outside this module by callee
+	of this function.
+	@param buf Address of pointer on buffer where generated string will be stored
 	@return 0 on success, -1 on error
 */
 int df_rand_string(gchar **buf)
 {
-	// TODO: add %n (+ other fmt strings) and similar stuff
+	static unsigned index = 0;	// index to df_str_def array
+
 	df_str_len += (rand() % CHAR_MAX) + 1;
 	if (df_str_len > df_buf_size)
 		df_str_len = df_buf_size;
+
+	if (df_str_def[index] != NULL)
+		df_str_len = strlen(df_str_def[index]) + 1;
 
 	*buf = malloc(sizeof(gchar) * df_str_len);
 	if (*buf == NULL) {
@@ -427,8 +445,13 @@ int df_rand_string(gchar **buf)
 		return -1;
 	}
 
-	df_rand_random_string(*buf, df_str_len);
+	if (df_str_def[index] != NULL) {
+		strcpy(*buf, df_str_def[index]);
+		index++;
+		return 0;
+	}
 
+	df_rand_random_string(*buf, df_str_len);
 	return 0;
 }
 
@@ -446,25 +469,58 @@ int df_rand_dbus_objpath_string(gchar **buf)
 */
 int df_rand_dbus_signature_string(gchar **buf)
 {
+	// TODO: array of strings with all signature types -> random access to arr.
+	// to get one and add to result string
 	*buf = 0;
 	return 0;
 }
 
 /**
-	@function
+	@function Creates Gvariant containing pseudo-random string. At the beginning
+	strings from global array df_str_def are used.
+	@param Address of pointer on GVariant where new Gvariant value will be stored
+	@return 0 on success, -1 on error
 */
 int df_rand_GVariant(GVariant **var)
 {
-	// always string !!!
-	*var = g_variant_new("s", "fooooooooof");
+	static unsigned index = 0;	// index to df_str_def array
+	gchar *buf;
+
+	df_str_len += (rand() % CHAR_MAX) + 1;
+	if (df_str_len > df_buf_size)
+		df_str_len = df_buf_size;
+
+	if (df_str_def[index] != NULL)
+		df_str_len = strlen(df_str_def[index]) + 1;
+
+	buf = malloc(sizeof(gchar) * df_str_len);
+	if (buf == NULL) {
+		fprintf(stderr, "Unable to allocate memory for random string\n");
+		return -1;
+	}
+
+	if (df_str_def[index] != NULL) {
+		strcpy(buf, df_str_def[index]);
+		index++;
+		return 0;
+	}
+
+	df_rand_random_string(buf, df_str_len);
+	*var = g_variant_new("s", buf);
+	free(buf);
 	return 0;
 }
 
 /**
-	@function
+	@return Generated pseudo-random FD number from interval <-1, INT_MAX)
 */
 int df_rand_unixFD(void)
 {
-	return 2;	// FD for stderr
-	/// XXX: try return also -1 !
+	if (rand() % 2)
+		return -1;
+
+	int fd = rand() % INT_MAX;
+	if (fd < 0)
+		fd *= -1;
+	return fd;
 }
