@@ -1,7 +1,7 @@
 /** @file rand.c */
 /*
 
-	dfuzzer - tool for fuzzing processes communicating through D-Bus.
+	dfuzzer - tool for fuzz testing processes communicating through D-Bus.
 	Copyright (C) 2013  Matus Marhefka
 
 	This program is free software: you can redistribute it and/or modify
@@ -56,7 +56,7 @@ static long df_str_len;
 	parameters. Feel free to include any strings here (only valid UTF-8).
 	Array must be terminated by NULL string.
 */
-char *df_str_def[] =
+static char *df_str_def[] =
 {
 	"%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n",
 	"%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s",
@@ -67,6 +67,13 @@ char *df_str_def[] =
 	"%s%s%s%s%s%s%s%s%s%n%s%n%n%n%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s",
 	NULL
 };
+
+
+/**
+	Array of signature definitions, which will be send to tested process if it
+	has any signature parameters.
+*/
+static const char df_sig_def[16] = "ybnqiuxtdsogavh";
 
 
 /* Module static functions */
@@ -423,7 +430,7 @@ static void df_rand_random_string(char *buf, long size)
 	to df_str_len (this mechanism is responsible for generating bigger strings
 	by every call of df_rand_string(). Then pseudo-random string is generated
 	and stored in buf. At the beginning strings from global array df_str_def
-	are used. Warning: buffer should be freed outside this module by callee
+	are used. Warning: buf should be freed outside this module by callee
 	of this function.
 	@param buf Address of pointer on buffer where generated string will be stored
 	@return 0 on success, -1 on error
@@ -456,22 +463,109 @@ int df_rand_string(gchar **buf)
 }
 
 /**
-	@function
+	@function Allocates memory for pseudo-random object path string of size
+	counted by adding 1 to size variable on every call of function to maximum
+	size of MAXLEN. On every call pseudo-random object path string is generated
+	into buf buffer.
+	Warning: buf should be freed outside this module by callee of this
+	function.
+	@param buf Address of pointer on buffer where generated object path string
+	will be stored
+	@return 0 on success, -1 on error
 */
 int df_rand_dbus_objpath_string(gchar **buf)
 {
-	*buf = 0;
+	static short size = 9;
+	size++;
+	int i, j, beg;
+
+	if (size > MAXLEN)
+		size = MAXLEN;
+
+
+	*buf = malloc(sizeof(gchar) * size + 1);
+	if (*buf == NULL) {
+		fprintf(stderr, "Unable to allocate memory for random D-Bus object"
+				" path\n");
+		return -1;
+	}
+
+
+	i = (size - 3) / 3;
+	(*buf)[0] = '/';
+	beg = 1;
+	for (j = 1; j <= i; j++) {
+		if (j == beg)	// objpath can begin only with character
+			(*buf)[j] = rand() % (91 - 65) + 65;
+		else
+			(*buf)[j] = rand() % (123 - 97) + 97;
+	}
+	(*buf)[j++] = '/';
+	beg = j;
+	for (; j <= (i*2); j++) {
+		if (j == beg)	// objpath can begin only with character
+			(*buf)[j] = rand() % (91 - 65) + 65;
+		else
+			(*buf)[j] = rand() % (123 - 97) + 97;
+	}
+	(*buf)[j++] = '/';
+	beg = j;
+	for (; j <= (i*3); j++) {
+		if (j == beg)	// objpath can begin only with character
+			(*buf)[j] = rand() % (91 - 97) + 97;
+		else
+			(*buf)[j] = rand() % (123 - 97) + 97;
+	}
+	(*buf)[j] = '\0';
+
+
+	if (size == MAXLEN)
+		size = 9;
+
+	if (df_num_fuzz_counter < USHRT_MAX)
+		df_num_fuzz_counter++;
 	return 0;
 }
 
 /**
-	@function
+	@function Allocates memory for pseudo-random signature string of size
+	counted by adding 1 to size variable on every call of function to maximum
+	size of MAXSIG. On every call pseudo-random signature string is generated
+	by random access into global variable df_sig_def which contains all D-Bus
+	signatures and copying signature into buf buffer.
+	Warning: buf should be freed outside this module by callee of this
+	function.
+	@param buf Address of pointer on buffer where generated signature string
+	will be stored
+	@return 0 on success, -1 on error
 */
 int df_rand_dbus_signature_string(gchar **buf)
 {
-	// TODO: array of strings with all signature types -> random access to arr.
-	// to get one and add to result string
-	*buf = 0;
+	static unsigned char size = 1;
+	size++;
+	int i, j;
+
+	if (size > MAXSIG)
+		size = MAXSIG;
+
+	*buf = malloc(sizeof(gchar) * size + 1);
+	if (*buf == NULL) {
+		fprintf(stderr, "Unable to allocate memory for random signature\n");
+		return -1;
+	}
+
+	for (j = 0; j < size; j++) {
+		i = rand() % 15;
+		(*buf)[j] = df_sig_def[i];
+	}
+	(*buf)[j] = '\0';
+
+
+	if (size == MAXSIG)
+		size = 1;
+
+	if (df_num_fuzz_counter < USHRT_MAX)
+		df_num_fuzz_counter++;
 	return 0;
 }
 
@@ -495,7 +589,7 @@ int df_rand_GVariant(GVariant **var)
 
 	buf = malloc(sizeof(gchar) * df_str_len);
 	if (buf == NULL) {
-		fprintf(stderr, "Unable to allocate memory for random string\n");
+		fprintf(stderr, "Unable to allocate memory for random variant\n");
 		return -1;
 	}
 
@@ -524,5 +618,8 @@ int df_rand_unixFD(void)
 	int fd = rand() % INT_MAX;
 	if (fd < 0)
 		fd *= -1;
+
+	if (df_num_fuzz_counter < USHRT_MAX)
+		df_num_fuzz_counter++;
 	return fd;
 }

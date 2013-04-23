@@ -1,7 +1,7 @@
 /** @file rand.h */
 /*
 
-	dfuzzer - tool for fuzzing processes communicating through D-Bus.
+	dfuzzer - tool for fuzz testing processes communicating through D-Bus.
 	Copyright (C) 2013  Matus Marhefka
 
 	This program is free software: you can redistribute it and/or modify
@@ -22,8 +22,12 @@
 #define RAND_H
 
 #define MINLEN 256				// minimal buffer size for generated strings
-#define MAX_BUF_LEN 5000000		// maximum buffer size for generated strings,
-								// default is cca 5 MB
+#define MAX_BUF_LEN 50000		// maximum buffer size for generated strings,
+								// default is cca 50 kB
+
+#define MAXLEN 256				// maximum length of strings containing D-Bus
+								// object path
+#define MAXSIG 255				// maximum length of D-Bus signature string
 
 
 /**
@@ -99,7 +103,7 @@ int df_rand_continue(int fuzz_on_str_len);
 	to df_str_len (this mechanism is responsible for generating bigger strings
 	by every call of df_rand_string(). Then pseudo-random string is generated
 	and stored in buf. At the beginning strings from global array df_str_def
-	are used. Warning: buffer should be freed outside this module by callee
+	are used. Warning: buf should be freed outside this module by callee
 	of this function.
 	@param buf Address of pointer on buffer where generated string will be stored
 	@return 0 on success, -1 on error
@@ -107,12 +111,29 @@ int df_rand_continue(int fuzz_on_str_len);
 int df_rand_string(gchar **buf);
 
 /**
-	@function
+	@function Allocates memory for pseudo-random object path string of size
+	counted by adding 1 to size variable on every call of function to maximum
+	size of MAXLEN. On every call pseudo-random object path string is generated
+	into buf buffer.
+	Warning: buf should be freed outside this module by callee of this
+	function.
+	@param buf Address of pointer on buffer where generated object path string
+	will be stored
+	@return 0 on success, -1 on error
 */
 int df_rand_dbus_objpath_string(gchar **buf);
 
 /**
-	@function
+	@function Allocates memory for pseudo-random signature string of size
+	counted by adding 1 to size variable on every call of function to maximum
+	size of MAXSIG. On every call pseudo-random signature string is generated
+	by random access into global variable df_sig_def which contains all D-Bus
+	signatures and copying signature into buf buffer.
+	Warning: buf should be freed outside this module by callee of this
+	function.
+	@param buf Address of pointer on buffer where generated signature string
+	will be stored
+	@return 0 on success, -1 on error
 */
 int df_rand_dbus_signature_string(gchar **buf);
 

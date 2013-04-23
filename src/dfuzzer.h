@@ -1,7 +1,7 @@
 /** @file dfuzzer.h */
 /*
 
-	dfuzzer - tool for fuzzing processes communicating through D-Bus.
+	dfuzzer - tool for fuzz testing processes communicating through D-Bus.
 	Copyright (C) 2013  Matus Marhefka
 
 	This program is free software: you can redistribute it and/or modify
@@ -21,7 +21,7 @@
 #ifndef DFUZZER_H
 #define DFUZZER_H
 
-#define MINLEN 256				// minimal buffer size for generated strings
+#define MINLEN 256			// minimal buffer size for generated strings
 #define MAXLEN 256			// maximum length of strings containing D-Bus name,
 							// interface and object path
 

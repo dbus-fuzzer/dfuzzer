@@ -1,7 +1,7 @@
 /** @file dfuzzer.c */
 /*
 
-	dfuzzer - tool for fuzzing processes communicating through D-Bus.
+	dfuzzer - tool for fuzz testing processes communicating through D-Bus.
 	Copyright (C) 2013  Matus Marhefka
 
 	This program is free software: you can redistribute it and/or modify
@@ -135,8 +135,14 @@ int main(int argc, char **argv)
 		df_error("Error on opening log file", error);
 	}
 
+	// truncates log file to zero length
+	if (ftruncate(logfd, 0L) == -1) {
+		perror("Error on truncating file to size 0");
+		return -1;
+	}
 
-	printf("Fuzzing '%s'\n", target_proc.name);
+
+	printf("Fuzzing started...\n");
 	GDBusMethodInfo *m;
 	GDBusArgInfo *in_arg;
 	for (; (m = df_get_method()) != NULL; df_next_method())
@@ -490,7 +496,7 @@ void df_print_help(char *name)
 			"\t   to default value (3x process intial memory size).\n"
 			"\t-b <maximum buffer size in B>\n"
 			"\t   Maximum buffer size for generated strings, minimum is 256 B.\n"
-			"\t   Default maximum size is 5000000 B ~= 5 MB.\n"
+			"\t   Default maximum size is 50000 B ~= 50 kB.\n"
 			"\t-c\n"
 			"\t   If tested process crashes during fuzzing and this option is\n"
 			"\t   set, crashed process will be launched again and testing will\n"

@@ -1,7 +1,7 @@
 /** @file fuzz.c */
 /*
 
-	dfuzzer - tool for fuzzing processes communicating through D-Bus.
+	dfuzzer - tool for fuzz testing processes communicating through D-Bus.
 	Copyright (C) 2013  Matus Marhefka
 
 	This program is free software: you can redistribute it and/or modify
@@ -156,7 +156,10 @@ int df_fuzz_add_method_arg(char *signature)
 
 	// fuzzing controlled by generated random strings lengths
 	if (strstr(s->sig, "s") != NULL)
-		df_list.fuzz_on_str_len++;
+		df_list.fuzz_on_str_len = 1;
+	if (strstr(s->sig, "v") != NULL)
+		df_list.fuzz_on_str_len = 1;
+
 
 	if (df_list.list == NULL) {
 		df_list.list = s;
@@ -440,6 +443,7 @@ int df_fuzz_test_method(int statfd, int logfd, long buf_size)
 				ptr += sprintf(ptr, "  unsupported argument by dfuzzer: ");
 				ptr += sprintf(ptr, "%s\n", unsupported_sig_str);
 				write(logfd, log_buffer, strlen(log_buffer));
+				ptr = log_buffer;
 				unsupported_sig_str = NULL;
 				goto ok_label;
 			}
@@ -707,8 +711,7 @@ static int df_fuzz_create_list_variants(void)
 						fprintf(stderr, "In df_rand_GVariant()\n");
 						return -1;
 					}
-					s->var = g_variant_new(sig, var);
-					g_variant_unref(var);
+					s->var = g_variant_new(s->sig, var);
 					break;
 				case 'h':
 					s->var = g_variant_new(s->sig, df_rand_unixFD());

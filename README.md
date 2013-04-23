@@ -1,7 +1,8 @@
 dfuzzer
 =======
 
-**D-Bus fuzzer**
+D-Bus fuzzer - tool for fuzz testing processes communicating through D-Bus
+
 
 Clone by:
 
