@@ -585,7 +585,7 @@ static GVariant * df_fuzz_create_variant(void)
 	}
 
 	#ifdef DEBUG
-		//printf("fmt string: [%s]\nargs: [%d]\n\n", fmt, df_list.args);
+		printf("fmt string: [%s]\nargs: [%d]\n\n", fmt, df_list.args);
 	#endif
 
 	// Initialize the argument info vectors
@@ -719,12 +719,10 @@ static int df_fuzz_create_list_variants(void)
 			}
 		}
 		else {	// advanced argument (array of something, dictionary, ...)
-			// TODO
 			fprintf(stderr, "Advanced signatures not yet implemented\n");
 			unsupported_sig_str = s->sig;
 			// TODO: can we create something like empty valid GVariant for
 			// advanced data types in this function ?
-			// If yes, remove whole unsupported thing
 			return 1;	// unsupported method signature
 		}
 

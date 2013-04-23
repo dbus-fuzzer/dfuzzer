@@ -502,6 +502,8 @@ int df_rand_GVariant(GVariant **var)
 	if (df_str_def[index] != NULL) {
 		strcpy(buf, df_str_def[index]);
 		index++;
+		*var = g_variant_new("s", buf);
+		free(buf);
 		return 0;
 	}
 
@@ -516,7 +518,7 @@ int df_rand_GVariant(GVariant **var)
 */
 int df_rand_unixFD(void)
 {
-	if (rand() % 2)
+	if ((rand() % 10) == 0)
 		return -1;
 
 	int fd = rand() % INT_MAX;

@@ -307,6 +307,7 @@ int df_open_proc_status_file(int pid)
 */
 int df_get_pid(GDBusConnection *dcon)
 {
+	GError *error = NULL;			// must be set to NULL
 	GDBusProxy *pproxy;				// proxy for getting process PID
 	GVariant *variant_pid = NULL;	// response from GetConnectionUnixProcessID
 	int pid = -1;
@@ -315,9 +316,10 @@ int df_get_pid(GDBusConnection *dcon)
 	// org.freedesktop.DBus (for calling its method GetConnectionUnixProcessID)
 	pproxy = g_dbus_proxy_new_sync(dcon, G_DBUS_PROXY_FLAGS_NONE, NULL,
 			"org.freedesktop.DBus", "/org/freedesktop/DBus",
-			"org.freedesktop.DBus", NULL, NULL);
+			"org.freedesktop.DBus", NULL, &error);
 	if (pproxy == NULL) {
-		fprintf(stderr, "Error on creating proxy for getting process pid\n");
+		fprintf(stderr, "Error on creating proxy for getting process pid: %s\n",
+				error->message);
 		return -1;
 	}
 
@@ -326,10 +328,10 @@ int df_get_pid(GDBusConnection *dcon)
 	variant_pid = g_dbus_proxy_call_sync(pproxy,
 		"GetConnectionUnixProcessID",
 		g_variant_new("(s)", target_proc.name), G_DBUS_CALL_FLAGS_NONE,
-		-1, NULL, NULL);
+		-1, NULL, &error);
 	if (variant_pid == NULL) {
 		fprintf(stderr, "Error on calling GetConnectionUnixProcessID"
-				" through D-Bus\n");
+				" through D-Bus: %s\n", error->message);
 		g_object_unref(pproxy);
 		return -1;
 	}
