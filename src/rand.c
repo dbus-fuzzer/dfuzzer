@@ -56,15 +56,24 @@ static long df_str_len;
 	parameters. Feel free to include any strings here (only valid UTF-8).
 	Array must be terminated by NULL string.
 */
-static char *df_str_def[] =
+static const char *df_str_def[] =
 {
 	"%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n",
 	"%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s",
+	"%s%s%s%s%s%s%s%s%s%n%s%n%n%n%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s",
 	"%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n"
 	"%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n",
 	"%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n"
 	"%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n",
-	"%s%s%s%s%s%s%s%s%s%n%s%n%n%n%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s",
+	"bomb(){ bomb|bomb & }; bomb",
+	":1.285",
+	"org.freedesktop.foo",
+	"/org/freedesktop/foo",
+	/*
+	"rm -rf /",
+	"rm -f *",
+	"rm -rf ~/",
+	*/
 	NULL
 };
 

@@ -724,8 +724,6 @@ static int df_fuzz_create_list_variants(void)
 		else {	// advanced argument (array of something, dictionary, ...)
 			fprintf(stderr, "Advanced signatures not yet implemented\n");
 			unsupported_sig_str = s->sig;
-			// TODO: can we create something like empty valid GVariant for
-			// advanced data types in this function ?
 			return 1;	// unsupported method signature
 		}
 
