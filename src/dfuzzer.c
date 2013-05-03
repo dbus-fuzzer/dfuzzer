@@ -482,7 +482,7 @@ void df_parse_parameters(int argc, char **argv, char **log_file,
 */
 void df_print_help(char *name)
 {
-	printf("dfuzzer - Tool for testing processes communicating through D-Bus\n\n"
+	printf("dfuzzer - Tool for fuzz testing processes communicating through D-Bus\n\n"
 			"REQUIRED OPTIONS:\n\t-n <name>\n"
 			"\t-o <object path>\n"
 			"\t-i <interface>\n\n"

@@ -1,0 +1,4 @@
+dfuzzer.o: dfuzzer.c dfuzzer.h introspection.h fuzz.h
+fuzz.o: fuzz.c fuzz.h rand.h
+introspection.o: introspection.c introspection.h
+rand.o: rand.c rand.h
