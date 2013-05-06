@@ -798,7 +798,7 @@ static int df_fuzz_call_method(GVariant *value)
 	GVariant *response = NULL;
 
 	// Synchronously invokes method with arguments stored in value (GVariant *)
-	// on df_dproxy. value (GVariant *) is consumed by g_dbus_proxy_call_sync().
+	// on df_dproxy.
 	response = g_dbus_proxy_call_sync(df_dproxy,
 		df_list.df_method_name,
 		value, G_DBUS_CALL_FLAGS_NONE, -1, NULL, &error);
