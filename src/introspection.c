@@ -93,7 +93,7 @@ int df_init_introspection(GDBusProxy *dproxy, char *interface)
 		return -1;
 	}
 
-	// *method is a pointer on the GDBusMethodInfo structure (first method)
+	// *df_methods is a pointer on the GDBusMethodInfo structure (first method)
 	// of interface.
 	df_methods = df_interface_data->methods;
 	if (*df_methods == NULL) {
