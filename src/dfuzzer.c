@@ -41,9 +41,9 @@ extern volatile sig_atomic_t df_exit_flag;
 
 int main(int argc, char **argv)
 {
-	char *log_file = "./log.log";	// file for logs
-	int logfd;						// FD for log_file
-	int statfd;						// FD for process status file
+	char *log_file = "/tmp/fuzzing.log";	// file for logs
+	int logfd;								// FD for log_file
+	int statfd;								// FD for process status file
 	long buf_size = 0;			// maximum buffer size for generated strings
 								// by rand module (in Bytes)
 	long mem_limit = 0;		// Memory limit for tested process in kB - if
@@ -230,7 +230,7 @@ int main(int argc, char **argv)
 				df_error("Error in df_open_proc_status_file()", error);
 			}
 
-			// tells fuzz module to call methods on different dproxy nad to use
+			// tells fuzz module to call methods on different dproxy and to use
 			// new status file of process with PID pid
 			if (df_fuzz_init(dproxy, statfd, mem_limit) == -1) {
 				close(statfd);
@@ -487,7 +487,8 @@ void df_print_help(char *name)
 			"\t-o <object path>\n"
 			"\t-i <interface>\n\n"
 			"OTHER OPTIONS:\n"
-			"\t-l <log file>\n\t   If not set, the log.log file is created.\n"
+			"\t-l <log file>\n\t   If not set, the 'fuzzing.log' file is created "
+			"in /tmp directory.\n"
 			"\t-m <memory limit in kB>\n"
 			"\t   When tested process exceeds this limit it will be noted into\n"
 			"\t   log file. Default value for this limit is 3x process intial\n"
