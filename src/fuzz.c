@@ -241,102 +241,109 @@ static int df_fuzz_write_log(int logfd, long buf_size)
 	int len;
 	int str_len = -1;
 	char *buf = malloc(sizeof(char) * buf_size);
+	if (buf == NULL) {
+		fprintf(stderr, "Could not allocate memory for log buffer.\n");
+		return -1;
+	}
 	char *ptr = buf;
 
 	while (s != NULL) {
 		len = strlen(s->sig);
 		if (len <= 0) {
 			fprintf(stderr, "No argument signature\n");
+			free(buf);
 			return -1;
 		}
 		else if (len == 1) {	// one character argument
 			switch (s->sig[0]) {
-				case 'y':
-					; guint8 tmp;
-					g_variant_get(s->var, s->sig, &tmp);
-					sprintf(ptr, "%u", tmp);
-					break;
-				case 'b':
-					; gboolean tmp1;
-					g_variant_get(s->var, s->sig, &tmp1);
-					sprintf(ptr, "%s", ((tmp1 == 1) ? "true" : "false"));
-					break;
-				case 'n':
-					; gint16 tmp2;
-					g_variant_get(s->var, s->sig, &tmp2);
-					sprintf(ptr, "%d", tmp2);
-					break;
-				case 'q':
-					; guint16 tmp3;
-					g_variant_get(s->var, s->sig, &tmp3);
-					sprintf(ptr, "%u", tmp3);
-					break;
-				case 'i':
-					; gint32 tmp4;
-					g_variant_get(s->var, s->sig, &tmp4);
-					sprintf(ptr, "%d", tmp4);
-					break;
-				case 'u':
-					; guint32 tmp5;
-					g_variant_get(s->var, s->sig, &tmp5);
-					sprintf(ptr, "%u", tmp5);
-					break;
-				case 'x':
-					; gint64 tmp6;
-					g_variant_get(s->var, s->sig, &tmp6);
-					sprintf(ptr, "%ld", tmp6);
-					break;
-				case 't':
-					; guint64 tmp7;
-					g_variant_get(s->var, s->sig, &tmp7);
-					sprintf(ptr, "%lu", tmp7);
-					break;
-				case 'd':
-					; gdouble tmp8;
-					g_variant_get(s->var, s->sig, &tmp8);
-					sprintf(ptr, "%lg", tmp8);
-					break;
-				case 's':
-					; gchar *tmp9 = NULL;
-					g_variant_get(s->var, s->sig, &tmp9);
-					str_len = strlen(tmp9);
-					if (tmp9 != NULL)
-						sprintf(ptr, " [length: %d B]-- '%s", str_len, tmp9);
-					break;
-				case 'o':
-					; gchar *tmp10 = NULL;
-					g_variant_get(s->var, s->sig, &tmp10);
-					str_len = strlen(tmp10);
-					if (tmp10 != NULL)
-						sprintf(ptr, " [length: %d B]-- '%s", str_len, tmp10);
-					break;
-				case 'g':
-					; gchar *tmp11 = NULL;
-					g_variant_get(s->var, s->sig, &tmp11);
-					str_len = strlen(tmp11);
-					if (tmp11 != NULL)
-						sprintf(ptr, " [length: %d B]-- '%s", str_len, tmp11);
-					break;
-				case 'v':
-					; GVariant *var = NULL; gchar *tmp12 = NULL;
-					g_variant_get(s->var, s->sig, var);
-					g_variant_get(var, "s", &tmp12);
-					str_len = strlen(tmp12);
-					if (tmp12 != NULL)
-						sprintf(ptr, " [length: %d B]-- '%s", str_len, tmp12);
-					break;
-				case 'h':
-					; gint32 tmp13;
-					g_variant_get(s->var, s->sig, &tmp13);
-					sprintf(ptr, "%d", tmp13);
-					break;
-				default:
-					fprintf(stderr, "Unknown argument signature '%s'\n", s->sig);
-					return -1;
+			case 'y':
+				; guint8 tmp;
+				g_variant_get(s->var, s->sig, &tmp);
+				sprintf(ptr, "%u", tmp);
+				break;
+			case 'b':
+				; gboolean tmp1;
+				g_variant_get(s->var, s->sig, &tmp1);
+				sprintf(ptr, "%s", ((tmp1 == 1) ? "true" : "false"));
+				break;
+			case 'n':
+				; gint16 tmp2;
+				g_variant_get(s->var, s->sig, &tmp2);
+				sprintf(ptr, "%d", tmp2);
+				break;
+			case 'q':
+				; guint16 tmp3;
+				g_variant_get(s->var, s->sig, &tmp3);
+				sprintf(ptr, "%u", tmp3);
+				break;
+			case 'i':
+				; gint32 tmp4;
+				g_variant_get(s->var, s->sig, &tmp4);
+				sprintf(ptr, "%d", tmp4);
+				break;
+			case 'u':
+				; guint32 tmp5;
+				g_variant_get(s->var, s->sig, &tmp5);
+				sprintf(ptr, "%u", tmp5);
+				break;
+			case 'x':
+				; gint64 tmp6;
+				g_variant_get(s->var, s->sig, &tmp6);
+				sprintf(ptr, "%ld", tmp6);
+				break;
+			case 't':
+				; guint64 tmp7;
+				g_variant_get(s->var, s->sig, &tmp7);
+				sprintf(ptr, "%lu", tmp7);
+				break;
+			case 'd':
+				; gdouble tmp8;
+				g_variant_get(s->var, s->sig, &tmp8);
+				sprintf(ptr, "%lg", tmp8);
+				break;
+			case 's':
+				; gchar *tmp9 = NULL;
+				g_variant_get(s->var, s->sig, &tmp9);
+				str_len = strlen(tmp9);
+				if (tmp9 != NULL)
+					sprintf(ptr, " [length: %d B]-- '%s", str_len, tmp9);
+				break;
+			case 'o':
+				; gchar *tmp10 = NULL;
+				g_variant_get(s->var, s->sig, &tmp10);
+				str_len = strlen(tmp10);
+				if (tmp10 != NULL)
+					sprintf(ptr, " [length: %d B]-- '%s", str_len, tmp10);
+				break;
+			case 'g':
+				; gchar *tmp11 = NULL;
+				g_variant_get(s->var, s->sig, &tmp11);
+				str_len = strlen(tmp11);
+				if (tmp11 != NULL)
+					sprintf(ptr, " [length: %d B]-- '%s", str_len, tmp11);
+				break;
+			case 'v':
+				; GVariant *var = NULL; gchar *tmp12 = NULL;
+				g_variant_get(s->var, s->sig, var);
+				g_variant_get(var, "s", &tmp12);
+				str_len = strlen(tmp12);
+				if (tmp12 != NULL)
+					sprintf(ptr, " [length: %d B]-- '%s", str_len, tmp12);
+				break;
+			case 'h':
+				; gint32 tmp13;
+				g_variant_get(s->var, s->sig, &tmp13);
+				sprintf(ptr, "%d", tmp13);
+				break;
+			default:
+				fprintf(stderr, "Unknown argument signature '%s'\n", s->sig);
+				free(buf);
+				return -1;
 			}
 		}
 		else {	// advanced argument (array of something, dictionary, ...)
 			fprintf(stderr, "Not yet implemented in df_fuzz_write_log()\n");
+			free(buf);
 			return 0;
 		}
 
@@ -388,6 +395,10 @@ int df_fuzz_test_method(int statfd, int logfd, long buf_size)
 
 
 	char *ptr, *log_buffer = malloc(sizeof(char) * buf_size);
+	if (log_buffer == NULL) {
+		fprintf(stderr, "Could not allocate memory for log buffer.\n");
+		return -1;
+	}
 	ptr = log_buffer;
 
 
@@ -426,10 +437,13 @@ int df_fuzz_test_method(int statfd, int logfd, long buf_size)
 			write(logfd, log_buffer, strlen(log_buffer));
 			ptr = log_buffer;
 			i++;
-			df_fuzz_write_log(logfd, buf_size);
-			proc_crashed++;
 			if (value != NULL)
 				g_variant_unref(value);
+			if (df_fuzz_write_log(logfd, buf_size) == -1) {
+				fprintf(stderr, "Error in df_fuzz_write_log()\n");
+				goto err_label;
+			}
+			proc_crashed++;
 			goto err_label;
 		}
 		prev_memory = used_memory;
@@ -469,16 +483,18 @@ int df_fuzz_test_method(int statfd, int logfd, long buf_size)
 				write(logfd, log_buffer, strlen(log_buffer));
 				ptr = log_buffer;
 				i++;
-				df_fuzz_write_log(logfd, buf_size);
-
 				if (value != NULL)
 					g_variant_unref(value);
+				if (df_fuzz_write_log(logfd, buf_size) == -1) {
+					fprintf(stderr, "Error in df_fuzz_write_log()\n");
+					goto err_label;
+				}
 				proc_crashed++;
 				goto err_label;
 			}
 			prev_memory = used_memory;
 			max_calls++;
-			if (max_calls == CHAR_MAX) {
+			if (max_calls == 10) {
 				sprintf(ptr, "[%s LOG %d]\n  method '%s' does not respond\n"
 								"  last known process memory size: [%ld kB]\n",
 								df_list.df_method_name, i, df_list.df_method_name,
@@ -505,7 +521,10 @@ int df_fuzz_test_method(int statfd, int logfd, long buf_size)
 			ptr = log_buffer;
 			i++;
 			max_memory *= 3;
-			df_fuzz_write_log(logfd, buf_size);
+			if (df_fuzz_write_log(logfd, buf_size) == -1) {
+				fprintf(stderr, "Error in df_fuzz_write_log()\n");
+				goto err_label;
+			}
 		}
 
 
@@ -578,7 +597,7 @@ static GVariant * df_fuzz_create_variant(void)
 
 
 	if ( (fmt = malloc(MAXFMT+1)) == NULL ) {
-		fprintf(stderr, "Could not allocate memory for format string\n");
+		fprintf(stderr, "Could not allocate memory for format string.\n");
 		return NULL;
 	}
 
@@ -651,74 +670,74 @@ static int df_fuzz_create_list_variants(void)
 		}
 		else if (len == 1) {	// one character argument
 			switch (s->sig[0]) {
-				case 'y':
-					s->var = g_variant_new(s->sig, df_rand_guint8());
-					break;
-				case 'b':
-					s->var = g_variant_new(s->sig, df_rand_gboolean());
-					break;
-				case 'n':
-					s->var = g_variant_new(s->sig, df_rand_gint16());
-					break;
-				case 'q':
-					s->var = g_variant_new(s->sig, df_rand_guint16());
-					break;
-				case 'i':
-					s->var = g_variant_new(s->sig, df_rand_gint32());
-					break;
-				case 'u':
-					s->var = g_variant_new(s->sig, df_rand_guint32());
-					break;
-				case 'x':
-					s->var = g_variant_new(s->sig, df_rand_gint64());
-					break;
-				case 't':
-					s->var = g_variant_new(s->sig, df_rand_guint64());
-					break;
-				case 'd':
-					s->var = g_variant_new(s->sig, df_rand_gdouble());
-					break;
-				case 's':
-					; gchar *buf;
-					if (df_rand_string(&buf) == -1) {
-						fprintf(stderr, "In df_rand_string()\n");
-						return -1;
-					}
-					s->var = g_variant_new(s->sig, buf);
-					free(buf);
-					break;
-				case 'o':
-					; gchar *obj;
-					if (df_rand_dbus_objpath_string(&obj) == -1) {
-						fprintf(stderr, "In df_rand_dbus_objpath_string()\n");
-						return -1;
-					}
-					s->var = g_variant_new(s->sig, obj);
-					free(obj);
-					break;
-				case 'g':
-					; gchar *sig;
-					if (df_rand_dbus_signature_string(&sig) == -1) {
-						fprintf(stderr, "In df_rand_dbus_signature_string()\n");
-						return -1;
-					}
-					s->var = g_variant_new(s->sig, sig);
-					free(sig);
-					break;
-				case 'v':
-					; GVariant *var;
-					if (df_rand_GVariant(&var) == -1) {
-						fprintf(stderr, "In df_rand_GVariant()\n");
-						return -1;
-					}
-					s->var = g_variant_new(s->sig, var);
-					break;
-				case 'h':
-					s->var = g_variant_new(s->sig, df_rand_unixFD());
-					break;
-				default:
-					fprintf(stderr, "Unknown argument signature '%s'\n", s->sig);
+			case 'y':
+				s->var = g_variant_new(s->sig, df_rand_guint8());
+				break;
+			case 'b':
+				s->var = g_variant_new(s->sig, df_rand_gboolean());
+				break;
+			case 'n':
+				s->var = g_variant_new(s->sig, df_rand_gint16());
+				break;
+			case 'q':
+				s->var = g_variant_new(s->sig, df_rand_guint16());
+				break;
+			case 'i':
+				s->var = g_variant_new(s->sig, df_rand_gint32());
+				break;
+			case 'u':
+				s->var = g_variant_new(s->sig, df_rand_guint32());
+				break;
+			case 'x':
+				s->var = g_variant_new(s->sig, df_rand_gint64());
+				break;
+			case 't':
+				s->var = g_variant_new(s->sig, df_rand_guint64());
+				break;
+			case 'd':
+				s->var = g_variant_new(s->sig, df_rand_gdouble());
+				break;
+			case 's':
+				; gchar *buf;
+				if (df_rand_string(&buf) == -1) {
+					fprintf(stderr, "In df_rand_string()\n");
 					return -1;
+				}
+				s->var = g_variant_new(s->sig, buf);
+				free(buf);
+				break;
+			case 'o':
+				; gchar *obj;
+				if (df_rand_dbus_objpath_string(&obj) == -1) {
+					fprintf(stderr, "In df_rand_dbus_objpath_string()\n");
+					return -1;
+				}
+				s->var = g_variant_new(s->sig, obj);
+				free(obj);
+				break;
+			case 'g':
+				; gchar *sig;
+				if (df_rand_dbus_signature_string(&sig) == -1) {
+					fprintf(stderr, "In df_rand_dbus_signature_string()\n");
+					return -1;
+				}
+				s->var = g_variant_new(s->sig, sig);
+				free(sig);
+				break;
+			case 'v':
+				; GVariant *var;
+				if (df_rand_GVariant(&var) == -1) {
+					fprintf(stderr, "In df_rand_GVariant()\n");
+					return -1;
+				}
+				s->var = g_variant_new(s->sig, var);
+				break;
+			case 'h':
+				s->var = g_variant_new(s->sig, df_rand_unixFD());
+				break;
+			default:
+				fprintf(stderr, "Unknown argument signature '%s'\n", s->sig);
+				return -1;
 			}
 		}
 		else {	// advanced argument (array of something, dictionary, ...)

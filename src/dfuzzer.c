@@ -64,7 +64,7 @@ int main(int argc, char **argv)
 	signal(SIGHUP, df_signal_handler);		// terminal closed signal
 
 
-	// do not free log_file - it points to argv
+	// do not free log_file - it may point to argv
 	df_parse_parameters(argc, argv, &log_file, &buf_size, &mem_limit, &cont_flg);
 
 	// Initializes the type system.
@@ -138,8 +138,37 @@ int main(int argc, char **argv)
 	// truncates log file to zero length
 	if (ftruncate(logfd, 0L) == -1) {
 		perror("Error on truncating file to size 0");
-		return -1;
+		close(statfd);
+		close(logfd);
+		df_unref_introspection();
+		g_object_unref(dproxy);
+		g_object_unref(dcon);
+		exit(1);
 	}
+
+
+	// writes header into the log file
+	char *ptr, *log_buffer = malloc(sizeof(char) * MAXLEN * 4);
+	if (log_buffer == NULL) {
+		fprintf(stderr, "Could not allocate memory for log buffer.\n");
+		close(statfd);
+		close(logfd);
+		df_unref_introspection();
+		g_object_unref(dproxy);
+		g_object_unref(dcon);
+		exit(1);
+	}
+	ptr = log_buffer;
+	ptr += sprintf(ptr,"Bus name:\t\t");
+	ptr += sprintf(ptr, "%s\n", target_proc.name);
+	ptr += sprintf(ptr,"Object Path:\t");
+	ptr += sprintf(ptr, "%s\n", target_proc.obj_path);
+	ptr += sprintf(ptr,"Interface:\t\t");
+	ptr += sprintf(ptr, "%s\n", target_proc.interface);
+	ptr += sprintf(ptr, "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+						"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
+	write(logfd, log_buffer, strlen(log_buffer));
+	free(log_buffer);
 
 
 	printf("Fuzzing started...\n");
@@ -368,104 +397,104 @@ void df_parse_parameters(int argc, char **argv, char **log_file,
 
 	while ( (c = getopt(argc, argv, "n:o:i:l:m:b:ch")) != -1 ) {
 		switch (c) {
-			case 'n':
-				if (nflg != 0) {
-					fprintf(stderr, "%s: no duplicate options -- 'n'\n",
-							argv[0]);
-					exit(1);
-				}
-				nflg++;
-				if (strlen(optarg) >= MAXLEN) {
-					fprintf(stderr, "%s: maximum %d characters for option --"
-							" 'n'\n", argv[0], MAXLEN-1);
-					exit(1);
-				}
-				// copy everything including null byte
-				memcpy(target_proc.name, optarg, MAXLEN);
-				break;
-			case 'o':
-				if (oflg != 0) {
-					fprintf(stderr, "%s: no duplicate options -- 'o'\n",
-							argv[0]);
-					exit(1);
-				}
-				oflg++;
-				if (strlen(optarg) >= MAXLEN) {
-					fprintf(stderr, "%s: maximum %d characters for option --"
-							" 'o'\n", argv[0], MAXLEN-1);
-					exit(1);
-				}
-				// copy everything including null byte
-				memcpy(target_proc.obj_path, optarg, MAXLEN);
-				break;
-			case 'i':
-				if (iflg != 0) {
-					fprintf(stderr, "%s: no duplicate options -- 'i'\n",
-							argv[0]);
-					exit(1);
-				}
-				iflg++;
-				if (strlen(optarg) >= MAXLEN) {
-					fprintf(stderr, "%s: maximum %d characters for option --"
-							" 'i'\n", argv[0], MAXLEN-1);
-					exit(1);
-				}
-				// copy everything including null byte
-				memcpy(target_proc.interface, optarg, MAXLEN);
-				break;
-			case 'l':
-				if (lflg != 0) {
-					fprintf(stderr, "%s: no duplicate options -- 'l'\n",
-							argv[0]);
-					exit(1);
-				}
-				lflg++;
-				*log_file = optarg;
-				break;
-			case 'm':
-				if (mflg != 0) {
-					fprintf(stderr, "%s: no duplicate options -- 'm'\n",
-							argv[0]);
-					exit(1);
-				}
-				mflg++;
-				*mem_limit = strtol(optarg, NULL, 10);
-				if (*mem_limit <= 0 || errno == ERANGE || errno == EINVAL) {
-					fprintf(stderr, "%s: invalid value for option -- 'm'\n",
-							argv[0]);
-					exit(1);
-				}
-				break;
-			case 'b':
-				if (bflg != 0) {
-					fprintf(stderr, "%s: no duplicate options -- 'b'\n",
-							argv[0]);
-					exit(1);
-				}
-				bflg++;
-				*buf_size = strtol(optarg, NULL, 10);
-				if (*buf_size < MINLEN || errno == ERANGE || errno == EINVAL) {
-					fprintf(stderr, "%s: invalid value for option -- 'b'\n"
-							" -- at least %d B are required\n", argv[0], MINLEN);
-					exit(1);
-				}
-				break;
-			case 'c':
-				if (cflg != 0) {
-					fprintf(stderr, "%s: no duplicate options -- 'c'\n",
-							argv[0]);
-					exit(1);
-				}
-				cflg++;
-				(*cont_flg)++;
-				break;
-			case 'h':
-				df_print_help(argv[0]);
-				exit(0);
-				break;
-			default:	// '?'
+		case 'n':
+			if (nflg != 0) {
+				fprintf(stderr, "%s: no duplicate options -- 'n'\n",
+						argv[0]);
 				exit(1);
-				break;
+			}
+			nflg++;
+			if (strlen(optarg) >= MAXLEN) {
+				fprintf(stderr, "%s: maximum %d characters for option --"
+						" 'n'\n", argv[0], MAXLEN-1);
+				exit(1);
+			}
+			// copy everything including null byte
+			memcpy(target_proc.name, optarg, MAXLEN);
+			break;
+		case 'o':
+			if (oflg != 0) {
+				fprintf(stderr, "%s: no duplicate options -- 'o'\n",
+						argv[0]);
+				exit(1);
+			}
+			oflg++;
+			if (strlen(optarg) >= MAXLEN) {
+				fprintf(stderr, "%s: maximum %d characters for option --"
+						" 'o'\n", argv[0], MAXLEN-1);
+				exit(1);
+			}
+			// copy everything including null byte
+			memcpy(target_proc.obj_path, optarg, MAXLEN);
+			break;
+		case 'i':
+			if (iflg != 0) {
+				fprintf(stderr, "%s: no duplicate options -- 'i'\n",
+						argv[0]);
+				exit(1);
+			}
+			iflg++;
+			if (strlen(optarg) >= MAXLEN) {
+				fprintf(stderr, "%s: maximum %d characters for option --"
+						" 'i'\n", argv[0], MAXLEN-1);
+				exit(1);
+			}
+			// copy everything including null byte
+			memcpy(target_proc.interface, optarg, MAXLEN);
+			break;
+		case 'l':
+			if (lflg != 0) {
+				fprintf(stderr, "%s: no duplicate options -- 'l'\n",
+						argv[0]);
+				exit(1);
+			}
+			lflg++;
+			*log_file = optarg;
+			break;
+		case 'm':
+			if (mflg != 0) {
+				fprintf(stderr, "%s: no duplicate options -- 'm'\n",
+						argv[0]);
+				exit(1);
+			}
+			mflg++;
+			*mem_limit = strtol(optarg, NULL, 10);
+			if (*mem_limit <= 0 || errno == ERANGE || errno == EINVAL) {
+				fprintf(stderr, "%s: invalid value for option -- 'm'\n",
+						argv[0]);
+				exit(1);
+			}
+			break;
+		case 'b':
+			if (bflg != 0) {
+				fprintf(stderr, "%s: no duplicate options -- 'b'\n",
+						argv[0]);
+				exit(1);
+			}
+			bflg++;
+			*buf_size = strtol(optarg, NULL, 10);
+			if (*buf_size < MINLEN || errno == ERANGE || errno == EINVAL) {
+				fprintf(stderr, "%s: invalid value for option -- 'b'\n"
+						" -- at least %d B are required\n", argv[0], MINLEN);
+				exit(1);
+			}
+			break;
+		case 'c':
+			if (cflg != 0) {
+				fprintf(stderr, "%s: no duplicate options -- 'c'\n",
+						argv[0]);
+				exit(1);
+			}
+			cflg++;
+			(*cont_flg)++;
+			break;
+		case 'h':
+			df_print_help(argv[0]);
+			exit(0);
+			break;
+		default:	// '?'
+			exit(1);
+			break;
 		}
 	}
 
@@ -487,8 +516,7 @@ void df_print_help(char *name)
 			"\t-o <object path>\n"
 			"\t-i <interface>\n\n"
 			"OTHER OPTIONS:\n"
-			"\t-l <log file>\n\t   If not set, the 'fuzzing.log' file is created "
-			"in /tmp directory.\n"
+			"\t-l <log file>\n\t   If not set, the '/tmp/fuzzing.log' file is created\n"
 			"\t-m <memory limit in kB>\n"
 			"\t   When tested process exceeds this limit it will be noted into\n"
 			"\t   log file. Default value for this limit is 3x process intial\n"
@@ -499,7 +527,7 @@ void df_print_help(char *name)
 			"\t   Maximum buffer size for generated strings, minimum is 256 B.\n"
 			"\t   Default maximum size is 50000 B ~= 50 kB.\n"
 			"\t-c\n"
-			"\t   If tested process crashes during fuzzing and this option is\n"
+			"\t   If tested process crashed during fuzzing and this option is\n"
 			"\t   set, crashed process will be launched again and testing will\n"
 			"\t   continue."
 			"\n"
