@@ -437,12 +437,14 @@ int df_fuzz_test_method(int statfd, int logfd, long buf_size)
 			write(logfd, log_buffer, strlen(log_buffer));
 			ptr = log_buffer;
 			i++;
-			if (value != NULL)
-				g_variant_unref(value);
 			if (df_fuzz_write_log(logfd, buf_size) == -1) {
 				fprintf(stderr, "Error in df_fuzz_write_log()\n");
+				if (value != NULL)
+					g_variant_unref(value);
 				goto err_label;
 			}
+			if (value != NULL)
+				g_variant_unref(value);
 			proc_crashed++;
 			goto err_label;
 		}
@@ -483,12 +485,14 @@ int df_fuzz_test_method(int statfd, int logfd, long buf_size)
 				write(logfd, log_buffer, strlen(log_buffer));
 				ptr = log_buffer;
 				i++;
-				if (value != NULL)
-					g_variant_unref(value);
 				if (df_fuzz_write_log(logfd, buf_size) == -1) {
 					fprintf(stderr, "Error in df_fuzz_write_log()\n");
+					if (value != NULL)
+						g_variant_unref(value);
 					goto err_label;
 				}
+				if (value != NULL)
+					g_variant_unref(value);
 				proc_crashed++;
 				goto err_label;
 			}
@@ -500,7 +504,6 @@ int df_fuzz_test_method(int statfd, int logfd, long buf_size)
 								df_list.df_method_name, i, df_list.df_method_name,
 								prev_memory);
 				write(logfd, log_buffer, strlen(log_buffer));
-
 				if (value != NULL)
 					g_variant_unref(value);
 				goto ok_label;
@@ -529,7 +532,8 @@ int df_fuzz_test_method(int statfd, int logfd, long buf_size)
 
 
 		if (df_exit_flag) {
-			g_variant_unref(value);
+			if (value != NULL)
+				g_variant_unref(value);
 			goto ok_label;
 		}
 
