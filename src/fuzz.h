@@ -21,31 +21,40 @@
 #ifndef FUZZ_H
 #define FUZZ_H
 
-#define MAXSIG 255			// maximum length of D-Bus signature string
-#define MAXFMT MAXSIG * 2	// MAXSIG * 2 because of '@' character for every
-							// signature
-#define MAXLINE 1024		// maximum length read from file
+/** maximum length of D-Bus signature string */
+#define MAXSIG 255
 
-volatile sig_atomic_t df_exit_flag;	// indicates SIGHUP, SIGINT signals
+/** MAXSIG * 2 because of '@' character for every signature */
+#define MAXFMT MAXSIG * 2
+
+/** maximum length read from file */
+#define MAXLINE 1024
+
+volatile sig_atomic_t df_exit_flag;		/** indicates SIGHUP, SIGINT signals */
 
 /** Structure contains a D-Bus signature of the argument and pointer to a next
 	argument (arguments belongs to the method df_method_name
 	in structure df_sig_list).
 */
 struct df_signature {
-	char *sig;					// D-Bus signature of the argument
+	/** D-Bus signature of the argument */
+	char *sig;
+	/** Storage for randomly generated data for the argument */
 	GVariant *var;
+	/** Pointer on next argument */
 	struct df_signature *next;
 };
 
 /** Linked list of the method arguments and theirs signatures. */
 struct df_sig_list {
-	char *df_method_name;			// name of current fuzzed method
-	int args;						// number of arguments for method
-	int fuzz_on_str_len;			// if 1, fuzzing will be controlled
-									// by generated random strings lengths
-	struct df_signature *list;		// if no arguments - NULL, otherwise
-									// NULL terminated linked list
+	/** name of the current fuzzed method */
+	char *df_method_name;
+	/** number of arguments for method */
+	int args;
+	/** if 1, fuzzing will be controlled by generated random strings lengths */
+	int fuzz_on_str_len;
+	/** if no arguments - NULL, otherwise NULL terminated linked list */	
+	struct df_signature *list;
 };
 
 

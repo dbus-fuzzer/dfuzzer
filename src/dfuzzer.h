@@ -21,16 +21,20 @@
 #ifndef DFUZZER_H
 #define DFUZZER_H
 
-#define MINLEN 256			// minimal buffer size for generated strings
-#define MAXLEN 256			// maximum length of strings containing D-Bus name,
-							// interface and object path
+/** minimal buffer size for generated strings */
+#define MINLEN 256
+
+/** maximum length of strings containing D-Bus name, interface and object path */
+#define MAXLEN 256
 
 
-/** Structure containing D-Bus name, object path and interface of process.
-*/
+/** Structure containing D-Bus name, object path and interface of process. */
 struct fuzzing_target {		// names on D-Bus have the most MAXLEN characters
+	/** Bus name */
 	char name[MAXLEN];
+	/** Object path */
 	char obj_path[MAXLEN];
+	/** Interface */
 	char interface[MAXLEN];
 };
 

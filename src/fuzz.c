@@ -347,12 +347,28 @@ static int df_fuzz_write_log(int logfd, long buf_size)
 			return 0;
 		}
 
-		write(logfd, "  --", 4);
-		write(logfd, s->sig, len);
-		if (str_len == -1)	// no string, no length printing
-			write(logfd, "-- '", 4);
-		write(logfd, buf, strlen(buf));
-		write(logfd, "'\n", 2);
+		if (write(logfd, "  --", 4) == -1) {
+			perror("write()");
+			return -1;
+		}
+		if (write(logfd, s->sig, len) == -1) {
+			perror("write()");
+			return -1;
+		}
+		if (str_len == -1) {	// no string, no length printing
+			if (write(logfd, "-- '", 4) == -1) {
+				perror("write()");
+				return -1;
+			}
+		}
+		if (write(logfd, buf, strlen(buf)) == -1) {
+			perror("write()");
+			return -1;
+		}
+		if (write(logfd, "'\n", 2) == -1) {
+			perror("write()");
+			return -1;
+		}
 
 		str_len = -1;
 		ptr = buf;
@@ -409,7 +425,10 @@ int df_fuzz_test_method(int statfd, int logfd, long buf_size)
 	for (i = 0; i < df_list.args; i++, s = s->next)
 		ptr += sprintf(ptr, ((i < df_list.args-1) ? "%s, " : "%s"), s->sig);
 	ptr += sprintf(ptr, "):\n");
-	write(logfd, log_buffer, strlen(log_buffer));
+	if (write(logfd, log_buffer, strlen(log_buffer)) == -1) {
+		perror("write()");
+		return -1;
+	}
 	ptr = log_buffer;			// restarts position in log_buffer
 
 
@@ -434,7 +453,10 @@ int df_fuzz_test_method(int statfd, int logfd, long buf_size)
 							"  last known process memory size: [%ld kB]\n"
 							"  on input:\n",
 							df_list.df_method_name, i, prev_memory);
-			write(logfd, log_buffer, strlen(log_buffer));
+			if (write(logfd, log_buffer, strlen(log_buffer)) == -1) {
+				perror("write()");
+				return -1;
+			}
 			ptr = log_buffer;
 			i++;
 			if (df_fuzz_write_log(logfd, buf_size) == -1) {
@@ -458,7 +480,10 @@ int df_fuzz_test_method(int statfd, int logfd, long buf_size)
 				// writes to the logfd to let tester know
 				ptr += sprintf(ptr, "  unsupported argument by dfuzzer: ");
 				ptr += sprintf(ptr, "%s\n", unsupported_sig_str);
-				write(logfd, log_buffer, strlen(log_buffer));
+				if (write(logfd, log_buffer, strlen(log_buffer)) == -1) {
+					perror("write()");
+					return -1;
+				}
 				ptr = log_buffer;
 				unsupported_sig_str = NULL;
 				goto ok_label;
@@ -482,7 +507,10 @@ int df_fuzz_test_method(int statfd, int logfd, long buf_size)
 								"  last known process memory size: [%ld kB]\n"
 								"  on input:\n",
 								df_list.df_method_name, i, prev_memory);
-				write(logfd, log_buffer, strlen(log_buffer));
+				if (write(logfd, log_buffer, strlen(log_buffer)) == -1) {
+					perror("write()");
+					return -1;
+				}
 				ptr = log_buffer;
 				i++;
 				if (df_fuzz_write_log(logfd, buf_size) == -1) {
@@ -503,7 +531,10 @@ int df_fuzz_test_method(int statfd, int logfd, long buf_size)
 								"  last known process memory size: [%ld kB]\n",
 								df_list.df_method_name, i, df_list.df_method_name,
 								prev_memory);
-				write(logfd, log_buffer, strlen(log_buffer));
+				if (write(logfd, log_buffer, strlen(log_buffer)) == -1) {
+					perror("write()");
+					return -1;
+				}
 				if (value != NULL)
 					g_variant_unref(value);
 				goto ok_label;
@@ -520,7 +551,10 @@ int df_fuzz_test_method(int statfd, int logfd, long buf_size)
 							"[%ld kB]\n  on input:\n",
 							df_list.df_method_name, i, df_mem_limit,
 							df_initial_mem, used_memory);
-			write(logfd, log_buffer, strlen(log_buffer));
+			if (write(logfd, log_buffer, strlen(log_buffer)) == -1) {
+				perror("write()");
+				return -1;
+			}
 			ptr = log_buffer;
 			i++;
 			max_memory *= 3;
@@ -545,7 +579,10 @@ ok_label:
 						df_list.df_method_name);
 	ptr += sprintf(ptr,"==========================================="
 						"===================================\n");
-	write(logfd, log_buffer, strlen(log_buffer));
+	if (write(logfd, log_buffer, strlen(log_buffer)) == -1) {
+		perror("write()");
+		return -1;
+	}
 
 
 	free(log_buffer);
@@ -557,7 +594,10 @@ err_label:
 						df_list.df_method_name);
 	ptr += sprintf(ptr,"==========================================="
 						"===================================\n");
-	write(logfd, log_buffer, strlen(log_buffer));
+	if (write(logfd, log_buffer, strlen(log_buffer)) == -1) {
+		perror("write()");
+		return -1;
+	}
 
 	free(log_buffer);
 	if (proc_crashed)

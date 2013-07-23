@@ -46,9 +46,8 @@ static unsigned short df_gi64f;
 static unsigned short df_gu64f;
 static unsigned short df_gdouf;
 
-/* Lengths of  pseudo-random strings */
+/** Length of  pseudo-random strings */
 static long df_str_len;
-// ...
 
 
 /**
@@ -581,7 +580,7 @@ int df_rand_dbus_signature_string(gchar **buf)
 /**
 	@function Creates Gvariant containing pseudo-random string. At the beginning
 	strings from global array df_str_def are used.
-	@param Address of pointer on GVariant where new Gvariant value will be stored
+	@param var Address of pointer on GVariant where new Gvariant value will be stored
 	@return 0 on success, -1 on error
 */
 int df_rand_GVariant(GVariant **var)

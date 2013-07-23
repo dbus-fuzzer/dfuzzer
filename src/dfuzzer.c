@@ -39,6 +39,12 @@ struct fuzzing_target target_proc;
 extern volatile sig_atomic_t df_exit_flag;
 
 
+/**
+	@function Main function controls fuzzing.
+	@param argc Number of program arguments
+	@param argv Pointer on string with program arguments
+	@return 0 on success, 1 on error
+*/
 int main(int argc, char **argv)
 {
 	char *log_file = "/tmp/fuzzing.log";	// file for logs
@@ -167,7 +173,10 @@ int main(int argc, char **argv)
 	ptr += sprintf(ptr, "%s\n", target_proc.interface);
 	ptr += sprintf(ptr, "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 						"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
-	write(logfd, log_buffer, strlen(log_buffer));
+	if (write(logfd, log_buffer, strlen(log_buffer)) == -1) {
+		perror("write()");
+		return -1;
+	}
 	free(log_buffer);
 
 

@@ -21,13 +21,17 @@
 #ifndef RAND_H
 #define RAND_H
 
-#define MINLEN 256				// minimal buffer size for generated strings
-#define MAX_BUF_LEN 50000		// maximum buffer size for generated strings,
-								// default is cca 50 kB
+/** minimal buffer size for generated strings */
+#define MINLEN 256
 
-#define MAXLEN 256				// maximum length of strings containing D-Bus
-								// object path
-#define MAXSIG 255				// maximum length of D-Bus signature string
+/** maximum buffer size for generated strings, default is cca 50 kB */
+#define MAX_BUF_LEN 50000
+
+/** maximum length of strings containing D-Bus object path */
+#define MAXLEN 256
+
+/** maximum length of D-Bus signature string */
+#define MAXSIG 255
 
 
 /**
@@ -140,7 +144,7 @@ int df_rand_dbus_signature_string(gchar **buf);
 /**
 	@function Creates Gvariant containing pseudo-random string. At the beginning
 	strings from global array df_str_def are used.
-	@param Address of pointer on GVariant where new Gvariant value will be stored
+	@param var Address of pointer on GVariant where new Gvariant value will be stored
 	@return 0 on success, -1 on error
 */
 int df_rand_GVariant(GVariant **var);
