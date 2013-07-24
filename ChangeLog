@@ -1,0 +1,9 @@
+2013-07-24  Matus Marhefka  <mmarhefk@redhat.com>
+
+	version 1.0
+	Added:
+	* -v option for printing version
+	* -s option for switching between session/system bus
+	* man/dfuzzer.1: man page
+	* ChangeLog
+	* many code improvements, few fixes

@@ -2,7 +2,7 @@
 /*
 
 	dfuzzer - tool for fuzz testing processes communicating through D-Bus.
-	Copyright (C) 2013  Matus Marhefka
+	Copyright(C) 2013, Red Hat, Inc., Matus Marhefka <mmarhefk@redhat.com>
 
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by

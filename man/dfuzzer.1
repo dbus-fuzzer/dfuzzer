@@ -1,0 +1,133 @@
+.\" **************************************************************************
+.\" *
+.\" * dfuzzer
+.\" * Copyright(C) 2013, Red Hat, Inc., Matus Marhefka <mmarhefk@redhat.com>
+.\" *
+.\" * This program is free software: you can redistribute it and/or modify
+.\" * it under the terms of the GNU General Public License as published by
+.\" * the Free Software Foundation, either version 3 of the License, or
+.\" * (at your option) any later version.
+.\" *
+.\" * This program is distributed in the hope that it will be useful,
+.\" * but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+.\" * GNU General Public License for more details.
+.\" *
+.\" * You should have received a copy of the GNU General Public License
+.\" * along with this program. If not, see <http://www.gnu.org/licenses/>.
+.\" *
+.\" **************************************************************************
+.TH man 1 "24 July 2013" "dfuzzer 1.0" "dfuzzer"
+.SH NAME
+dfuzzer \- Tool for fuzz testing processes communicating through D-Bus
+.SH SYNOPSIS
+.B dfuzzer
+.B \-n
+.I bus_name
+.B \-o
+.I object_path
+.B \-i
+.I interface
+[
+.B \-vhcs
+]
+.RS
+ [
+.B \-l
+.I log_file
+] [
+.B \-m
+.I mem_limit
+] [
+.B \-b
+.I max_buf_size
+]
+
+.SH DESCRIPTION
+\fBdfuzzer\fR is D-Bus fuzzer, a tool for fuzz testing processes communicating
+through D-Bus. It always takes a \fIbus_name\fR, an
+.I object_path
+and an
+.I interface
+as its options. These options are specifying which process will be tested.
+Fuzz tests are being done on methods specified by an \fIinterface\fR.
+dfuzzer generates random arguments for each method of an
+.I interface
+and calls these methods everytime with different generated arguments.
+
+dfuzzer is monitoring tested process state and memory usage during fuzz testing.
+In case tested process crashes or its memory usage is abnormal it is stated
+in a log file which is by default \fI/tmp/fuzzing.log\fR (location of log
+file can be changed using \fB-l\fR option).
+
+.SH OPTIONS
+.PP
+\fB\-v\fR
+.RS 4
+Print dfuzzer version and exit.
+.RE
+.PP
+\fB\-h\fR
+.RS 4
+Print dfuzzer help and exit.
+.RE
+.PP
+\fB\-c\fR
+.RS 4
+If tested process crashed during fuzz testing and this option is set, crashed
+process will be launched again and testing will continue.
+.RE
+.PP
+\fB\-s\fR
+.RS 4
+If set, dfuzzer is searching for a \fIbus_name\fR, an \fIobject_path\fR and
+an \fIinterface\fR on the system bus. Otherwise on the session bus.
+.RE
+.PP
+\fB\-n\fR \fIbus_name\fR
+.RS 4
+D-Bus name (e.g. \fIorg.gnome.Shell\fR)
+.RE
+.PP
+\fB\-o\fR \fIobject_path\fR
+.RS 4
+D-Bus object path (e.g. \fI/org/gnome/Shell\fR)
+.RE
+.PP
+\fB\-i\fR \fIinterface\fR
+.RS 4
+D-Bus interface (e.g. \fIorg.gnome.Shell\fR)
+.RE
+.PP
+\fB\-l\fR \fIlog_file\fR
+.RS 4
+Creates a log file \fIlog_file\fR for logging. If not set,
+the \fI/tmp/fuzzing.log\fR log file is created and used.
+.RE
+.PP
+\fB\-m\fR \fImem_limit\fR [in kB]
+.RS 4
+When tested process exceeds this limit it will be noted into log file.
+Default value for this limit is 3x process intial memory size. If set memory
+limit value is less than or equal to process initial memory size, it will be
+adjusted to the default value (3x process intial memory size).
+.RE
+.PP
+\fB\-b\fR \fImax_buf_size\fR [in B]
+.RS 4
+Maximum buffer size for generated strings, minimum is 256 B.
+Default maximum size is 50000 B ~= 50 kB (the greater the limit, the longer
+testing).
+.RE
+
+.SH SEE ALSO
+gdbus(1)
+
+.SH BUGS
+No known bugs.
+
+.SH AUTHOR
+Matus Marhefka (mmarhefk@redhat.com)
+
+.SH COPYRIGHT
+2013, Red Hat, Inc.

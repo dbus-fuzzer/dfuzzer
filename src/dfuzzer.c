@@ -2,7 +2,7 @@
 /*
 
 	dfuzzer - tool for fuzz testing processes communicating through D-Bus.
-	Copyright (C) 2013  Matus Marhefka
+	Copyright(C) 2013, Red Hat, Inc., Matus Marhefka <mmarhefk@redhat.com>
 
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -34,6 +34,9 @@
 
 /** Structure containing D-Bus name, object path and interface of process */
 struct fuzzing_target target_proc;
+
+/** Session/System bus daemon switch ('-s' option) */
+int df_bus_type;
 
 /** Indicates SIGHUP, SIGINT signals (defined in fuzz.h) */
 extern volatile sig_atomic_t df_exit_flag;
@@ -77,10 +80,24 @@ int main(int argc, char **argv)
 	g_type_init();
 
 
-	// Synchronously connects to the message bus.
-	if ( (dcon = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, &error)) == NULL ) {
-		df_error("Error in g_bus_get_sync() on connecting to the message bus",
-				error);
+	// Synchronously connects to the message bus (session/system) daemon.
+	switch (df_bus_type) {
+	case 0:
+		if ( (dcon = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, &error)) == NULL ) {
+			df_error("Error in g_bus_get_sync() on connecting to the session bus",
+					error);
+		}
+		break;
+	case 1:
+		if ( (dcon = g_bus_get_sync(G_BUS_TYPE_SYSTEM, NULL, &error)) == NULL ) {
+			df_error("Error in g_bus_get_sync() on connecting to the system bus",
+					error);
+		}
+		break;
+	default:
+		fprintf(stderr, "df_bus_type '%d' unknown\n", df_bus_type);
+		exit(1);
+		break;
 	}
 
 
@@ -165,6 +182,11 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 	ptr = log_buffer;
+
+	if (df_bus_type == 0)
+		ptr += sprintf(ptr,"Session bus:\n");
+	else
+		ptr += sprintf(ptr,"System bus:\n");
 	ptr += sprintf(ptr,"Bus name:\t\t");
 	ptr += sprintf(ptr, "%s\n", target_proc.name);
 	ptr += sprintf(ptr,"Object Path:\t");
@@ -402,9 +424,10 @@ void df_parse_parameters(int argc, char **argv, char **log_file,
 						long *buf_size, long *mem_limit, int *cont_flg)
 {
 	int c = 0;
-	int nflg = 0, oflg = 0, iflg = 0, lflg = 0, mflg = 0, bflg = 0, cflg = 0;
+	int nflg = 0, oflg = 0, iflg = 0, lflg = 0, mflg = 0, bflg = 0, cflg = 0,
+		sflg = 0;
 
-	while ( (c = getopt(argc, argv, "n:o:i:l:m:b:ch")) != -1 ) {
+	while ( (c = getopt(argc, argv, "n:o:i:l:m:b:csvh")) != -1 ) {
 		switch (c) {
 		case 'n':
 			if (nflg != 0) {
@@ -497,6 +520,19 @@ void df_parse_parameters(int argc, char **argv, char **log_file,
 			cflg++;
 			(*cont_flg)++;
 			break;
+		case 's':
+			if (sflg != 0) {
+				fprintf(stderr, "%s: no duplicate options -- 's'\n",
+						argv[0]);
+				exit(1);
+			}
+			sflg++;
+			df_bus_type++;		// system bus
+			break;
+		case 'v':
+			printf("%s", DF_VERSION);
+			exit(0);
+			break;
 		case 'h':
 			df_print_help(argv[0]);
 			exit(0);
@@ -508,8 +544,8 @@ void df_parse_parameters(int argc, char **argv, char **log_file,
 	}
 
 	if (!nflg || !oflg || !iflg) {
-		fprintf(stderr, "%s: options 'n', 'o' and 'i' are required\n",
-				argv[0]);
+		fprintf(stderr, "%s: options 'n', 'o' and 'i' are required\n"
+				"See -h for help.\n", argv[0]);
 		exit(1);
 	}
 }
@@ -521,25 +557,34 @@ void df_parse_parameters(int argc, char **argv, char **log_file,
 void df_print_help(char *name)
 {
 	printf("dfuzzer - Tool for fuzz testing processes communicating through D-Bus\n\n"
-			"REQUIRED OPTIONS:\n\t-n <name>\n"
-			"\t-o <object path>\n"
-			"\t-i <interface>\n\n"
+			"REQUIRED OPTIONS:\n-n bus_name\n"
+			"-o object_path\n"
+			"-i interface\n\n"
 			"OTHER OPTIONS:\n"
-			"\t-l <log file>\n\t   If not set, the '/tmp/fuzzing.log' file is created\n"
-			"\t-m <memory limit in kB>\n"
-			"\t   When tested process exceeds this limit it will be noted into\n"
-			"\t   log file. Default value for this limit is 3x process intial\n"
-			"\t   memory size. If set memory limit value is less than or\n"
-			"\t   equal to process initial memory size, it will be adjusted\n"
-			"\t   to default value (3x process intial memory size).\n"
-			"\t-b <maximum buffer size in B>\n"
-			"\t   Maximum buffer size for generated strings, minimum is 256 B.\n"
-			"\t   Default maximum size is 50000 B ~= 50 kB.\n"
-			"\t-c\n"
-			"\t   If tested process crashed during fuzzing and this option is\n"
-			"\t   set, crashed process will be launched again and testing will\n"
-			"\t   continue."
-			"\n"
+			"-v\n"
+			"   Print dfuzzer version and exit.\n"
+			"-h\n"
+			"   Print dfuzzer help and exit.\n"
+			"-c\n"
+			"   If tested process crashed during fuzz testing and this option\n"
+			"   is set, crashed process will be launched again and testing will\n"
+			"   continue.\n"
+			"-s\n"
+			"   If set, dfuzzer is searching for a bus_name, an object_path\n"
+			"   and an interface on the system bus. Otherwise on the session bus.\n"
+			"-l log_file\n"
+			"   Creates a log file log_file for logging. If not set,\n"
+			"   the /tmp/fuzzing.log log file is created and used.\n"
+			"-m mem_limit [in kB]\n"
+			"   When tested process exceeds this limit it will be noted into\n"
+			"   log file. Default value for this limit is 3x process intial\n"
+			"   memory size. If set memory limit value is less than or\n"
+			"   equal to process initial memory size, it will be adjusted\n"
+			"   to default value (3x process intial memory size).\n"
+			"-b max_buf_size [in B]\n"
+			"   Maximum buffer size for generated strings, minimum is 256 B.\n"
+			"   Default maximum size is 50000 B ~= 50 kB (the greater the limit,\n"
+			"   the longer testing).\n\n"
 			"Example:\n%s -n org.gnome.Shell -o /org/gnome/Shell"
 			" -i org.gnome.Shell -c\n", name);
 }
