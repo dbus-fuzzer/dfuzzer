@@ -64,6 +64,32 @@ static int df_fuzz_create_fmt_string(char **fmt, int n);
 static int df_fuzz_call_method(GVariant *value);
 
 
+/** Error checked write function with short write correction (when write
+	is interrupted by a signal).
+	@param fd File descriptor where to write
+	@param buf Buffer from which to write to file descriptor fd
+	@param count Number of bytes to be written
+	@return 0 on success, -1 on error
+*/
+inline int df_ewrite(int fd, const void *buf, size_t count)
+{
+	ssize_t written = 0;
+	do {
+		written = write(fd, buf, count);
+		if (written == count)
+			break;
+		if (written > 0) {
+			buf += written;
+			count -= written;
+		}
+	} while (written >= 0 || errno == EINTR);
+	if (written < 0) {
+		perror("write");
+		return -1;
+	}
+	return 0;
+}
+
 /**
 	@function Saves pointer on D-Bus interface proxy for this module to be
 	able to call methods through this proxy during fuzz testing. Also saves
@@ -347,28 +373,18 @@ static int df_fuzz_write_log(int logfd, long buf_size)
 			return 0;
 		}
 
-		if (write(logfd, "  --", 4) == -1) {
-			perror("write()");
+		if (df_ewrite(logfd, "  --", 4) == -1)
 			return -1;
-		}
-		if (write(logfd, s->sig, len) == -1) {
-			perror("write()");
+		if (df_ewrite(logfd, s->sig, len) == -1)
 			return -1;
-		}
 		if (str_len == -1) {	// no string, no length printing
-			if (write(logfd, "-- '", 4) == -1) {
-				perror("write()");
+			if (df_ewrite(logfd, "-- '", 4) == -1)
 				return -1;
-			}
 		}
-		if (write(logfd, buf, strlen(buf)) == -1) {
-			perror("write()");
+		if (df_ewrite(logfd, buf, strlen(buf)) == -1)
 			return -1;
-		}
-		if (write(logfd, "'\n", 2) == -1) {
-			perror("write()");
+		if (df_ewrite(logfd, "'\n", 2) == -1)
 			return -1;
-		}
 
 		str_len = -1;
 		ptr = buf;
@@ -425,10 +441,8 @@ int df_fuzz_test_method(int statfd, int logfd, long buf_size)
 	for (i = 0; i < df_list.args; i++, s = s->next)
 		ptr += sprintf(ptr, ((i < df_list.args-1) ? "%s, " : "%s"), s->sig);
 	ptr += sprintf(ptr, "):\n");
-	if (write(logfd, log_buffer, strlen(log_buffer)) == -1) {
-		perror("write()");
+	if (df_ewrite(logfd, log_buffer, strlen(log_buffer)) == -1)
 		return -1;
-	}
 	ptr = log_buffer;			// restarts position in log_buffer
 
 
@@ -453,10 +467,8 @@ int df_fuzz_test_method(int statfd, int logfd, long buf_size)
 							"  last known process memory size: [%ld kB]\n"
 							"  on input:\n",
 							df_list.df_method_name, i, prev_memory);
-			if (write(logfd, log_buffer, strlen(log_buffer)) == -1) {
-				perror("write()");
+			if (df_ewrite(logfd, log_buffer, strlen(log_buffer)) == -1)
 				return -1;
-			}
 			ptr = log_buffer;
 			i++;
 			if (df_fuzz_write_log(logfd, buf_size) == -1) {
@@ -480,10 +492,8 @@ int df_fuzz_test_method(int statfd, int logfd, long buf_size)
 				// writes to the logfd to let tester know
 				ptr += sprintf(ptr, "  unsupported argument by dfuzzer: ");
 				ptr += sprintf(ptr, "%s\n", unsupported_sig_str);
-				if (write(logfd, log_buffer, strlen(log_buffer)) == -1) {
-					perror("write()");
+				if (df_ewrite(logfd, log_buffer, strlen(log_buffer)) == -1)
 					return -1;
-				}
 				ptr = log_buffer;
 				unsupported_sig_str = NULL;
 				goto ok_label;
@@ -507,10 +517,8 @@ int df_fuzz_test_method(int statfd, int logfd, long buf_size)
 								"  last known process memory size: [%ld kB]\n"
 								"  on input:\n",
 								df_list.df_method_name, i, prev_memory);
-				if (write(logfd, log_buffer, strlen(log_buffer)) == -1) {
-					perror("write()");
+				if (df_ewrite(logfd, log_buffer, strlen(log_buffer)) == -1)
 					return -1;
-				}
 				ptr = log_buffer;
 				i++;
 				if (df_fuzz_write_log(logfd, buf_size) == -1) {
@@ -531,10 +539,8 @@ int df_fuzz_test_method(int statfd, int logfd, long buf_size)
 								"  last known process memory size: [%ld kB]\n",
 								df_list.df_method_name, i, df_list.df_method_name,
 								prev_memory);
-				if (write(logfd, log_buffer, strlen(log_buffer)) == -1) {
-					perror("write()");
+				if (df_ewrite(logfd, log_buffer, strlen(log_buffer)) == -1)
 					return -1;
-				}
 				if (value != NULL)
 					g_variant_unref(value);
 				goto ok_label;
@@ -551,10 +557,8 @@ int df_fuzz_test_method(int statfd, int logfd, long buf_size)
 							"[%ld kB]\n  on input:\n",
 							df_list.df_method_name, i, df_mem_limit,
 							df_initial_mem, used_memory);
-			if (write(logfd, log_buffer, strlen(log_buffer)) == -1) {
-				perror("write()");
+			if (df_ewrite(logfd, log_buffer, strlen(log_buffer)) == -1)
 				return -1;
-			}
 			ptr = log_buffer;
 			i++;
 			max_memory *= 3;
@@ -579,12 +583,8 @@ ok_label:
 						df_list.df_method_name);
 	ptr += sprintf(ptr,"==========================================="
 						"===================================\n");
-	if (write(logfd, log_buffer, strlen(log_buffer)) == -1) {
-		perror("write()");
+	if (df_ewrite(logfd, log_buffer, strlen(log_buffer)) == -1)
 		return -1;
-	}
-
-
 	free(log_buffer);
 	return 0;
 
@@ -594,11 +594,8 @@ err_label:
 						df_list.df_method_name);
 	ptr += sprintf(ptr,"==========================================="
 						"===================================\n");
-	if (write(logfd, log_buffer, strlen(log_buffer)) == -1) {
-		perror("write()");
+	if (df_ewrite(logfd, log_buffer, strlen(log_buffer)) == -1)
 		return -1;
-	}
-
 	free(log_buffer);
 	if (proc_crashed)
 		return 1;

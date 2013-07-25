@@ -195,10 +195,9 @@ int main(int argc, char **argv)
 	ptr += sprintf(ptr, "%s\n", target_proc.interface);
 	ptr += sprintf(ptr, "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 						"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
-	if (write(logfd, log_buffer, strlen(log_buffer)) == -1) {
-		perror("write()");
-		return -1;
-	}
+
+	if (df_ewrite(logfd, log_buffer, strlen(log_buffer)) == -1)
+		exit(1);
 	free(log_buffer);
 
 
