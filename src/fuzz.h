@@ -104,9 +104,12 @@ int df_fuzz_add_method_arg(char *signature);
 	@param logfd FD of log file
 	@param buf_size Maximum buffer size for generated strings
 	by rand module (in Bytes)
+	@param one_method_testing If set to 1, only one method from an interface
+	will be tested, otherwise if 0, all methods
 	@return 0 on success, -1 on error or 1 on tested process crash
 */
-int df_fuzz_test_method(int statfd, int logfd, long buf_size);
+int df_fuzz_test_method(int statfd, int logfd, long buf_size,
+						int one_method_testing);
 
 /**
 	@function Releases memory used by this module. This function must be called

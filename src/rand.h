@@ -22,7 +22,7 @@
 #define RAND_H
 
 /** minimal buffer size for generated strings */
-#define MINLEN 256
+#define MINLEN 512
 
 /** maximum buffer size for generated strings, default is cca 50 kB */
 #define MAX_BUF_LEN 50000

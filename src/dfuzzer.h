@@ -23,10 +23,11 @@
 
 /** Version of dfuzzer */
 #define DF_VERSION "dfuzzer 1.0\n" \
-	"Copyright(C) 2013, Red Hat, Inc., Matus Marhefka <mmarhefk@redhat.com>\n"
+	"Copyright(C) 2013, Red Hat, Inc., Matus Marhefka <mmarhefk@redhat.com>\n" \
+	"License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>.\n"
 
 /** minimal buffer size for generated strings */
-#define MINLEN 256
+#define MINLEN 512
 
 /** maximum length of strings containing D-Bus name, interface and object path */
 #define MAXLEN 256
@@ -84,9 +85,12 @@ int df_get_pid(GDBusConnection *dcon);
 	@param mem_limit Memory limit for tested process in kB
 	@param cont_flg When 1 and tested process crashes, it is relaunched
 	and testing continue; 0 means end of testing after crash
+	@param test_method Contains method name or NULL. When not NULL,
+	only method with this name will be tested.
 */
 void df_parse_parameters(int argc, char **argv, char **log_file,
-						long *buf_size, long *mem_limit, int *cont_flg);
+						long *buf_size, long *mem_limit, int *cont_flg,
+						char **test_method);
 
 /**
 	@function Prints help.

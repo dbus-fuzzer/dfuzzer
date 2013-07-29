@@ -53,14 +53,19 @@ int main(int argc, char **argv)
 	char *log_file = "/tmp/fuzzing.log";	// file for logs
 	int logfd;								// FD for log_file
 	int statfd;								// FD for process status file
-	long buf_size = 0;			// maximum buffer size for generated strings
-								// by rand module (in Bytes)
+	long buf_size = 0;			// Maximum buffer size for generated strings
+								// by rand module (in Bytes).
 	long mem_limit = 0;		// Memory limit for tested process in kB - if
 							// tested process exceeds this limit it will be
-							// noted into log file
-	int cont_flg = 0;			// when tested process crashes and this
+							// noted into log file.
+	int cont_flg = 0;			// When tested process crashes and this
 								// flag is set to 1, it is relaunched
-								// and testing continue
+								// and testing continue.
+	char *test_method = NULL;	// Contains method name or NULL. When not NULL,
+								// only method with this name will be tested.
+	int method_found = 0;		// If test_method is found in an interface,
+								// method_found is set to 1, otherwise to 0.
+
 
 	GError *error = NULL;			// must be set to NULL
 	GDBusConnection *dcon;			// D-Bus connection structure
@@ -73,8 +78,9 @@ int main(int argc, char **argv)
 	signal(SIGHUP, df_signal_handler);		// terminal closed signal
 
 
-	// do not free log_file - it may point to argv
-	df_parse_parameters(argc, argv, &log_file, &buf_size, &mem_limit, &cont_flg);
+	// do not free log_file and test_method variables - they may point to argv
+	df_parse_parameters(argc, argv, &log_file, &buf_size, &mem_limit, &cont_flg,
+						&test_method);
 
 	// Initializes the type system.
 	g_type_init();
@@ -187,11 +193,11 @@ int main(int argc, char **argv)
 		ptr += sprintf(ptr,"Session bus:\n");
 	else
 		ptr += sprintf(ptr,"System bus:\n");
-	ptr += sprintf(ptr,"Bus name:\t\t");
+	ptr += sprintf(ptr,"Bus name:       ");
 	ptr += sprintf(ptr, "%s\n", target_proc.name);
-	ptr += sprintf(ptr,"Object Path:\t");
+	ptr += sprintf(ptr,"Object Path:    ");
 	ptr += sprintf(ptr, "%s\n", target_proc.obj_path);
-	ptr += sprintf(ptr,"Interface:\t\t");
+	ptr += sprintf(ptr,"Interface:      ");
 	ptr += sprintf(ptr, "%s\n", target_proc.interface);
 	ptr += sprintf(ptr, "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 						"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
@@ -204,8 +210,16 @@ int main(int argc, char **argv)
 	printf("Fuzzing started...\n");
 	GDBusMethodInfo *m;
 	GDBusArgInfo *in_arg;
+	int ret = 0;
 	for (; (m = df_get_method()) != NULL; df_next_method())
 	{
+		// testing only one method with name test_method
+		if (test_method != NULL) {
+			if (strcmp(test_method, m->name) != 0)
+				continue;
+			method_found = 1;
+		}
+
 		// adds method name to the fuzzing module
 		if (df_fuzz_add_method(m->name) == -1) {
 			close(statfd);
@@ -228,21 +242,24 @@ int main(int argc, char **argv)
 			}
 		}
 
+		printf("Fuzzing '%s'...\n", m->name);
+retest:
 		// tests for method
-		int ret = df_fuzz_test_method(statfd, logfd, buf_size);
+		ret = df_fuzz_test_method(statfd, logfd, buf_size, method_found);
 		if (ret == -1) {
 			close(statfd);
 			close(logfd);
+			df_fuzz_clean_method();
 			df_unref_introspection();
 			g_object_unref(dproxy);
 			g_object_unref(dcon);
 			df_error("Error in df_fuzz_test_method()", error);
 		}
 
-		df_fuzz_clean_method();		// cleaning up after testing method
-
-		if (df_exit_flag)
+		if (df_exit_flag) {
+			df_fuzz_clean_method();		// cleaning up after testing method
 			goto end_label;
+		}
 
 		// launch process again after crash
 		if (ret == 1 && cont_flg)
@@ -254,6 +271,7 @@ int main(int argc, char **argv)
 			if (dproxy == NULL) {
 				close(statfd);
 				close(logfd);
+				df_fuzz_clean_method();
 				df_unref_introspection();
 				g_object_unref(dproxy);
 				g_object_unref(dcon);
@@ -262,8 +280,10 @@ int main(int argc, char **argv)
 			}
 
 			if (sleep(5)) {		// wait for application to launch
-				if (df_exit_flag)
+				if (df_exit_flag) {
+					df_fuzz_clean_method();
 					goto end_label;
+				}
 			}
 
 			// gets pid of tested process
@@ -271,6 +291,7 @@ int main(int argc, char **argv)
 			if (pid < 0) {
 				close(statfd);
 				close(logfd);
+				df_fuzz_clean_method();
 				df_unref_introspection();
 				g_object_unref(dproxy);
 				g_object_unref(dcon);
@@ -283,6 +304,7 @@ int main(int argc, char **argv)
 			if ((statfd = df_open_proc_status_file(pid)) == -1) {
 				close(statfd);
 				close(logfd);
+				df_fuzz_clean_method();
 				df_unref_introspection();
 				g_object_unref(dproxy);
 				g_object_unref(dcon);
@@ -294,17 +316,37 @@ int main(int argc, char **argv)
 			if (df_fuzz_init(dproxy, statfd, mem_limit) == -1) {
 				close(statfd);
 				close(logfd);
+				df_fuzz_clean_method();
 				df_unref_introspection();
 				g_object_unref(dproxy);
 				g_object_unref(dcon);
 				df_error("Error in df_fuzz_add_proxy()", error);
 			}
+
+			if (method_found)
+				goto retest;
+
+			df_fuzz_clean_method();		// cleaning up after testing method
 		}
-		else if (ret == 1 && !cont_flg)	// end of fuzzing after process crash
+		else if (ret == 1) {	// end of fuzzing after process crash
+			df_fuzz_clean_method();		// cleaning up after testing method
 			goto end_label;
+		}
 	}
 
 end_label:
+	if (method_found == 0 && test_method != NULL) {
+		fprintf(stderr, "\nMethod '%s' was not found in the interface '%s'.",
+				test_method, target_proc.interface);
+		printf("\nReleasing all used memory...");
+		df_unref_introspection();
+		g_object_unref(dproxy);
+		g_object_unref(dcon);
+		close(statfd);
+		close(logfd);
+		printf("\nExiting...\n");
+		exit(1);
+	}
 	printf("\nEnd of fuzzing.");
 	printf("\nLook into '%s' for results of fuzzing.", log_file);
 	printf("\nReleasing all used memory...");
@@ -418,15 +460,18 @@ int df_get_pid(GDBusConnection *dcon)
 	@param mem_limit Memory limit for tested process in kB
 	@param cont_flg When 1 and tested process crashes, it is relaunched
 	and testing continue; 0 means end of testing after crash
+	@param test_method Contains method name or NULL. When not NULL,
+	only method with this name will be tested.
 */
 void df_parse_parameters(int argc, char **argv, char **log_file,
-						long *buf_size, long *mem_limit, int *cont_flg)
+						long *buf_size, long *mem_limit, int *cont_flg,
+						char **test_method)
 {
 	int c = 0;
 	int nflg = 0, oflg = 0, iflg = 0, lflg = 0, mflg = 0, bflg = 0, cflg = 0,
-		sflg = 0;
+		sflg = 0, tflg = 0;
 
-	while ( (c = getopt(argc, argv, "n:o:i:l:m:b:csvh")) != -1 ) {
+	while ( (c = getopt(argc, argv, "n:o:i:l:m:b:t:csvh")) != -1 ) {
 		switch (c) {
 		case 'n':
 			if (nflg != 0) {
@@ -510,6 +555,15 @@ void df_parse_parameters(int argc, char **argv, char **log_file,
 				exit(1);
 			}
 			break;
+		case 't':
+			if (tflg != 0) {
+				fprintf(stderr, "%s: no duplicate options -- 't'\n",
+						argv[0]);
+				exit(1);
+			}
+			tflg++;
+			*test_method = optarg;
+			break;
 		case 'c':
 			if (cflg != 0) {
 				fprintf(stderr, "%s: no duplicate options -- 'c'\n",
@@ -583,7 +637,11 @@ void df_print_help(char *name)
 			"-b max_buf_size [in B]\n"
 			"   Maximum buffer size for generated strings, minimum is 256 B.\n"
 			"   Default maximum size is 50000 B ~= 50 kB (the greater the limit,\n"
-			"   the longer testing).\n\n"
-			"Example:\n%s -n org.gnome.Shell -o /org/gnome/Shell"
+			"   the longer testing).\n"
+			"-t method_name\n"
+			"   When this parameter is provided, only method method_name is tested.\n"
+			"   All other methods of an interface are skipped.\n"
+			"   DO NOT USE IN AUTOMATIC SCRIPTS, IT NEEDS TO BE TERMINATED BY SIGINT!\n"
+			"\nExample:\n%s -n org.gnome.Shell -o /org/gnome/Shell"
 			" -i org.gnome.Shell -c\n", name);
 }

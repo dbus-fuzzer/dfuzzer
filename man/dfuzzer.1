@@ -17,7 +17,7 @@
 .\" * along with this program. If not, see <http://www.gnu.org/licenses/>.
 .\" *
 .\" **************************************************************************
-.TH man 1 "24 July 2013" "dfuzzer 1.0" "dfuzzer"
+.TH man 1 "29 July 2013" "dfuzzer 1.0" "dfuzzer"
 .SH NAME
 dfuzzer \- Tool for fuzz testing processes communicating through D-Bus
 .SH SYNOPSIS
@@ -41,6 +41,10 @@ dfuzzer \- Tool for fuzz testing processes communicating through D-Bus
 ] [
 .B \-b
 .I max_buf_size
+]
+ [
+.B \-t
+.I method_name
 ]
 
 .SH DESCRIPTION
@@ -118,6 +122,13 @@ adjusted to the default value (3x process intial memory size).
 Maximum buffer size for generated strings, minimum is 256 B.
 Default maximum size is 50000 B ~= 50 kB (the greater the limit, the longer
 testing).
+.RE
+.PP
+\fB\-t\fR \fImethod_name\fR
+.RS 4
+When this parameter is provided, only method \fImethod_name\fR is tested.
+All other methods of an interface are skipped.
+DO NOT USE IN AUTOMATIC SCRIPTS, AS IT NEEDS TO BE USUALLY TERMINATED BY SIGINT!
 .RE
 
 .SH SEE ALSO

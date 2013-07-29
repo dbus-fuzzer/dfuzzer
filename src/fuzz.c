@@ -402,10 +402,16 @@ static int df_fuzz_write_log(int logfd, long buf_size)
 	@param logfd FD of log file
 	@param buf_size Maximum buffer size for generated strings
 	by rand module (in Bytes)
+	@param one_method_testing If set to 1, only one method from an interface
+	will be tested, otherwise if 0, all methods
 	@return 0 on success, -1 on error or 1 on tested process crash
 */
-int df_fuzz_test_method(int statfd, int logfd, long buf_size)
+int df_fuzz_test_method(int statfd, int logfd, long buf_size,
+						int one_method_testing)
 {
+	static int write_to_log = 1;
+	static int i = 1;
+
 	// methods with no arguments are not tested
 	if (df_list.args == 0)
 		return 0;
@@ -413,7 +419,6 @@ int df_fuzz_test_method(int statfd, int logfd, long buf_size)
 
 	struct df_signature *s = df_list.list;		// pointer on first signature
 	GVariant *value = NULL;
-	int i;
 	long used_memory = 0;				// memory size used by process in kB
 	long prev_memory = 0;				// last known memory size
 	long max_memory = df_mem_limit;		// maximum normal memory size used
@@ -434,22 +439,29 @@ int df_fuzz_test_method(int statfd, int logfd, long buf_size)
 	ptr = log_buffer;
 
 
-	// writes to log file which method is going to be tested
-	ptr += sprintf(ptr,"==========================================="
-						"===================================\n");
-	ptr += sprintf(ptr, "fuzzing method %s(", df_list.df_method_name);
-	for (i = 0; i < df_list.args; i++, s = s->next)
-		ptr += sprintf(ptr, ((i < df_list.args-1) ? "%s, " : "%s"), s->sig);
-	ptr += sprintf(ptr, "):\n");
-	if (df_ewrite(logfd, log_buffer, strlen(log_buffer)) == -1)
-		return -1;
-	ptr = log_buffer;			// restarts position in log_buffer
+	if (write_to_log) {
+		int j = 0;
+		// writes to log file which method is going to be tested
+		ptr += sprintf(ptr, "==========================================="
+							"===================================\n");
+		ptr += sprintf(ptr, "fuzzing method %s(", df_list.df_method_name);
+		for (; j < df_list.args; j++, s = s->next)
+			ptr += sprintf(ptr, ((j < df_list.args-1) ? "%s, " : "%s"), s->sig);
+		ptr += sprintf(ptr, "):\n");
+		if (df_ewrite(logfd, log_buffer, strlen(log_buffer)) == -1)
+			return -1;
+		ptr = log_buffer;			// restarts position in log_buffer
+
+		if (one_method_testing)
+			write_to_log = 0;
+	}
 
 
 	df_rand_init(buf_size);		// initialization of random module
 
 
-	i = 1;			// log number for current method
+	if (one_method_testing == 0)
+		i = 1;			// log number for current method
 	while (df_rand_continue(df_list.fuzz_on_str_len))
 	{
 
@@ -579,23 +591,27 @@ int df_fuzz_test_method(int statfd, int logfd, long buf_size)
 	}
 
 ok_label:
-	ptr += sprintf(ptr, "\nend of fuzzing of method '%s'\n",
-						df_list.df_method_name);
-	ptr += sprintf(ptr,"==========================================="
-						"===================================\n");
-	if (df_ewrite(logfd, log_buffer, strlen(log_buffer)) == -1)
-		return -1;
+	if (one_method_testing == 0) {
+		ptr += sprintf(ptr, "\nend of fuzzing of method '%s'\n",
+							df_list.df_method_name);
+		ptr += sprintf(ptr, "==========================================="
+							"===================================\n");
+		if (df_ewrite(logfd, log_buffer, strlen(log_buffer)) == -1)
+			return -1;
+	}
 	free(log_buffer);
 	return 0;
 
 
 err_label:
-	ptr += sprintf(ptr, "\nend of fuzzing of method '%s'\n",
-						df_list.df_method_name);
-	ptr += sprintf(ptr,"==========================================="
-						"===================================\n");
-	if (df_ewrite(logfd, log_buffer, strlen(log_buffer)) == -1)
-		return -1;
+	if (one_method_testing == 0) {
+		ptr += sprintf(ptr, "\nend of fuzzing of method '%s'\n",
+							df_list.df_method_name);
+		ptr += sprintf(ptr, "==========================================="
+							"===================================\n");
+		if (df_ewrite(logfd, log_buffer, strlen(log_buffer)) == -1)
+			return -1;
+	}
 	free(log_buffer);
 	if (proc_crashed)
 		return 1;
