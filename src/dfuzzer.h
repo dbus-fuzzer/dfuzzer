@@ -2,7 +2,8 @@
 /*
 
 	dfuzzer - tool for fuzz testing processes communicating through D-Bus.
-	Copyright(C) 2013, Red Hat, Inc., Matus Marhefka <mmarhefk@redhat.com>
+	Copyright(C) 2013, Red Hat, Inc., Matus Marhefka <mmarhefk@redhat.com>,
+	Miroslav Vadkerti <mvadkert@redhat.com>
 
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -22,8 +23,9 @@
 #define DFUZZER_H
 
 /** Version of dfuzzer */
-#define DF_VERSION "dfuzzer 1.0\n" \
+#define DF_VERSION "dfuzzer 1.1\n" \
 	"Copyright(C) 2013, Red Hat, Inc., Matus Marhefka <mmarhefk@redhat.com>\n" \
+	"Additional changes by Miroslav Vadkerti <mvadkert@redhat.com>\n" \
 	"License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>.\n"
 
 /** minimal buffer size for generated strings */
@@ -31,7 +33,6 @@
 
 /** maximum length of strings containing D-Bus name, interface and object path */
 #define MAXLEN 256
-
 
 /** Structure containing D-Bus name, object path and interface of process. */
 struct fuzzing_target {		// names on D-Bus have the most MAXLEN characters
@@ -43,21 +44,23 @@ struct fuzzing_target {		// names on D-Bus have the most MAXLEN characters
 	char interface[MAXLEN];
 };
 
+/**
+	@function
+*/
+int df_traverse_node(GDBusConnection * dcon, const char *root_node);
 
 /**
-	@function Function is called when SIGINT signal is emitted. It sets
-	flag df_exit_flag for fuzzer to know, that it should end testing, free
-	memory and exit.
-	@param sig Catched signal number
+	@function
 */
-void df_signal_handler(int sig);
+int df_fuzz(GDBusConnection * dcon, const char *name,
+			const char *obj, const char *intf);
 
 /**
 	@function Displays an error message and exits with error code 1.
 	@param message Error message which will be printed before exiting program
 	@param error Pointer on GError structure containing error specification
 */
-void df_error(char *message, GError *error);
+void df_error(char *message, GError * error);
 
 /**
 	@function Opens process status file.
@@ -72,30 +75,54 @@ int df_open_proc_status_file(int pid);
 	@param dcon D-Bus connection structure
 	@return Process PID on success, -1 on error
 */
-int df_get_pid(GDBusConnection *dcon);
+int df_get_pid(GDBusConnection * dcon);
 
 /**
-	@function Parses program options and stores them into struct fuzzing_target.
+	@function Parses program options and stores them into global
+	variables:
+	* buf_size
+		Maximum buffer size for generated strings by rand
+		module (in Bytes)
+	* mem_limit
+		Memory limit for tested process in kB
+	* test_method
+		Contains method name or NULL. When not NULL, only
+		method with this name will be tested
+	* target_proc
+		Is of type struct fuzzing_target and is used
+		to store bus name, object path and interface
+	* df_verbose_flag
+		Be verbose
+	* df_debug_flag	
+		Include debug output
 	If error occures function ends program.
 	@param argc Count of options
 	@param argv Pointer on strings containing options of program
-	@param log_file File for logs
-	@param buf_size Maximum buffer size for generated strings
-	by rand module (in Bytes)
-	@param mem_limit Memory limit for tested process in kB
-	@param cont_flg When 1 and tested process crashes, it is relaunched
-	and testing continue; 0 means end of testing after crash
-	@param test_method Contains method name or NULL. When not NULL,
-	only method with this name will be tested.
 */
-void df_parse_parameters(int argc, char **argv, char **log_file,
-						long *buf_size, long *mem_limit, int *cont_flg,
-						char **test_method);
+void df_parse_parameters(int argc, char **argv);
 
 /**
 	@function Prints help.
 	@param name Name of program
 */
 void df_print_help(char *name);
+
+/**
+	@function Prints debug message.
+	@param format Format string
+*/
+void df_debug(const char *format, ...);
+
+/**
+	@function Prints verbose message.
+	@param format Format string
+*/
+void df_verbose(const char *format, ...);
+
+/**
+	@function Prints error message.
+	@param format Format string
+*/
+void df_fail(const char *format, ...);
 
 #endif

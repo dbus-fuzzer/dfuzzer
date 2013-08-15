@@ -16,6 +16,7 @@ Requirements:
 
     glib2-devel-2.26 or higher
     libffi-devel-3.0 or higher
+	doxygen (optional)
 
 Fedora:
 

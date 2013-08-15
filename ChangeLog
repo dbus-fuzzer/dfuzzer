@@ -1,3 +1,23 @@
+2013-08-15  Matus Marhefka  <mmarhefk@redhat.com>
+
+	version 1.2
+	* warnings added to output generation
+	* -c option removed (dfuzzer does not stop on errors by default now)
+	* corrected instant reinitialization of rand module when testing one method
+	* fixed memory leaks
+	* changed prototypes of some functions
+
+2013-08-02  Miroslav Vadkerti  <mvadkert@redhat.com>
+
+	version 1.1
+	Added:
+	* -V option for printing version
+	* -v option for verbose messages
+	* -d option for debug messages
+	* Changed login style
+	* Changed output generation - no log file
+	* Added traversing of all objects/methods of the given bus name/object path
+
 2013-07-29  Matus Marhefka  <mmarhefk@redhat.com>
 
 	version 1.0

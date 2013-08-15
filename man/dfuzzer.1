@@ -17,56 +17,42 @@
 .\" * along with this program. If not, see <http://www.gnu.org/licenses/>.
 .\" *
 .\" **************************************************************************
-.TH man 1 "29 July 2013" "dfuzzer 1.0" "dfuzzer"
+.TH man 1 "15 August 2013" "dfuzzer 1.2" "dfuzzer"
 .SH NAME
 dfuzzer \- Tool for fuzz testing processes communicating through D-Bus
 .SH SYNOPSIS
 .B dfuzzer
 .B \-n
-.I bus_name
-.B \-o
-.I object_path
-.B \-i
-.I interface
-[
-.B \-vhcs
-]
-.RS
- [
-.B \-l
-.I log_file
-] [
-.B \-m
-.I mem_limit
-] [
-.B \-b
-.I max_buf_size
-]
- [
-.B \-t
-.I method_name
-]
+\fIBUS_NAME\fR
+[\fIOTHER_OPTIONS\fR]
+
 
 .SH DESCRIPTION
 \fBdfuzzer\fR is D-Bus fuzzer, a tool for fuzz testing processes communicating
-through D-Bus. It always takes a \fIbus_name\fR, an
-.I object_path
-and an
-.I interface
-as its options. These options are specifying which process will be tested.
-Fuzz tests are being done on methods specified by an \fIinterface\fR.
-dfuzzer generates random arguments for each method of an
-.I interface
-and calls these methods everytime with different generated arguments.
+through D-Bus. The fuzzer traverses through all the methods on the given bus name.
+By default only failures are printed. Use -v for verbose mode.
+By default the session bus is used. Use -s to use the system bus.
+
+Fuzz tests are being done on methods of a chosen interface(s) and an object(s)
+for the given bus name. dfuzzer generates random arguments for each method
+of an interface and calls these methods everytime with different generated arguments.
 
 dfuzzer is monitoring tested process state and memory usage during fuzz testing.
 In case tested process crashes or its memory usage is abnormal it is stated
-in a log file which is by default \fI/tmp/fuzzing.log\fR (location of log
-file can be changed using \fB-l\fR option).
+on the output of dfuzzer.
 
-.SH OPTIONS
+
+.SH REQUIRED OPTIONS
 .PP
-\fB\-v\fR
+\fB\-n\fR \fIBUS_NAME\fR
+.RS 4
+D-Bus name to test.
+.RE
+
+
+.SH OTHER OPTIONS
+.PP
+\fB\-V\fR
 .RS 4
 Print dfuzzer version and exit.
 .RE
@@ -76,40 +62,32 @@ Print dfuzzer version and exit.
 Print dfuzzer help and exit.
 .RE
 .PP
-\fB\-c\fR
+\fB\-v\fR
 .RS 4
-If tested process crashed during fuzz testing and this option is set, crashed
-process will be launched again and testing will continue.
+Enable verbose messages.
+.RE
+.PP
+\fB\-d\fR
+.RS 4
+Enable debug messages.
 .RE
 .PP
 \fB\-s\fR
 .RS 4
-If set, dfuzzer is searching for a \fIbus_name\fR, an \fIobject_path\fR and
-an \fIinterface\fR on the system bus. Otherwise on the session bus.
+Use system bus instead of the default session bus.
 .RE
 .PP
-\fB\-n\fR \fIbus_name\fR
+\fB\-o\fR \fIOBJECT_PATH\fR
 .RS 4
-D-Bus name (e.g. \fIorg.gnome.Shell\fR)
+Optional object path to test. All children objects are traversed.
 .RE
 .PP
-\fB\-o\fR \fIobject_path\fR
+\fB\-i\fR \fIINTERFACE\fR
 .RS 4
-D-Bus object path (e.g. \fI/org/gnome/Shell\fR)
+Interface to test. Requires also -o option.
 .RE
 .PP
-\fB\-i\fR \fIinterface\fR
-.RS 4
-D-Bus interface (e.g. \fIorg.gnome.Shell\fR)
-.RE
-.PP
-\fB\-l\fR \fIlog_file\fR
-.RS 4
-Creates a log file \fIlog_file\fR for logging. If not set,
-the \fI/tmp/fuzzing.log\fR log file is created and used.
-.RE
-.PP
-\fB\-m\fR \fImem_limit\fR [in kB]
+\fB\-m\fR \fIMEM_LIMIT\fR [in kB]
 .RS 4
 When tested process exceeds this limit it will be noted into log file.
 Default value for this limit is 3x process intial memory size. If set memory
@@ -124,9 +102,9 @@ Default maximum size is 50000 B ~= 50 kB (the greater the limit, the longer
 testing).
 .RE
 .PP
-\fB\-t\fR \fImethod_name\fR
+\fB\-t\fR \fIMETHOD_NAME\fR
 .RS 4
-When this parameter is provided, only method \fImethod_name\fR is tested.
+When this parameter is provided, only method \fIMETHOD_NAME\fR is tested.
 All other methods of an interface are skipped.
 DO NOT USE IN AUTOMATIC SCRIPTS, AS IT NEEDS TO BE USUALLY TERMINATED BY SIGINT!
 .RE
@@ -139,6 +117,8 @@ No known bugs.
 
 .SH AUTHOR
 Matus Marhefka (mmarhefk@redhat.com)
+
+Additional changes by Miroslav Vadkerti (mvadkert@redhat.com)
 
 .SH COPYRIGHT
 2013, Red Hat, Inc.

@@ -30,13 +30,13 @@
 	@param interface Name of process interface
 	@return 0 on success, -1 on error
 */
-int df_init_introspection(GDBusProxy *dproxy, char *interface);
+int df_init_introspection(GDBusProxy * dproxy, char *interface);
 
 /**
 	@return Pointer on GDBusMethodInfo which contains information about method
 	(do not free it).
 */
-GDBusMethodInfo * df_get_method(void);
+GDBusMethodInfo *df_get_method(void);
 
 /**
 	@function Function is used as "iterator" for interface methods.
@@ -47,7 +47,7 @@ void df_next_method(void);
 	@return Pointer on GDBusArgInfo which contains information about argument
 	of current (df_get_method()) method (do not free it).
 */
-GDBusArgInfo * df_get_method_arg(void);
+GDBusArgInfo *df_get_method_arg(void);
 
 /**
 	@function Function is used as "iterator" for interface current

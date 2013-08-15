@@ -2,7 +2,8 @@
 /*
 
 	dfuzzer - tool for fuzz testing processes communicating through D-Bus.
-	Copyright(C) 2013, Red Hat, Inc., Matus Marhefka <mmarhefk@redhat.com>
+	Copyright(C) 2013, Red Hat, Inc., Matus Marhefka <mmarhefk@redhat.com>,
+	Miroslav Vadkerti <mvadkert@redhat.com>
 
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -30,7 +31,6 @@
 /** maximum length read from file */
 #define MAXLINE 1024
 
-volatile sig_atomic_t df_exit_flag;		/** indicates SIGHUP, SIGINT signals */
 
 /** Structure contains a D-Bus signature of the argument and pointer to a next
 	argument (arguments belongs to the method df_method_name
@@ -53,7 +53,7 @@ struct df_sig_list {
 	int args;
 	/** if 1, fuzzing will be controlled by generated random strings lengths */
 	int fuzz_on_str_len;
-	/** if no arguments - NULL, otherwise NULL terminated linked list */	
+	/** if no arguments - NULL, otherwise NULL terminated linked list */
 	struct df_signature *list;
 };
 
@@ -98,18 +98,25 @@ int df_fuzz_add_method(char *name);
 int df_fuzz_add_method_arg(char *signature);
 
 /**
+	@return Number of arguments of tested method
+*/
+int df_list_args_count(void);
+
+/**
 	@function Function is testing a method in cycle, each cycle generates data
 	for function arguments, calls method and waits for result.
 	@param statfd FD of process status file
-	@param logfd FD of log file
 	@param buf_size Maximum buffer size for generated strings
 	by rand module (in Bytes)
-	@param one_method_testing If set to 1, only one method from an interface
-	will be tested, otherwise if 0, all methods
+	@param name D-Bus name
+	@param obj D-Bus object path
+	@param intf D-Bus interface
+	@param one_method_test If set to 1, reinitialization of rand module
+	is disabled, otherwise it is enabled
 	@return 0 on success, -1 on error or 1 on tested process crash
 */
-int df_fuzz_test_method(int statfd, int logfd, long buf_size,
-						int one_method_testing);
+int df_fuzz_test_method(int statfd, long buf_size, const char *name,
+						const char *obj, const char *intf, int one_method_test);
 
 /**
 	@function Releases memory used by this module. This function must be called

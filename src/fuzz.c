@@ -2,7 +2,8 @@
 /*
 
 	dfuzzer - tool for fuzz testing processes communicating through D-Bus.
-	Copyright(C) 2013, Red Hat, Inc., Matus Marhefka <mmarhefk@redhat.com>
+	Copyright(C) 2013, Red Hat, Inc., Matus Marhefka <mmarhefk@redhat.com>,
+	Miroslav Vadkerti <mvadkert@redhat.com>
 
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -29,39 +30,36 @@
 #include <ffi.h>		// dynamic function call construction
 
 #include "fuzz.h"
+#include "dfuzzer.h"
 #include "rand.h"
-
 
 /** Pointer on D-Bus interface proxy for calling methods. */
 static GDBusProxy *df_dproxy;
-
 /** Structure containing information about the linked list. */
 static struct df_sig_list df_list;
-
 /** Pointer on the last item of the linked list in the global var. df_list. */
 static struct df_signature *df_last;
-
 /** Initial memory size of process is saved into this variable */
 static long df_initial_mem = -1;
-
 /** Memory limit for tested process in kB - if tested process exceeds this
 	limit it will be noted into log file */
 static long df_mem_limit;
-
 /** Flag for unsupported method signature, 1 means signature is unsupported */
 static int unsupported_sig;
-
 /** Pointer on unsupported signature string (do not free it) */
 static char *unsupported_sig_str;
 
 
+extern int df_bus_type;
+
+
 /* Module static functions */
 static long df_fuzz_get_proc_mem_size(int statfd);
-static int df_fuzz_write_log(int logfd, long buf_size);
-static GVariant * df_fuzz_create_variant(void);
+static int df_fuzz_write_log(void);
+static GVariant *df_fuzz_create_variant(void);
 static int df_fuzz_create_list_variants(void);
 static int df_fuzz_create_fmt_string(char **fmt, int n);
-static int df_fuzz_call_method(GVariant *value);
+static int df_fuzz_call_method(GVariant * value);
 
 
 /** Error checked write function with short write correction (when write
@@ -165,7 +163,7 @@ int df_fuzz_add_method_arg(char *signature)
 		return 0;
 
 	struct df_signature *s;
-	if ( (s = malloc(sizeof(struct df_signature))) == NULL ) {
+	if ((s = malloc(sizeof(struct df_signature))) == NULL) {
 		fprintf(stderr, "Could not allocate memory for struct df_signature.\n");
 		return -1;
 	}
@@ -186,17 +184,23 @@ int df_fuzz_add_method_arg(char *signature)
 	if (strstr(s->sig, "v") != NULL)
 		df_list.fuzz_on_str_len = 1;
 
-
 	if (df_list.list == NULL) {
 		df_list.list = s;
 		df_last = s;
-	}
-	else {
+	} else {
 		df_last->next = s;
 		df_last = s;
 	}
 
 	return 0;
+}
+
+/**
+	@return Number of arguments of tested method
+*/
+int df_list_args_count(void)
+{
+	return df_list.args;
 }
 
 /**
@@ -209,8 +213,8 @@ int df_fuzz_add_method_arg(char *signature)
 static long df_fuzz_get_proc_mem_size(int statfd)
 {
 	long mem_size = -1;
-	char buf[MAXLINE];		// buffer for reading from file
-	char *ptr;				// pointer into buf buffer
+	char buf[MAXLINE];	// buffer for reading from file
+	char *ptr;			// pointer into buf buffer
 
 	// rewinds file position to the beginning
 	if (lseek(statfd, 0L, SEEK_SET) == -1)
@@ -218,16 +222,14 @@ static long df_fuzz_get_proc_mem_size(int statfd)
 
 	int stopr = 0;
 	while (!stopr) {
-		int n = read(statfd, buf, MAXLINE-1);
-		if (n == -1) {
-			fprintf(stderr, "Error on reading process status file\n");
+		int n = read(statfd, buf, MAXLINE - 1);
+		if (n == -1)
 			return -1;
-		}
 		if (n == 0)
 			stopr++;
 		buf[n] = '\0';
 
-		if ( (ptr = strstr(buf, "VmRSS:")) == NULL)
+		if ((ptr = strstr(buf, "VmRSS:")) == NULL)
 			return 0;
 
 		// check for new line (that whole memory size number is in buffer)
@@ -248,7 +250,7 @@ static long df_fuzz_get_proc_mem_size(int statfd)
 	mem_size = strtol(ptr, NULL, 10);
 	if (errno == ERANGE || errno == EINVAL) {
 		fprintf(stderr, "Error on conversion of process memory to a long"
-						" integer\n");
+				" integer\n");
 		return -1;
 	}
 	return mem_size;
@@ -256,142 +258,137 @@ static long df_fuzz_get_proc_mem_size(int statfd)
 
 /**
 	@function Writes all method signatures and their values into the log file.
-	@param logfd FD of log file
-	@param buf_size Maximum buffer size for generated strings
-	by rand module (in Bytes)
+	//@param logfd FD of log file
+	//@param buf_size Maximum buffer size for generated strings
+	//by rand module (in Bytes)
 	@return 0 on success, -1 on error
 */
-static int df_fuzz_write_log(int logfd, long buf_size)
+static int df_fuzz_write_log(void)
 {
-	struct df_signature *s = df_list.list;		// pointer on first signature
-	int len;
-	int str_len = -1;
-	char *buf = malloc(sizeof(char) * buf_size);
-	if (buf == NULL) {
-		fprintf(stderr, "Could not allocate memory for log buffer.\n");
-		return -1;
-	}
-	char *ptr = buf;
+	struct df_signature *s = df_list.list;	// pointer on first signature
+	int len = 0;
+	int str_len = 0;
 
 	while (s != NULL) {
 		len = strlen(s->sig);
 		if (len <= 0) {
 			fprintf(stderr, "No argument signature\n");
-			free(buf);
 			return -1;
-		}
-		else if (len == 1) {	// one character argument
+		} else if (len == 1) {	// one character argument
+			df_fail("    --");
+			df_fail("%s", s->sig);
+
 			switch (s->sig[0]) {
 			case 'y':
-				; guint8 tmp;
+				;
+				guint8 tmp;
 				g_variant_get(s->var, s->sig, &tmp);
-				sprintf(ptr, "%u", tmp);
+				df_fail("-- '%u'\n", tmp);
 				break;
 			case 'b':
-				; gboolean tmp1;
+				;
+				gboolean tmp1;
 				g_variant_get(s->var, s->sig, &tmp1);
-				sprintf(ptr, "%s", ((tmp1 == 1) ? "true" : "false"));
+				df_fail("-- '%s'\n", ((tmp1 == 1) ? "true" : "false"));
 				break;
 			case 'n':
-				; gint16 tmp2;
+				;
+				gint16 tmp2;
 				g_variant_get(s->var, s->sig, &tmp2);
-				sprintf(ptr, "%d", tmp2);
+				df_fail("-- '%d'\n", tmp2);
 				break;
 			case 'q':
-				; guint16 tmp3;
+				;
+				guint16 tmp3;
 				g_variant_get(s->var, s->sig, &tmp3);
-				sprintf(ptr, "%u", tmp3);
+				df_fail("-- '%u'\n", tmp3);
 				break;
 			case 'i':
-				; gint32 tmp4;
+				;
+				gint32 tmp4;
 				g_variant_get(s->var, s->sig, &tmp4);
-				sprintf(ptr, "%d", tmp4);
+				df_fail("-- '%d'\n", tmp4);
 				break;
 			case 'u':
-				; guint32 tmp5;
+				;
+				guint32 tmp5;
 				g_variant_get(s->var, s->sig, &tmp5);
-				sprintf(ptr, "%u", tmp5);
+				df_fail("-- '%u'\n", tmp5);
 				break;
 			case 'x':
-				; gint64 tmp6;
+				;
+				gint64 tmp6;
 				g_variant_get(s->var, s->sig, &tmp6);
-				sprintf(ptr, "%ld", tmp6);
+				df_fail("-- '%ld'\n", tmp6);
 				break;
 			case 't':
-				; guint64 tmp7;
+				;
+				guint64 tmp7;
 				g_variant_get(s->var, s->sig, &tmp7);
-				sprintf(ptr, "%lu", tmp7);
+				df_fail("-- '%lu'\n", tmp7);
 				break;
 			case 'd':
-				; gdouble tmp8;
+				;
+				gdouble tmp8;
 				g_variant_get(s->var, s->sig, &tmp8);
-				sprintf(ptr, "%lg", tmp8);
+				df_fail("-- '%lg'\n", tmp8);
 				break;
 			case 's':
-				; gchar *tmp9 = NULL;
+				;
+				gchar *tmp9 = NULL;
 				g_variant_get(s->var, s->sig, &tmp9);
 				str_len = strlen(tmp9);
 				if (tmp9 != NULL)
-					sprintf(ptr, " [length: %d B]-- '%s", str_len, tmp9);
+					df_fail(" [length: %d B]-- '%s'\n", str_len, tmp9);
+				free(tmp9);
 				break;
 			case 'o':
-				; gchar *tmp10 = NULL;
+				;
+				gchar *tmp10 = NULL;
 				g_variant_get(s->var, s->sig, &tmp10);
 				str_len = strlen(tmp10);
 				if (tmp10 != NULL)
-					sprintf(ptr, " [length: %d B]-- '%s", str_len, tmp10);
+					df_fail(" [length: %d B]-- '%s'\n", str_len, tmp10);
+				free(tmp10);
 				break;
 			case 'g':
-				; gchar *tmp11 = NULL;
+				;
+				gchar *tmp11 = NULL;
 				g_variant_get(s->var, s->sig, &tmp11);
 				str_len = strlen(tmp11);
 				if (tmp11 != NULL)
-					sprintf(ptr, " [length: %d B]-- '%s", str_len, tmp11);
+					df_fail(" [length: %d B]-- '%s'\n", str_len, tmp11);
+				free(tmp11);
 				break;
 			case 'v':
-				; GVariant *var = NULL; gchar *tmp12 = NULL;
+				;
+				GVariant *var = NULL;
+				gchar *tmp12 = NULL;
 				g_variant_get(s->var, s->sig, var);
 				g_variant_get(var, "s", &tmp12);
 				str_len = strlen(tmp12);
 				if (tmp12 != NULL)
-					sprintf(ptr, " [length: %d B]-- '%s", str_len, tmp12);
+					df_fail(" [length: %d B]-- '%s'\n", str_len, tmp12);
+				free(tmp12);
 				break;
 			case 'h':
-				; gint32 tmp13;
+				;
+				gint32 tmp13;
 				g_variant_get(s->var, s->sig, &tmp13);
-				sprintf(ptr, "%d", tmp13);
+				df_fail("-- '%d'\n", tmp13);
 				break;
 			default:
 				fprintf(stderr, "Unknown argument signature '%s'\n", s->sig);
-				free(buf);
 				return -1;
 			}
-		}
-		else {	// advanced argument (array of something, dictionary, ...)
+		} else {	// advanced argument (array of something, dictionary, ...)
 			fprintf(stderr, "Not yet implemented in df_fuzz_write_log()\n");
-			free(buf);
 			return 0;
 		}
 
-		if (df_ewrite(logfd, "  --", 4) == -1)
-			return -1;
-		if (df_ewrite(logfd, s->sig, len) == -1)
-			return -1;
-		if (str_len == -1) {	// no string, no length printing
-			if (df_ewrite(logfd, "-- '", 4) == -1)
-				return -1;
-		}
-		if (df_ewrite(logfd, buf, strlen(buf)) == -1)
-			return -1;
-		if (df_ewrite(logfd, "'\n", 2) == -1)
-			return -1;
-
-		str_len = -1;
-		ptr = buf;
 		s = s->next;
 	}
 
-	free(buf);
 	return 0;
 }
 
@@ -399,220 +396,152 @@ static int df_fuzz_write_log(int logfd, long buf_size)
 	@function Function is testing a method in cycle, each cycle generates data
 	for function arguments, calls method and waits for result.
 	@param statfd FD of process status file
-	@param logfd FD of log file
 	@param buf_size Maximum buffer size for generated strings
 	by rand module (in Bytes)
-	@param one_method_testing If set to 1, only one method from an interface
-	will be tested, otherwise if 0, all methods
+	@param name D-Bus name
+	@param obj D-Bus object path
+	@param intf D-Bus interface
+	@param one_method_test If set to 1, reinitialization of rand module
+	is disabled, otherwise it is enabled
 	@return 0 on success, -1 on error or 1 on tested process crash
 */
-int df_fuzz_test_method(int statfd, int logfd, long buf_size,
-						int one_method_testing)
+int df_fuzz_test_method(int statfd, long buf_size, const char *name,
+						const char *obj, const char *intf, int one_method_test)
 {
-	static int write_to_log = 1;
-	static int i = 1;
-
 	// methods with no arguments are not tested
 	if (df_list.args == 0)
 		return 0;
 
+	if (buf_size < MINLEN)
+		buf_size = MAX_BUF_LEN;
 
-	struct df_signature *s = df_list.list;		// pointer on first signature
+	// when testing only one specific method (-t option), rand module
+	// should not be reinitialized
+	static int reinit_rand_module = 1;
+	if (one_method_test == 1) {
+		if (reinit_rand_module)
+			df_rand_init(buf_size);		// initialization of random module
+		reinit_rand_module = 0;
+	}
+
+
+	struct df_signature *s = df_list.list;	// pointer on the first signature
 	GVariant *value = NULL;
 	long used_memory = 0;				// memory size used by process in kB
 	long prev_memory = 0;				// last known memory size
 	long max_memory = df_mem_limit;		// maximum normal memory size used
 										// by process in kB
 	int proc_crashed = 0;
-	char max_calls = 0;			// maximum method calls when function
-								// df_fuzz_call_method() returns error
-
-	if (buf_size < MINLEN)
-		buf_size = MAX_BUF_LEN;
+	//char max_calls = 0;				// maximum method calls when function
+									// df_fuzz_call_method() returns error
+	int j = 0;
 
 
-	char *ptr, *log_buffer = malloc(sizeof(char) * buf_size);
-	if (log_buffer == NULL) {
-		fprintf(stderr, "Could not allocate memory for log buffer.\n");
-		return -1;
-	}
-	ptr = log_buffer;
+	df_debug("  Method: \e[1m%s", df_list.df_method_name);
+	df_debug("(");
+	for (; j < df_list.args; j++, s = s->next)
+		df_debug(((j < df_list.args - 1) ? "%s, " : "%s"), s->sig);
+	df_debug(")\e[0m\n");
 
 
-	if (write_to_log) {
-		int j = 0;
-		// writes to log file which method is going to be tested
-		ptr += sprintf(ptr, "==========================================="
-							"===================================\n");
-		ptr += sprintf(ptr, "fuzzing method %s(", df_list.df_method_name);
-		for (; j < df_list.args; j++, s = s->next)
-			ptr += sprintf(ptr, ((j < df_list.args-1) ? "%s, " : "%s"), s->sig);
-		ptr += sprintf(ptr, "):\n");
-		if (df_ewrite(logfd, log_buffer, strlen(log_buffer)) == -1)
-			return -1;
-		ptr = log_buffer;			// restarts position in log_buffer
-
-		if (one_method_testing)
-			write_to_log = 0;
-	}
+	if (reinit_rand_module)
+		df_rand_init(buf_size);		// initialization of random module
 
 
-	df_rand_init(buf_size);		// initialization of random module
-
-
-	if (one_method_testing == 0)
-		i = 1;			// log number for current method
-	while (df_rand_continue(df_list.fuzz_on_str_len))
-	{
-
+	while (df_rand_continue(df_list.fuzz_on_str_len)) {
 		// parsing proces memory size from its status file described by statfd
 		used_memory = df_fuzz_get_proc_mem_size(statfd);
 		if (used_memory == -1) {
 			fprintf(stderr, "Error in df_fuzz_get_proc_mem_size()\n");
-			if (value != NULL)
-				g_variant_unref(value);
 			goto err_label;
 		}
 		if (used_memory == 0) {
-			fprintf(stderr, "PROCESS DISCONNECTED FROM D-BUS!\n");
-			sprintf(ptr, "[%s LOG %d]\n  process disconnected from D-Bus\n"
-							"  last known process memory size: [%ld kB]\n"
-							"  on input:\n",
-							df_list.df_method_name, i, prev_memory);
-			if (df_ewrite(logfd, log_buffer, strlen(log_buffer)) == -1)
-				return -1;
-			ptr = log_buffer;
-			i++;
-			if (df_fuzz_write_log(logfd, buf_size) == -1) {
-				fprintf(stderr, "Error in df_fuzz_write_log()\n");
-				if (value != NULL)
-					g_variant_unref(value);
-				goto err_label;
-			}
-			if (value != NULL)
-				g_variant_unref(value);
+			df_fail("FAIL - method %s - process disconnected from bus\n",
+					df_list.df_method_name);
 			proc_crashed++;
 			goto err_label;
 		}
 		prev_memory = used_memory;
 
-
 		// creates variant containing all (fuzzed) method arguments
-		if ( (value = df_fuzz_create_variant()) == NULL) {
+		if ((value = df_fuzz_create_variant()) == NULL) {
 			if (unsupported_sig) {
 				unsupported_sig = 0;
-				// writes to the logfd to let tester know
-				ptr += sprintf(ptr, "  unsupported argument by dfuzzer: ");
-				ptr += sprintf(ptr, "%s\n", unsupported_sig_str);
-				if (df_ewrite(logfd, log_buffer, strlen(log_buffer)) == -1)
-					return -1;
-				ptr = log_buffer;
+				df_debug("  unsupported argument by dfuzzer: ");
+				df_debug("%s\n", unsupported_sig_str);
 				unsupported_sig_str = NULL;
-				goto ok_label;
+				goto skip_label;
 			}
 			fprintf(stderr, "Call of df_fuzz_create_variant() returned NULL"
 					" pointer\n");
 			goto err_label;
 		}
 
-
-		if (df_fuzz_call_method(value) == -1)
-		{
+		if (df_fuzz_call_method(value) == -1) {
 			// Here we look at process status file to be sure it really
 			// disconnected. If file is readable it means process is
 			// processing long string(s) and that is the reason it
 			// didn't respond so we continue. (also some other errors may occure)
 			used_memory = df_fuzz_get_proc_mem_size(statfd);
 			if (used_memory == -1 || used_memory == 0) {
-				fprintf(stderr, "PROCESS DISCONNECTED FROM D-BUS!\n");
-				sprintf(ptr, "[%s LOG %d]\n  process disconnected from D-Bus\n"
-								"  last known process memory size: [%ld kB]\n"
-								"  on input:\n",
-								df_list.df_method_name, i, prev_memory);
-				if (df_ewrite(logfd, log_buffer, strlen(log_buffer)) == -1)
-					return -1;
-				ptr = log_buffer;
-				i++;
-				if (df_fuzz_write_log(logfd, buf_size) == -1) {
-					fprintf(stderr, "Error in df_fuzz_write_log()\n");
-					if (value != NULL)
-						g_variant_unref(value);
-					goto err_label;
-				}
-				if (value != NULL)
-					g_variant_unref(value);
 				proc_crashed++;
 				goto err_label;
-			}
+			} else
+				goto ok_label;
+/*
 			prev_memory = used_memory;
 			max_calls++;
 			if (max_calls == 10) {
-				sprintf(ptr, "[%s LOG %d]\n  method '%s' does not respond\n"
-								"  last known process memory size: [%ld kB]\n",
-								df_list.df_method_name, i, df_list.df_method_name,
-								prev_memory);
-				if (df_ewrite(logfd, log_buffer, strlen(log_buffer)) == -1)
-					return -1;
+				df_debug("[%s LOG ]\n  method '%s' does not respond\n"
+					"  last known process memory size: [%ld kB]\n",
+					df_list.df_method_name,
+					df_list.df_method_name, prev_memory);
 				if (value != NULL)
 					g_variant_unref(value);
 				goto ok_label;
 			}
+*/
 		}
-
 
 		// process memory size exceeded maximum normal memory size
 		// (this is just warning message)
 		if (used_memory >= max_memory) {
-			sprintf(ptr, "[%s LOG %d]\n  warning: process memory size exceeded"
-							" set memory limit [%ld kB]\n    initial memory: "
-							"[%ld kB]\n    current process memory size: "
-							"[%ld kB]\n  on input:\n",
-							df_list.df_method_name, i, df_mem_limit,
-							df_initial_mem, used_memory);
-			if (df_ewrite(logfd, log_buffer, strlen(log_buffer)) == -1)
-				return -1;
-			ptr = log_buffer;
-			i++;
+			df_fail("  \e[35mWARN\e[0m method %s - initial mem. [%ld kB],"
+					" current mem. [%ld kB]\n", df_list.df_method_name,
+					df_initial_mem, used_memory);
 			max_memory *= 3;
-			if (df_fuzz_write_log(logfd, buf_size) == -1) {
-				fprintf(stderr, "Error in df_fuzz_write_log()\n");
-				goto err_label;
-			}
 		}
 
-
-		if (df_exit_flag) {
-			if (value != NULL)
-				g_variant_unref(value);
-			goto ok_label;
-		}
-
-		g_variant_unref(value);
+		if (value != NULL)
+			g_variant_unref(value);
 	}
 
 ok_label:
-	if (one_method_testing == 0) {
-		ptr += sprintf(ptr, "\nend of fuzzing of method '%s'\n",
-							df_list.df_method_name);
-		ptr += sprintf(ptr, "==========================================="
-							"===================================\n");
-		if (df_ewrite(logfd, log_buffer, strlen(log_buffer)) == -1)
-			return -1;
-	}
-	free(log_buffer);
+	df_verbose("  \e[32mPASS\e[0m method %s\n", df_list.df_method_name);
 	return 0;
 
+skip_label:
+	df_verbose
+		("  \e[34mSKIP\e[0m method %s - advanced signatures not yet implemented\n",
+		 df_list.df_method_name);
+	return 0;
 
 err_label:
-	if (one_method_testing == 0) {
-		ptr += sprintf(ptr, "\nend of fuzzing of method '%s'\n",
-							df_list.df_method_name);
-		ptr += sprintf(ptr, "==========================================="
-							"===================================\n");
-		if (df_ewrite(logfd, log_buffer, strlen(log_buffer)) == -1)
-			return -1;
+	df_fail("   on input:\n");
+	df_fuzz_write_log();
+	if (df_bus_type) {
+		// system bus 
+		df_fail
+			("   reproducer: \e[33mdfuzzer -v -s -n %s -o %s -i %s"
+			"-t %s \e[0m\n", name, obj, intf, df_list.df_method_name);
+	} else {
+		// session bus
+		df_fail
+			("   reproducer: \e[33mdfuzzer -v -n %s -o %s -i %s -t %s\e[0m\n",
+			name, obj, intf, df_list.df_method_name);
 	}
-	free(log_buffer);
+	if (value != NULL)
+		g_variant_unref(value);
 	if (proc_crashed)
 		return 1;
 	return -1;
@@ -627,9 +556,9 @@ err_label:
 	@return Pointer on a new GVariant variable containing tuple with method
 	arguments
 */
-static GVariant * df_fuzz_create_variant(void)
+static GVariant *df_fuzz_create_variant(void)
 {
-	struct df_signature *s = df_list.list;		// pointer on first signature
+	struct df_signature *s = df_list.list;	// pointer on first signature
 
 	// creates GVariant for every item signature in linked list
 	int ret = df_fuzz_create_list_variants();
@@ -642,31 +571,30 @@ static GVariant * df_fuzz_create_variant(void)
 		unsupported_sig++;
 		return NULL;
 	}
-
 	// libffi part, to construct dynamic call of g_variant_new() on runtime
 	GVariant *val = NULL;
 	ffi_cif cif;
+
 	// MAXSIG = max. amount of D-Bus signatures + 1 (format string)
-	ffi_type *args[MAXSIG+1];
-	void *values[MAXSIG+1];
+	ffi_type *args[MAXSIG + 1];
+	void *values[MAXSIG + 1];
 	char *fmt;		// format string
 	int i;
 
-
-	if ( (fmt = malloc(MAXFMT+1)) == NULL ) {
-		fprintf(stderr, "Could not allocate memory for format string.\n");
+	if ((fmt = malloc(MAXFMT + 1)) == NULL) {
+		fprintf(stderr,
+			"Could not allocate memory for format string.\n");
 		return NULL;
 	}
-
 	// creates the format string for g_variant_new() function call
-	if (df_fuzz_create_fmt_string(&fmt, MAXFMT+1) == -1) {
+	if (df_fuzz_create_fmt_string(&fmt, MAXFMT + 1) == -1) {
 		fprintf(stderr, "Error in df_fuzz_create_fmt_string()\n");
 		return NULL;
 	}
 
-	#ifdef DEBUG
-		printf("fmt string: [%s]\nargs: [%d]\n\n", fmt, df_list.args);
-	#endif
+	/*#ifdef DEBUG
+	   printf("fmt string: [%s]\nargs: [%d]\n\n", fmt, df_list.args);
+	   #endif */
 
 	// Initialize the argument info vectors
 	args[0] = &ffi_type_pointer;
@@ -678,16 +606,14 @@ static GVariant * df_fuzz_create_variant(void)
 	}
 
 	// Initialize the cif
-	if (ffi_prep_cif(&cif, FFI_DEFAULT_ABI, df_list.args+1,
-		&ffi_type_pointer, args) == FFI_OK)
-	{
+	if (ffi_prep_cif(&cif, FFI_DEFAULT_ABI, df_list.args + 1,
+		&ffi_type_pointer, args) == FFI_OK) {
 		ffi_call(&cif, g_variant_new, &val, values);
 		// val now holds the result of the call to g_variant_new().
 		// When val will be freed, all the floating Gvariants which
 		// was used to create it will be freed too, because val is
 		// their owner
-	}
-	else {
+	} else {
 		fprintf(stderr, "ffi_prep_cif() failed on initializing cif\n");
 		return NULL;
 	}
@@ -697,8 +623,8 @@ static GVariant * df_fuzz_create_variant(void)
 	// result we couldn't have get GVariant values from items of linked list
 	// (needed for loging into log file)
 	val = g_variant_ref_sink(val);	// converts floating to normal reference
-									// so val cannot be consumed
-									// by g_dbus_proxy_call_sync() function
+	// so val cannot be consumed
+	// by g_dbus_proxy_call_sync() function
 	if (g_variant_is_floating(val)) {
 		fprintf(stderr, "GVariant containing '%s()' method parameters must not"
 				" be floating\n", df_list.df_method_name);
@@ -716,7 +642,7 @@ static GVariant * df_fuzz_create_variant(void)
 */
 static int df_fuzz_create_list_variants(void)
 {
-	struct df_signature *s = df_list.list;		// pointer on first signature
+	struct df_signature *s = df_list.list;	// pointer on first signature
 	int len;
 
 	while (s != NULL) {
@@ -724,8 +650,7 @@ static int df_fuzz_create_list_variants(void)
 		if (len <= 0) {
 			fprintf(stderr, "No argument signature\n");
 			return -1;
-		}
-		else if (len == 1) {	// one character argument
+		} else if (len == 1) {		// one character argument
 			switch (s->sig[0]) {
 			case 'y':
 				s->var = g_variant_new(s->sig, df_rand_guint8());
@@ -752,10 +677,12 @@ static int df_fuzz_create_list_variants(void)
 				s->var = g_variant_new(s->sig, df_rand_guint64());
 				break;
 			case 'd':
-				s->var = g_variant_new(s->sig, df_rand_gdouble());
+				s->var =
+					g_variant_new(s->sig, df_rand_gdouble());
 				break;
 			case 's':
-				; gchar *buf;
+				;
+				gchar *buf;
 				if (df_rand_string(&buf) == -1) {
 					fprintf(stderr, "In df_rand_string()\n");
 					return -1;
@@ -764,7 +691,8 @@ static int df_fuzz_create_list_variants(void)
 				free(buf);
 				break;
 			case 'o':
-				; gchar *obj;
+				;
+				gchar *obj;
 				if (df_rand_dbus_objpath_string(&obj) == -1) {
 					fprintf(stderr, "In df_rand_dbus_objpath_string()\n");
 					return -1;
@@ -773,7 +701,8 @@ static int df_fuzz_create_list_variants(void)
 				free(obj);
 				break;
 			case 'g':
-				; gchar *sig;
+				;
+				gchar *sig;
 				if (df_rand_dbus_signature_string(&sig) == -1) {
 					fprintf(stderr, "In df_rand_dbus_signature_string()\n");
 					return -1;
@@ -782,7 +711,8 @@ static int df_fuzz_create_list_variants(void)
 				free(sig);
 				break;
 			case 'v':
-				; GVariant *var;
+				;
+				GVariant *var;
 				if (df_rand_GVariant(&var) == -1) {
 					fprintf(stderr, "In df_rand_GVariant()\n");
 					return -1;
@@ -793,12 +723,12 @@ static int df_fuzz_create_list_variants(void)
 				s->var = g_variant_new(s->sig, df_rand_unixFD());
 				break;
 			default:
-				fprintf(stderr, "Unknown argument signature '%s'\n", s->sig);
+				fprintf(stderr, "Unknown argument signature '%s'\n",
+						s->sig);
 				return -1;
 			}
-		}
-		else {	// advanced argument (array of something, dictionary, ...)
-			fprintf(stderr, "Advanced signatures not yet implemented\n");
+		} else {	// advanced argument (array of something, dictionary, ...)
+			// fprintf(stderr, "Advanced signatures not yet implemented\n");
 			unsupported_sig_str = s->sig;
 			return 1;	// unsupported method signature
 		}
@@ -823,7 +753,7 @@ static int df_fuzz_create_list_variants(void)
 */
 static int df_fuzz_create_fmt_string(char **fmt, int n)
 {
-	struct df_signature *s = df_list.list;		// pointer on first signature
+	struct df_signature *s = df_list.list;	// pointer on first signature
 	int total_len = 0;
 	int len = 0;
 	char *ptr = *fmt;
@@ -836,9 +766,9 @@ static int df_fuzz_create_fmt_string(char **fmt, int n)
 	while (s != NULL) {
 		len = strlen(s->sig);
 		total_len += len + 1;	// including '@' character
-		if (total_len > n-3) {
+		if (total_len > n - 3) {
 			fprintf(stderr, "Format string is too small to consume all"
-							" signatures\n");
+					" signatures\n");
 			return -1;
 		}
 		*ptr = '@';
@@ -849,9 +779,9 @@ static int df_fuzz_create_fmt_string(char **fmt, int n)
 		s = s->next;
 	}
 
-	if (total_len > n-3) {
+	if (total_len > n - 3) {
 		fprintf(stderr, "Format string is too small to consume all"
-						" signatures\n");
+				" signatures\n");
 		return -1;
 	}
 	*ptr = ')';
@@ -868,22 +798,37 @@ static int df_fuzz_create_fmt_string(char **fmt, int n)
 	their values
 	@return 0 on success, -1 on error
 */
-static int df_fuzz_call_method(GVariant *value)
+static int df_fuzz_call_method(GVariant * value)
 {
 	GError *error = NULL;
 	GVariant *response = NULL;
+	gchar *dbus_error = NULL;
 
 	// Synchronously invokes method with arguments stored in value (GVariant *)
 	// on df_dproxy.
 	response = g_dbus_proxy_call_sync(df_dproxy,
-		df_list.df_method_name,
-		value, G_DBUS_CALL_FLAGS_NONE, -1, NULL, &error);
+						df_list.df_method_name,
+						value, G_DBUS_CALL_FLAGS_NONE, -1,
+						NULL, &error);
 	if (response == NULL) {
-		fprintf(stderr, "Call of g_dbus_proxy_call_sync() returned NULL"
-						" pointer -- for '%s' method: %s\n",
-						df_list.df_method_name, error->message);
+		// D-Bus exceptions are accepted
+		if ((dbus_error = g_dbus_error_get_remote_error(error)) != NULL) {
+			if (strcmp(dbus_error, "org.freedesktop.DBus.Error.NoReply") == 0) {
+				df_fail("  \e[31mFAIL\e[0m method %s - No reply recieved\n",
+						df_list.df_method_name);
+				g_free(dbus_error);
+				g_error_free(error);
+				return -1;
+			}
+		}
+
+		g_dbus_error_strip_remote_error(error);
+		df_debug
+			("  \e[32mPASS\e[0m method %s - D-Bus exception thrown: %.60s\n",
+			df_list.df_method_name, error->message);
+		g_free(dbus_error);
 		g_error_free(error);
-		return -1;
+		return 0;
 	}
 
 	g_variant_unref(response);
