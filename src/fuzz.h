@@ -74,11 +74,13 @@ inline int df_ewrite(int fd, const void *buf, size_t count);
 	described by statfd.
 	@param dproxy Pointer on D-Bus interface proxy
 	@param statfd FD of process status file
+	@param pid PID of tested process
 	@param mem_limit Memory limit in kB - if tested process exceeds this limit
 	it will be noted into log file
 	@return 0 on success, -1 on error
 */
-int df_fuzz_init(GDBusProxy *dproxy, int statfd, long mem_limit);
+int df_fuzz_init(GDBusProxy *dproxy, const int statfd,
+				const int pid, const long mem_limit);
 
 /**
 	@function Initializes the global variable df_list (struct df_sig_list)
@@ -86,7 +88,7 @@ int df_fuzz_init(GDBusProxy *dproxy, int statfd, long mem_limit);
 	@param name Name of method which will be tested
 	@return 0 on success, -1 on error
 */
-int df_fuzz_add_method(char *name);
+int df_fuzz_add_method(const char *name);
 
 /**
 	@function Adds item (struct df_signature) at the end of the linked list
@@ -95,7 +97,7 @@ int df_fuzz_add_method(char *name);
 	@param signature D-Bus signature of the argument
 	@return 0 on success, -1 on error
 */
-int df_fuzz_add_method_arg(char *signature);
+int df_fuzz_add_method_arg(const char *signature);
 
 /**
 	@return Number of arguments of tested method
@@ -103,20 +105,22 @@ int df_fuzz_add_method_arg(char *signature);
 int df_list_args_count(void);
 
 /**
-	@function Function is testing a method in cycle, each cycle generates data
-	for function arguments, calls method and waits for result.
+	@function Function is testing a method in a cycle, each cycle generates
+	data for function arguments, calls method and waits for result.
 	@param statfd FD of process status file
 	@param buf_size Maximum buffer size for generated strings
 	by rand module (in Bytes)
 	@param name D-Bus name
 	@param obj D-Bus object path
 	@param intf D-Bus interface
+	@param pid PID of tested process
 	@param one_method_test If set to 1, reinitialization of rand module
 	is disabled, otherwise it is enabled
 	@return 0 on success, -1 on error or 1 on tested process crash
 */
-int df_fuzz_test_method(int statfd, long buf_size, const char *name,
-						const char *obj, const char *intf, int one_method_test);
+int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
+						const char *obj, const char *intf, const int pid,
+						const int one_method_test);
 
 /**
 	@function Releases memory used by this module. This function must be called

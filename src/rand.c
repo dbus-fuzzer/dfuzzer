@@ -27,6 +27,7 @@
 
 #include "rand.h"
 
+
 /** Maximum buffer size for generated strings (in Bytes) */
 static long df_buf_size;
 
@@ -109,6 +110,7 @@ void df_rand_init(long buf_size)
 	df_gu64f = 0;
 	df_gdouf = 0;
 
+	df_num_fuzz_counter = 0;
 	df_str_len = 0;
 	index_str = 0;
 	index_var = 0;
@@ -138,7 +140,7 @@ guint8 df_rand_guint8(void)
 	else
 		df_gu8f = 0;
 
-	if (df_num_fuzz_counter < USHRT_MAX)
+	if (df_num_fuzz_counter < MAX_FUZZ_COUNTER)
 		df_num_fuzz_counter++;
 	return gu8;
 }
@@ -148,7 +150,7 @@ guint8 df_rand_guint8(void)
 */
 gboolean df_rand_gboolean(void)
 {
-	if (df_num_fuzz_counter < USHRT_MAX)
+	if (df_num_fuzz_counter < MAX_FUZZ_COUNTER)
 		df_num_fuzz_counter++;
 	return ((gboolean) (rand() % 2));
 }
@@ -181,7 +183,7 @@ gint16 df_rand_gint16(void)
 	else
 		df_gi16f = 0;
 
-	if (df_num_fuzz_counter < USHRT_MAX)
+	if (df_num_fuzz_counter < MAX_FUZZ_COUNTER)
 		df_num_fuzz_counter++;
 	return gi16;
 }
@@ -210,7 +212,7 @@ guint16 df_rand_guint16(void)
 	else
 		df_gu16f = 0;
 
-	if (df_num_fuzz_counter < USHRT_MAX)
+	if (df_num_fuzz_counter < MAX_FUZZ_COUNTER)
 		df_num_fuzz_counter++;
 	return gu16;
 }
@@ -243,7 +245,7 @@ gint32 df_rand_gint32(void)
 	else
 		df_gi32f = 0;
 
-	if (df_num_fuzz_counter < USHRT_MAX)
+	if (df_num_fuzz_counter < MAX_FUZZ_COUNTER)
 		df_num_fuzz_counter++;
 	return gi32;
 }
@@ -272,7 +274,7 @@ guint32 df_rand_guint32(void)
 	else
 		df_gu32f = 0;
 
-	if (df_num_fuzz_counter < USHRT_MAX)
+	if (df_num_fuzz_counter < MAX_FUZZ_COUNTER)
 		df_num_fuzz_counter++;
 	return gu32;
 }
@@ -305,7 +307,7 @@ gint64 df_rand_gint64(void)
 	else
 		df_gi64f = 0;
 
-	if (df_num_fuzz_counter < USHRT_MAX)
+	if (df_num_fuzz_counter < MAX_FUZZ_COUNTER)
 		df_num_fuzz_counter++;
 	return gi64;
 }
@@ -334,7 +336,7 @@ guint64 df_rand_guint64(void)
 	else
 		df_gu64f = 0;
 
-	if (df_num_fuzz_counter < USHRT_MAX)
+	if (df_num_fuzz_counter < MAX_FUZZ_COUNTER)
 		df_num_fuzz_counter++;
 	return gu64;
 }
@@ -378,7 +380,7 @@ gdouble df_rand_gdouble(void)
 	else
 		df_gdouf = 0;
 
-	if (df_num_fuzz_counter < USHRT_MAX)
+	if (df_num_fuzz_counter < MAX_FUZZ_COUNTER)
 		df_num_fuzz_counter++;
 	return gdou;
 }
@@ -404,7 +406,7 @@ int df_rand_continue(int fuzz_on_str_len)
 			counter++;
 		}
 	} else {
-		if (df_num_fuzz_counter == USHRT_MAX) {
+		if (df_num_fuzz_counter == MAX_FUZZ_COUNTER) {
 			df_num_fuzz_counter = 0;
 			return 0;
 		}
@@ -454,8 +456,7 @@ int df_rand_string(gchar **buf)
 
 	*buf = malloc(sizeof(gchar) * df_str_len);
 	if (*buf == NULL) {
-		fprintf(stderr,
-			"Unable to allocate memory for random string\n");
+		fprintf(stderr, "Error: Could not allocate memory for rand. string.\n");
 		return -1;
 	}
 
@@ -491,8 +492,8 @@ int df_rand_dbus_objpath_string(gchar **buf)
 
 	*buf = malloc(sizeof(gchar) * size + 1);
 	if (*buf == NULL) {
-		fprintf(stderr, "Unable to allocate memory for random D-Bus object"
-				" path\n");
+		fprintf(stderr, "Error: Could not allocate memory for random D-Bus "
+				"object path.\n");
 		return -1;
 	}
 
@@ -526,7 +527,7 @@ int df_rand_dbus_objpath_string(gchar **buf)
 	if (size == MAXLEN)
 		size = 9;
 
-	if (df_num_fuzz_counter < USHRT_MAX)
+	if (df_num_fuzz_counter < MAX_FUZZ_COUNTER)
 		df_num_fuzz_counter++;
 	return 0;
 }
@@ -554,7 +555,8 @@ int df_rand_dbus_signature_string(gchar **buf)
 
 	*buf = malloc(sizeof(gchar) * size + 1);
 	if (*buf == NULL) {
-		fprintf(stderr, "Unable to allocate memory for random signature\n");
+		fprintf(stderr, "Error: Could not allocate memory for random "
+				"signature.\n");
 		return -1;
 	}
 
@@ -567,7 +569,7 @@ int df_rand_dbus_signature_string(gchar **buf)
 	if (size == MAXSIG)
 		size = 1;
 
-	if (df_num_fuzz_counter < USHRT_MAX)
+	if (df_num_fuzz_counter < MAX_FUZZ_COUNTER)
 		df_num_fuzz_counter++;
 	return 0;
 }
@@ -592,7 +594,8 @@ int df_rand_GVariant(GVariant **var)
 
 	buf = malloc(sizeof(gchar) * df_str_len);
 	if (buf == NULL) {
-		fprintf(stderr, "Unable to allocate memory for random variant\n");
+		fprintf(stderr, "Error: Could not allocate memory for random "
+				"variant.\n");
 		return -1;
 	}
 
@@ -622,7 +625,7 @@ int df_rand_unixFD(void)
 	if (fd < 0)
 		fd *= -1;
 
-	if (df_num_fuzz_counter < USHRT_MAX)
+	if (df_num_fuzz_counter < MAX_FUZZ_COUNTER)
 		df_num_fuzz_counter++;
 	return fd;
 }

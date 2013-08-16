@@ -50,9 +50,6 @@ static int unsupported_sig;
 static char *unsupported_sig_str;
 
 
-extern int df_bus_type;
-
-
 /* Module static functions */
 static long df_fuzz_get_proc_mem_size(int statfd);
 static int df_fuzz_write_log(void);
@@ -95,21 +92,24 @@ inline int df_ewrite(int fd, const void *buf, size_t count)
 	described by statfd.
 	@param dproxy Pointer on D-Bus interface proxy
 	@param statfd FD of process status file
+	@param pid PID of tested process
 	@param mem_limit Memory limit in kB - if tested process exceeds this limit
 	it will be noted into log file
 	@return 0 on success, -1 on error
 */
-int df_fuzz_init(GDBusProxy *dproxy, int statfd, long mem_limit)
+int df_fuzz_init(GDBusProxy *dproxy, const int statfd,
+				const int pid, const long mem_limit)
 {
 	if (dproxy == NULL) {
-		fprintf(stderr, "Passing NULL argument to function.\n");
+		df_debug("Passing NULL argument to function.\n");
 		return -1;
 	}
 	df_dproxy = dproxy;
 
 	df_initial_mem = df_fuzz_get_proc_mem_size(statfd);
 	if (df_initial_mem == -1) {
-		fprintf(stderr, "Error in df_fuzz_get_proc_mem_size()\n");
+		df_fail("Error: Unable to get memory size of [PID:%d].\n", pid);
+		df_debug("Error in df_fuzz_get_proc_mem_size()\n");
 		return -1;
 	}
 
@@ -127,16 +127,16 @@ int df_fuzz_init(GDBusProxy *dproxy, int statfd, long mem_limit)
 	@param name Name of method which will be tested
 	@return 0 on success, -1 on error
 */
-int df_fuzz_add_method(char *name)
+int df_fuzz_add_method(const char *name)
 {
 	if (name == NULL) {
-		fprintf(stderr, "Passing NULL argument to function.\n");
+		df_debug("Passing NULL argument to function.\n");
 		return -1;
 	}
 
 	df_list.df_method_name = malloc(sizeof(char) * strlen(name) + 1);
 	if (df_list.df_method_name == NULL) {
-		fprintf(stderr, "Could not allocate memory for method name.\n");
+		df_fail("Error: Could not allocate memory for method name.\n");
 		return -1;
 	}
 	strcpy(df_list.df_method_name, name);
@@ -157,14 +157,14 @@ int df_fuzz_add_method(char *name)
 	@param signature D-Bus signature of the argument
 	@return 0 on success, -1 on error
 */
-int df_fuzz_add_method_arg(char *signature)
+int df_fuzz_add_method_arg(const char *signature)
 {
 	if (signature == NULL)
 		return 0;
 
 	struct df_signature *s;
 	if ((s = malloc(sizeof(struct df_signature))) == NULL) {
-		fprintf(stderr, "Could not allocate memory for struct df_signature.\n");
+		df_fail("Error: Could not allocate memory for struct df_signature.\n");
 		return -1;
 	}
 
@@ -173,7 +173,7 @@ int df_fuzz_add_method_arg(char *signature)
 	s->var = NULL;
 	s->sig = malloc(sizeof(char) * strlen(signature) + 1);
 	if (s->sig == NULL) {
-		fprintf(stderr, "Could not allocate memory for argument signature.\n");
+		df_fail("Error: Could not allocate memory for argument signature.\n");
 		return -1;
 	}
 	strcpy(s->sig, signature);
@@ -208,28 +208,36 @@ int df_list_args_count(void)
 	as process memory size.
 	@param statfd FD of process status file
 	@return Process memory size on success, 0 when statfd is not readable (that
-	means process disconnected from D-Bus) or -1 on error
+	means process exited and also disconnected from D-Bus) or -1 on error
 */
 static long df_fuzz_get_proc_mem_size(int statfd)
 {
+	/** signal ESRCH - No such process */
 	long mem_size = -1;
+	int ret;
 	char buf[MAXLINE];	// buffer for reading from file
 	char *ptr;			// pointer into buf buffer
 
 	// rewinds file position to the beginning
-	if (lseek(statfd, 0L, SEEK_SET) == -1)
+	ret = lseek(statfd, 0L, SEEK_SET);
+	if (ret == -1 && errno == ESRCH)	// process exited
 		return 0;
+	else if (ret == -1)
+		return -1;
+
 
 	int stopr = 0;
 	while (!stopr) {
 		int n = read(statfd, buf, MAXLINE - 1);
-		if (n == -1)
+		if (n == -1 && errno == ESRCH)	// process exited
+			return 0;
+		else if (n == -1)
 			return -1;
-		if (n == 0)
+		else if (n == 0)
 			stopr++;
 		buf[n] = '\0';
 
-		if ((ptr = strstr(buf, "VmRSS:")) == NULL)
+		if ((ptr = strstr(buf, "VmRSS:")) == NULL)	// process exited
 			return 0;
 
 		// check for new line (that whole memory size number is in buffer)
@@ -249,8 +257,7 @@ static long df_fuzz_get_proc_mem_size(int statfd)
 
 	mem_size = strtol(ptr, NULL, 10);
 	if (errno == ERANGE || errno == EINVAL) {
-		fprintf(stderr, "Error on conversion of process memory to a long"
-				" integer\n");
+		df_debug("Error on conversion of process memory to a long integer\n");
 		return -1;
 	}
 	return mem_size;
@@ -393,20 +400,22 @@ static int df_fuzz_write_log(void)
 }
 
 /**
-	@function Function is testing a method in cycle, each cycle generates data
-	for function arguments, calls method and waits for result.
+	@function Function is testing a method in a cycle, each cycle generates
+	data for function arguments, calls method and waits for result.
 	@param statfd FD of process status file
 	@param buf_size Maximum buffer size for generated strings
 	by rand module (in Bytes)
 	@param name D-Bus name
 	@param obj D-Bus object path
 	@param intf D-Bus interface
+	@param pid PID of tested process
 	@param one_method_test If set to 1, reinitialization of rand module
 	is disabled, otherwise it is enabled
 	@return 0 on success, -1 on error or 1 on tested process crash
 */
-int df_fuzz_test_method(int statfd, long buf_size, const char *name,
-						const char *obj, const char *intf, int one_method_test)
+int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
+						const char *obj, const char *intf, const int pid,
+						const int one_method_test)
 {
 	// methods with no arguments are not tested
 	if (df_list.args == 0)
@@ -431,12 +440,8 @@ int df_fuzz_test_method(int statfd, long buf_size, const char *name,
 	long prev_memory = 0;				// last known memory size
 	long max_memory = df_mem_limit;		// maximum normal memory size used
 										// by process in kB
-	int proc_crashed = 0;
-	//char max_calls = 0;				// maximum method calls when function
-									// df_fuzz_call_method() returns error
+
 	int j = 0;
-
-
 	df_debug("  Method: \e[1m%s", df_list.df_method_name);
 	df_debug("(");
 	for (; j < df_list.args; j++, s = s->next)
@@ -452,14 +457,14 @@ int df_fuzz_test_method(int statfd, long buf_size, const char *name,
 		// parsing proces memory size from its status file described by statfd
 		used_memory = df_fuzz_get_proc_mem_size(statfd);
 		if (used_memory == -1) {
-			fprintf(stderr, "Error in df_fuzz_get_proc_mem_size()\n");
+			df_fail("Error: Unable to get memory size of [PID:%d].\n", pid);
+			df_debug("Error in df_fuzz_get_proc_mem_size()\n");
 			goto err_label;
 		}
 		if (used_memory == 0) {
-			df_fail("FAIL - method %s - process disconnected from bus\n",
-					df_list.df_method_name);
-			proc_crashed++;
-			goto err_label;
+			df_fail("  \e[31mFAIL\e[0m method %s - process exited [PID:%d]\n",
+					df_list.df_method_name, pid);
+			goto fail_label;
 		}
 		prev_memory = used_memory;
 
@@ -472,39 +477,32 @@ int df_fuzz_test_method(int statfd, long buf_size, const char *name,
 				unsupported_sig_str = NULL;
 				goto skip_label;
 			}
-			fprintf(stderr, "Call of df_fuzz_create_variant() returned NULL"
-					" pointer\n");
+			df_debug("Call of df_fuzz_create_variant() returned"
+					" NULL pointer\n");
 			goto err_label;
 		}
 
 		if (df_fuzz_call_method(value) == -1) {
 			// Here we look at process status file to be sure it really
-			// disconnected. If file is readable it means process is
+			// exited. If file is readable it means process is
 			// processing long string(s) and that is the reason it
-			// didn't respond so we continue. (also some other errors may occure)
+			// didn't respond so we continue.
 			used_memory = df_fuzz_get_proc_mem_size(statfd);
-			if (used_memory == -1 || used_memory == 0) {
-				proc_crashed++;
+			if (used_memory == 0) {			// process exited
+				df_fail("  \e[31mFAIL\e[0m method %s - process exited "
+						"[PID:%d]\n", df_list.df_method_name, pid);
+				goto fail_label;
+			} else if (used_memory == -1) {	// error on reading process status
+				df_fail("Error: Unable to get memory size of [PID:%d].\n", pid);
+				df_debug("Error in df_fuzz_get_proc_mem_size()\n");
 				goto err_label;
-			} else
-				goto ok_label;
-/*
-			prev_memory = used_memory;
-			max_calls++;
-			if (max_calls == 10) {
-				df_debug("[%s LOG ]\n  method '%s' does not respond\n"
-					"  last known process memory size: [%ld kB]\n",
-					df_list.df_method_name,
-					df_list.df_method_name, prev_memory);
-				if (value != NULL)
-					g_variant_unref(value);
-				goto ok_label;
 			}
-*/
+			// else continue, we managed to get process memory size
+			prev_memory = used_memory;
 		}
 
 		// process memory size exceeded maximum normal memory size
-		// (this is just warning message)
+		// (this is just a warning message)
 		if (used_memory >= max_memory) {
 			df_fail("  \e[35mWARN\e[0m method %s - initial mem. [%ld kB],"
 					" current mem. [%ld kB]\n", df_list.df_method_name,
@@ -512,38 +510,39 @@ int df_fuzz_test_method(int statfd, long buf_size, const char *name,
 			max_memory *= 3;
 		}
 
-		if (value != NULL)
+		if (value != NULL) {
 			g_variant_unref(value);
+			value = NULL;
+		}
 	}
 
-ok_label:
+
+	// test passed
 	df_verbose("  \e[32mPASS\e[0m method %s\n", df_list.df_method_name);
 	return 0;
 
-skip_label:
-	df_verbose
-		("  \e[34mSKIP\e[0m method %s - advanced signatures not yet implemented\n",
-		 df_list.df_method_name);
-	return 0;
 
-err_label:
+fail_label:
 	df_fail("   on input:\n");
 	df_fuzz_write_log();
-	if (df_bus_type) {
-		// system bus 
-		df_fail
-			("   reproducer: \e[33mdfuzzer -v -s -n %s -o %s -i %s"
-			"-t %s \e[0m\n", name, obj, intf, df_list.df_method_name);
-	} else {
-		// session bus
-		df_fail
-			("   reproducer: \e[33mdfuzzer -v -n %s -o %s -i %s -t %s\e[0m\n",
-			name, obj, intf, df_list.df_method_name);
-	}
+	df_fail("   reproducer: \e[33mdfuzzer -v -n %s -o %s -i %s"
+				" -t %s \e[0m\n", name, obj, intf, df_list.df_method_name);
 	if (value != NULL)
 		g_variant_unref(value);
-	if (proc_crashed)
-		return 1;
+	return 1;
+
+
+skip_label:
+	df_verbose("  \e[34mSKIP\e[0m method %s - advanced signatures"
+			" not yet implemented\n", df_list.df_method_name);
+	if (value != NULL)
+		g_variant_unref(value);
+	return 0;
+
+
+err_label:
+	if (value != NULL)
+		g_variant_unref(value);
 	return -1;
 }
 
@@ -563,14 +562,13 @@ static GVariant *df_fuzz_create_variant(void)
 	// creates GVariant for every item signature in linked list
 	int ret = df_fuzz_create_list_variants();
 	if (ret == -1) {
-		fprintf(stderr, "Error in df_fuzz_create_list_variants()\n");
+		df_debug("Error in df_fuzz_create_list_variants()\n");
 		return NULL;
-	}
-
-	if (ret == 1) {		// unsupported method signature
+	} else if (ret == 1) {		// unsupported method signature
 		unsupported_sig++;
 		return NULL;
 	}
+
 	// libffi part, to construct dynamic call of g_variant_new() on runtime
 	GVariant *val = NULL;
 	ffi_cif cif;
@@ -582,13 +580,13 @@ static GVariant *df_fuzz_create_variant(void)
 	int i;
 
 	if ((fmt = malloc(MAXFMT + 1)) == NULL) {
-		fprintf(stderr,
-			"Could not allocate memory for format string.\n");
+		df_fail("Error: Could not allocate memory for format string.\n");
 		return NULL;
 	}
 	// creates the format string for g_variant_new() function call
 	if (df_fuzz_create_fmt_string(&fmt, MAXFMT + 1) == -1) {
-		fprintf(stderr, "Error in df_fuzz_create_fmt_string()\n");
+		df_fail("Error: Unable to create format string.\n");
+		df_debug("Error in df_fuzz_create_fmt_string()\n");
 		return NULL;
 	}
 
@@ -614,7 +612,7 @@ static GVariant *df_fuzz_create_variant(void)
 		// was used to create it will be freed too, because val is
 		// their owner
 	} else {
-		fprintf(stderr, "ffi_prep_cif() failed on initializing cif\n");
+		df_fail("ffi_prep_cif() failed on initializing cif.\n");
 		return NULL;
 	}
 
@@ -623,11 +621,11 @@ static GVariant *df_fuzz_create_variant(void)
 	// result we couldn't have get GVariant values from items of linked list
 	// (needed for loging into log file)
 	val = g_variant_ref_sink(val);	// converts floating to normal reference
-	// so val cannot be consumed
-	// by g_dbus_proxy_call_sync() function
+									// so val cannot be consumed
+									// by g_dbus_proxy_call_sync() function
 	if (g_variant_is_floating(val)) {
-		fprintf(stderr, "GVariant containing '%s()' method parameters must not"
-				" be floating\n", df_list.df_method_name);
+		df_fail("Error: Unable to convert GVariant from floating to normal"
+				" reference\n(for method '%s()'.\n", df_list.df_method_name);
 		return NULL;
 	}
 
@@ -648,7 +646,7 @@ static int df_fuzz_create_list_variants(void)
 	while (s != NULL) {
 		len = strlen(s->sig);
 		if (len <= 0) {
-			fprintf(stderr, "No argument signature\n");
+			df_debug("df_fuzz_create_list_variants(): No argument signature\n");
 			return -1;
 		} else if (len == 1) {		// one character argument
 			switch (s->sig[0]) {
@@ -684,7 +682,7 @@ static int df_fuzz_create_list_variants(void)
 				;
 				gchar *buf;
 				if (df_rand_string(&buf) == -1) {
-					fprintf(stderr, "In df_rand_string()\n");
+					df_debug("In df_rand_string()\n");
 					return -1;
 				}
 				s->var = g_variant_new(s->sig, buf);
@@ -694,7 +692,7 @@ static int df_fuzz_create_list_variants(void)
 				;
 				gchar *obj;
 				if (df_rand_dbus_objpath_string(&obj) == -1) {
-					fprintf(stderr, "In df_rand_dbus_objpath_string()\n");
+					df_debug("In df_rand_dbus_objpath_string()\n");
 					return -1;
 				}
 				s->var = g_variant_new(s->sig, obj);
@@ -704,7 +702,7 @@ static int df_fuzz_create_list_variants(void)
 				;
 				gchar *sig;
 				if (df_rand_dbus_signature_string(&sig) == -1) {
-					fprintf(stderr, "In df_rand_dbus_signature_string()\n");
+					df_debug("In df_rand_dbus_signature_string()\n");
 					return -1;
 				}
 				s->var = g_variant_new(s->sig, sig);
@@ -714,7 +712,7 @@ static int df_fuzz_create_list_variants(void)
 				;
 				GVariant *var;
 				if (df_rand_GVariant(&var) == -1) {
-					fprintf(stderr, "In df_rand_GVariant()\n");
+					df_debug("In df_rand_GVariant()\n");
 					return -1;
 				}
 				s->var = g_variant_new(s->sig, var);
@@ -723,8 +721,7 @@ static int df_fuzz_create_list_variants(void)
 				s->var = g_variant_new(s->sig, df_rand_unixFD());
 				break;
 			default:
-				fprintf(stderr, "Unknown argument signature '%s'\n",
-						s->sig);
+				df_debug("Unknown argument signature '%s'\n", s->sig);
 				return -1;
 			}
 		} else {	// advanced argument (array of something, dictionary, ...)
@@ -734,8 +731,8 @@ static int df_fuzz_create_list_variants(void)
 		}
 
 		if (s->var == NULL) {
-			fprintf(stderr, "Failed to construct GVariant for '%s' signature\n",
-					s->sig);
+			df_fail("Error: Failed to construct GVariant for '%s' signature"
+					"of method '%s'\n",	s->sig, df_list.df_method_name);
 			return -1;
 		}
 		s = s->next;
@@ -766,9 +763,8 @@ static int df_fuzz_create_fmt_string(char **fmt, int n)
 	while (s != NULL) {
 		len = strlen(s->sig);
 		total_len += len + 1;	// including '@' character
-		if (total_len > n - 3) {
-			fprintf(stderr, "Format string is too small to consume all"
-					" signatures\n");
+		if (total_len > (n - 3)) {
+			df_debug("Format string is too small to consume all signatures\n");
 			return -1;
 		}
 		*ptr = '@';
@@ -779,9 +775,8 @@ static int df_fuzz_create_fmt_string(char **fmt, int n)
 		s = s->next;
 	}
 
-	if (total_len > n - 3) {
-		fprintf(stderr, "Format string is too small to consume all"
-				" signatures\n");
+	if (total_len > (n - 3)) {
+		df_debug("Format string is too small to consume all signatures\n");
 		return -1;
 	}
 	*ptr = ')';
@@ -813,20 +808,18 @@ static int df_fuzz_call_method(GVariant * value)
 	if (response == NULL) {
 		// D-Bus exceptions are accepted
 		if ((dbus_error = g_dbus_error_get_remote_error(error)) != NULL) {
+			// if process does not respond
 			if (strcmp(dbus_error, "org.freedesktop.DBus.Error.NoReply") == 0) {
-				df_fail("  \e[31mFAIL\e[0m method %s - No reply recieved\n",
-						df_list.df_method_name);
 				g_free(dbus_error);
 				g_error_free(error);
 				return -1;
 			}
+			g_free(dbus_error);
 		}
 
 		g_dbus_error_strip_remote_error(error);
-		df_debug
-			("  \e[32mPASS\e[0m method %s - D-Bus exception thrown: %.60s\n",
-			df_list.df_method_name, error->message);
-		g_free(dbus_error);
+		df_debug("  \e[32mPASS\e[0m method %s - D-Bus exception thrown: "
+			"%.60s\n", df_list.df_method_name, error->message);
 		g_error_free(error);
 		return 0;
 	}

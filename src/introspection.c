@@ -23,6 +23,7 @@
 #include <stdlib.h>
 
 #include "introspection.h"
+#include "dfuzzer.h"
 
 /** Information about nodes in a remote object hierarchy. */
 static GDBusNodeInfo *df_introspection_data;
@@ -43,15 +44,16 @@ GDBusArgInfo **df_out_args;
 	then parses XML data and fills GDBusNodeInfo representing the data.
 	At the end looks up information about an interface and initializes module
 	global pointers on first method and its first argument.
-	This function must be called before using any functions from this module.
 	@param dproxy Pointer on D-Bus interface proxy
-	@param interface Name of process interface
+	@param name D-Bus name
+	@param interface D-Bus interface
 	@return 0 on success, -1 on error
 */
-int df_init_introspection(GDBusProxy * dproxy, char *interface)
+int df_init_introspection(GDBusProxy * dproxy, const char *name,
+						const char *interface)
 {
 	if (dproxy == NULL || interface == NULL) {
-		fprintf(stderr, "Passing NULL argument to function\n");
+		df_debug("Passing NULL argument to function.\n");
 		return -1;
 	}
 
@@ -66,22 +68,28 @@ int df_init_introspection(GDBusProxy * dproxy, char *interface)
 						NULL, G_DBUS_CALL_FLAGS_NONE, -1,
 						NULL, &error);
 	if (response == NULL) {
-		fprintf(stderr, "Call of g_dbus_proxy_call_sync() returned NULL"
-				" pointer: %s\n", error->message);
-		g_error_free(error);
+		df_fail("Error: Unknown name '%s'.\n", name);
+		df_error("Call of g_dbus_proxy_call_sync() returned NULL"
+				" pointer", error);
 		return -1;
 	}
 
 	g_variant_get(response, "(s)", &introspection_xml);
+	g_variant_unref(response);
+	if (introspection_xml == NULL) {
+		df_fail("Error: Unable to get introspection data from GVariant.\n");
+		return -1;
+	}
 
 	// Parses introspection_xml and returns a GDBusNodeInfo representing
 	// the data.
 	df_introspection_data = g_dbus_node_info_new_for_xml(introspection_xml,
 							&error);
+	g_free(introspection_xml);
 	if (df_introspection_data == NULL) {
-		fprintf(stderr, "Call of g_dbus_node_info_new_for_xml() returned NULL"
-				" pointer: %s\n", error->message);
-		g_error_free(error);
+		df_fail("Error: Unable to get introspection data.\n");
+		df_error("Call of g_dbus_node_info_new_for_xml() returned NULL"
+				" pointer", error);
 		return -1;
 	}
 
@@ -89,8 +97,9 @@ int df_init_introspection(GDBusProxy * dproxy, char *interface)
 	df_interface_data = g_dbus_node_info_lookup_interface(df_introspection_data,
 						interface);
 	if (df_interface_data == NULL) {
-		fprintf(stderr, "Call of g_dbus_node_info_lookup_interface() returned"
-				" NULL pointer\n");
+		df_fail("Error: Unable to get interface '%s' data.\n", interface);
+		df_error("Call of g_dbus_node_info_lookup_interface() returned"
+				" NULL pointer", NULL);
 		return -1;
 	}
 
@@ -100,18 +109,12 @@ int df_init_introspection(GDBusProxy * dproxy, char *interface)
 	if (*df_methods == NULL) {
 		df_debug("Interface '%s' has no methods to test - skipping\n",
 				interface);
-		g_variant_unref(response);
-		g_free(introspection_xml);
-
 		return 0;
 	}
 
 	// sets pointer on args of current method
 	df_in_args = (*df_methods)->in_args;
 	df_out_args = (*df_methods)->out_args;
-
-	g_variant_unref(response);
-	g_free(introspection_xml);
 	return 0;
 }
 

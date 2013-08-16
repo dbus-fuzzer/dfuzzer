@@ -33,6 +33,11 @@
 /** maximum length of D-Bus signature string */
 #define MAXSIG 255
 
+/** Maximum number of generations of non-string values (for functions
+	without string arguments) */
+#define MAX_FUZZ_COUNTER 1000
+
+
 /**
 	@function Initializes global flag variables and seeds pseudo-random
 	numbers generators.

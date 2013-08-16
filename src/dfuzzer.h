@@ -23,7 +23,7 @@
 #define DFUZZER_H
 
 /** Version of dfuzzer */
-#define DF_VERSION "dfuzzer 1.1\n" \
+#define DF_VERSION "dfuzzer 1.2\n" \
 	"Copyright(C) 2013, Red Hat, Inc., Matus Marhefka <mmarhefk@redhat.com>\n" \
 	"Additional changes by Miroslav Vadkerti <mvadkert@redhat.com>\n" \
 	"License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>.\n"
@@ -45,22 +45,37 @@ struct fuzzing_target {		// names on D-Bus have the most MAXLEN characters
 };
 
 /**
-	@function
+	@function Traverses through all interfaces and objects of bus
+	name target_proc.name and for each interface it calls df_fuzz()
+	to fuzz test all its methods.
+	@param dcon D-Bus connection structure
+	@param root_node Starting object path (all nodes from this object path
+	will be traversed)
+	@return 0 on success, 1 on error, 2 when testing detected any failures
 */
 int df_traverse_node(GDBusConnection * dcon, const char *root_node);
 
 /**
-	@function
+	@function Controls fuzz testing of all methods of specified interface (intf)
+	and reports results.
+	@param dcon D-Bus connection structure
+	@param name D-Bus name
+	@param obj D-Bus object path
+	@param intf D-Bus interface
+	@return 0 on success, 1 on error, 2 when testing detected any failures
 */
 int df_fuzz(GDBusConnection * dcon, const char *name,
 			const char *obj, const char *intf);
 
 /**
-	@function Displays an error message and exits with error code 1.
-	@param message Error message which will be printed before exiting program
-	@param error Pointer on GError structure containing error specification
+	@function Checks if name is valid D-Bus name, obj is valid
+	D-Bus object path and intf is valid D-Bus interface.
+	@param name D-Bus name
+	@param obj D-Bus object path
+	@param intf D-Bus interface
+	@return 1 if name, obj and intf are valid, 0 otherwise
 */
-void df_error(char *message, GError * error);
+int df_is_valid_dbus(const char *name, const char *obj, const char *intf);
 
 /**
 	@function Opens process status file.
@@ -106,6 +121,13 @@ void df_parse_parameters(int argc, char **argv);
 	@param name Name of program
 */
 void df_print_help(char *name);
+
+/**
+	@function Displays an error message.
+	@param message Error message which will be printed
+	@param error Pointer on GError structure containing error specification
+*/
+void df_error(char *message, GError * error);
 
 /**
 	@function Prints debug message.

@@ -25,92 +25,125 @@
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <signal.h>
 #include <errno.h>
 
 #include "dfuzzer.h"
 #include "introspection.h"
 #include "fuzz.h"
 
+
 /** Structure containing D-Bus name, object path and interface of process */
 struct fuzzing_target target_proc = { "", "", "" };
-
-/** Session/System bus daemon switch ('-s' option) */
-int df_bus_type;
-
-/** debug and verbose flags */
+/** Debug flag */
 int df_verbose_flag = 0;
+/** Verbose flag */
 int df_debug_flag = 0;
-
-
-long mem_limit = 0;			// Memory limit for tested process in kB.
-long buf_size = 0;			// Maximum buffer size for generated strings
-							// by rand module (in Bytes).
-char *test_method = NULL;	// Contains method name or NULL. When not NULL,
-							// only method with this name will be tested.
+/** Memory limit for tested process in kB */
+long mem_limit = 0;
+/** Maximum buffer size for generated strings by rand module (in Bytes) */
+long buf_size = 0;
+/** Contains method name or NULL. When not NULL, only method with this name
+	will be tested*/
+char *test_method = NULL;
+/** Tested process PID */
+int pid = -1;
 
 
 /**
 	@function Main function controls fuzzing.
 	@param argc Number of program arguments
 	@param argv Pointer on string with program arguments
-	@return 0 on success, 1 on error
+	@return 0 on success, 1 on error, 2 when testing detected any failures
 */
 int main(int argc, char **argv)
 {
 	GDBusConnection *dcon;		// D-Bus connection structure
 	GError *error = NULL;		// must be set to NULL
 	char *root_node = "/";
-	int ret;
+	int rses;					// return value from session bus testing
+	int rsys;					// return value from system bus testing
 
 	df_parse_parameters(argc, argv);
 
 	// Initializes the type system.
 	g_type_init();
 
-	// Synchronously connects to the message bus (session/system) daemon.
-	switch (df_bus_type) {
-	case 0:
-		if ((dcon = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, &error)) == NULL) {
-			df_error
-				("Error in g_bus_get_sync() on connecting to the session bus",
-				error);
-			return -1;
-		}
-		break;
-	case 1:
-		if ((dcon = g_bus_get_sync(G_BUS_TYPE_SYSTEM, NULL, &error)) == NULL) {
-			df_error
-				("Error in g_bus_get_sync() on connecting to the system bus",
-				error);
-			return -1;
-		}
-		break;
-	default:
-		fprintf(stderr, "df_bus_type '%d' unknown\n", df_bus_type);
-		return -1;
-		break;
-	}
 
-	if (strlen(target_proc.interface) != 0) {
-		df_verbose("Object: \e[1m%s\e[0m\n", target_proc.obj_path);
-		df_verbose(" Interface: \e[1m%s\e[0m\n", target_proc.interface);
-		ret = df_fuzz(dcon, target_proc.name, target_proc.obj_path,
-					target_proc.interface);
-	} else if (strlen(target_proc.obj_path) != 0) {
-		df_verbose("Object: \e[1m%s\e[0m\n", target_proc.obj_path);
-		ret = df_traverse_node(dcon, target_proc.obj_path);
-	} else {
-		df_verbose("Object: \e[1m/\e[0m\n");
-		ret = df_traverse_node(dcon, root_node);
+	// Synchronously connects to the session bus daemon.
+	printf("\e[36m[SESSION BUS]\e[0m\n", target_proc.name);
+	if ((dcon = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, &error)) == NULL) {
+		df_fail("Error: Unable to connect to the session bus.\n");
+		df_error("Error in g_bus_get_sync() on connecting to the session bus",
+				error);
+		return 1;
 	}
+	// gets pid of tested process
+	pid = df_get_pid(dcon);
+	if (pid > 0) {
+		df_verbose("\e[36m[CONNECTED TO PID:%d]\e[0m\n", pid);
+		if (strlen(target_proc.interface) != 0) {
+			df_verbose("Object: \e[1m%s\e[0m\n", target_proc.obj_path);
+			df_verbose(" Interface: \e[1m%s\e[0m\n", target_proc.interface);
+			rses = df_fuzz(dcon, target_proc.name, target_proc.obj_path,
+						target_proc.interface);
+		} else if (strlen(target_proc.obj_path) != 0) {
+			df_verbose("Object: \e[1m%s\e[0m\n", target_proc.obj_path);
+			rses = df_traverse_node(dcon, target_proc.obj_path);
+		} else {
+			df_verbose("Object: \e[1m/\e[0m\n");
+			rses = df_traverse_node(dcon, root_node);
+		}
+		g_object_unref(dcon);
+	} else
+		rses = 1;
 
-	g_object_unref(dcon);
-	return ret;
+
+
+	// Synchronously connects to the system bus daemon.
+	printf("\e[36m[SYSTEM  BUS]\e[0m\n", target_proc.name);
+	if ((dcon = g_bus_get_sync(G_BUS_TYPE_SYSTEM, NULL, &error)) == NULL) {
+		df_fail("Error: Unable to connect to the system bus.\n");
+		df_error("Error in g_bus_get_sync() on connecting to the system bus",
+				error);
+		return 1;
+	}
+	// gets pid of tested process
+	pid = df_get_pid(dcon);
+	if (pid > 0) {
+		df_verbose("\e[36m[CONNECTED TO PID:%d]\e[0m\n", pid);
+		if (strlen(target_proc.interface) != 0) {
+			df_verbose("Object: \e[1m%s\e[0m\n", target_proc.obj_path);
+			df_verbose(" Interface: \e[1m%s\e[0m\n", target_proc.interface);
+			rsys = df_fuzz(dcon, target_proc.name, target_proc.obj_path,
+						target_proc.interface);
+		} else if (strlen(target_proc.obj_path) != 0) {
+			df_verbose("Object: \e[1m%s\e[0m\n", target_proc.obj_path);
+			rsys = df_traverse_node(dcon, target_proc.obj_path);
+		} else {
+			df_verbose("Object: \e[1m/\e[0m\n");
+			rsys = df_traverse_node(dcon, root_node);
+		}
+		g_object_unref(dcon);
+	} else
+		rsys = 1;
+
+
+	if (rses == 1 && rsys == 1)			// error
+		return 1;
+	else if (rses == 2 || rsys == 2)	// testing found failures
+		return 2;
+	else
+		return 0;
 }
 
 /**
-	@function
+	@function Traverses through all interfaces and objects of bus
+	name target_proc.name and for each interface it calls df_fuzz()
+	to fuzz test all its methods.
+	@param dcon D-Bus connection structure
+	@param root_node Starting object path (all nodes from this object path
+	will be traversed)
+	@return 0 on success, 1 on error, 2 when testing detected any failures
 */
 int df_traverse_node(GDBusConnection * dcon, const char *root_node)
 {
@@ -123,41 +156,55 @@ int df_traverse_node(GDBusConnection * dcon, const char *root_node)
 	/** Information about nodes in a remote object hierarchy. */
 	GDBusNodeInfo *node_data = NULL;
 	GDBusNodeInfo *node = NULL;
+	char *object = NULL;
+	int i = 0;
 	/** Information about a D-Bus interface. */
 	GDBusInterfaceInfo *interface = NULL;
-	int i = 0;
-	char *object = NULL;
+	/** Return values */
+	int rd = 0;			// return value from df_fuzz()
+	int rt = 0;			// return value from recursive transition
+	int ret = 0;		// return value of this function
 
+
+	if (!df_is_valid_dbus(target_proc.name, root_node, intro_iface))
+		return 1;
 	dproxy = g_dbus_proxy_new_sync(dcon, G_DBUS_PROXY_FLAGS_NONE, NULL,
 						target_proc.name, root_node, intro_iface,
 						NULL, &error);
 	if (dproxy == NULL) {
-		g_object_unref(dcon);
+		df_fail("Error: Unable to create proxy for bus name '%s'.\n",
+				target_proc.name);
 		df_error("Error in g_dbus_proxy_new_sync() on creating proxy",
-			 error);
-		return -1;
+				 error);
+		return 1;
 	}
+
+
 	response = g_dbus_proxy_call_sync(dproxy, intro_method,
 						NULL, G_DBUS_CALL_FLAGS_NONE, -1,
 						NULL, &error);
 	if (response == NULL) {
-		df_error("Call of g_dbus_proxy_call_sync() returned NULL"
-			 " pointer", error);
 		g_object_unref(dproxy);
-		return -1;
+		df_fail("Error: Unknown bus name '%s'.\n", target_proc.name);
+		return 1;
 	}
 	g_variant_get(response, "(s)", &introspection_xml);
+	g_variant_unref(response);
+	if (introspection_xml == NULL) {
+		df_fail("Error: Unable to get introspection data from GVariant.\n");
+		return -1;
+	}
 
 	// Parses introspection_xml and returns a GDBusNodeInfo representing
 	// the data.
 	node_data = g_dbus_node_info_new_for_xml(introspection_xml, &error);
+	g_free(introspection_xml);
 	if (node_data == NULL) {
+		df_fail("Error: Unable to get introspection data.\n");
 		df_error("Call of g_dbus_node_info_new_for_xml() returned NULL"
 			" pointer", error);
-		g_free(introspection_xml);
-		g_variant_unref(response);
 		g_object_unref(dproxy);
-		return -1;
+		return 1;
 	}
 
 	// go through all interfaces
@@ -165,14 +212,15 @@ int df_traverse_node(GDBusConnection * dcon, const char *root_node)
 	interface = node_data->interfaces[i++];
 	while (interface != NULL) {
 		df_verbose(" Interface: \e[1m%s\e[0m\n", interface->name);
-		// start fuzzing on the target_proc
-		if (df_fuzz(dcon, target_proc.name, root_node, interface->name)) {
+		// start fuzzing on the target_proc.name
+		rd = df_fuzz(dcon, target_proc.name, root_node, interface->name);
+		if (rd == 1) {
 			g_dbus_node_info_unref(node_data);
-			g_free(introspection_xml);
-			g_variant_unref(response);
 			g_object_unref(dproxy);
-			return -1;
+			return 1;
 		}
+		if (rd == 2)
+			ret = rd;
 		interface = node_data->interfaces[i++];
 	}
 
@@ -184,19 +232,19 @@ int df_traverse_node(GDBusConnection * dcon, const char *root_node)
 		object = (char *) calloc(strlen(node->path) + strlen(root_node) + 3,
 					sizeof(char));
 		if (object == NULL) {
-			df_fail("Cannot allocate root_node string");
+			df_fail("Error: Could not allocate memory for root_node string.\n");
 			g_dbus_node_info_unref(node_data);
-			g_free(introspection_xml);
-			g_variant_unref(response);
 			g_object_unref(dproxy);
-			return -1;
+			return 1;
 		}
 		if (strlen(root_node) == 1)
 			sprintf(object, "%s%s", root_node, node->path);
 		else
 			sprintf(object, "%s/%s", root_node, node->path);
 		df_verbose("Object: \e[1m%s\e[0m\n", object);
-		df_traverse_node(dcon, object);
+		rt = df_traverse_node(dcon, object);
+		if (rt == 2)
+			ret = rt;
 		free(object);
 		// move to next node
 		node = node_data->nodes[i++];
@@ -204,14 +252,18 @@ int df_traverse_node(GDBusConnection * dcon, const char *root_node)
 
 	// cleanup
 	g_dbus_node_info_unref(node_data);
-	g_free(introspection_xml);
-	g_variant_unref(response);
 	g_object_unref(dproxy);
-	return 0;
+	return ret;
 }
 
 /**
-	@function
+	@function Controls fuzz testing of all methods of specified interface (intf)
+	and reports results.
+	@param dcon D-Bus connection structure
+	@param name D-Bus name
+	@param obj D-Bus object path
+	@param intf D-Bus interface
+	@return 0 on success, 1 on error, 2 when testing detected any failures
 */
 int df_fuzz(GDBusConnection * dcon, const char *name,
 			const char *obj, const char *intf)
@@ -219,60 +271,54 @@ int df_fuzz(GDBusConnection * dcon, const char *name,
 	int method_found = 0;	// If test_method is found in an interface,
 							// method_found is set to 1, otherwise is 0.
 	GDBusProxy *dproxy;		// D-Bus interface proxy
-	int pid = -1;			// pid of tested process
 	int statfd;				// FD for process status file
 	GError *error = NULL;	// must be set to NULL
+	int rv = 0;				// return value of function
+
 
 	// Sanity check fuzzing target
 	if (strlen(name) == 0 || strlen(obj) == 0 || strlen(intf) == 0) {
-		df_fail("Error: dr_fuzz testing target specification\n");
-		return -1;
+		df_fail("Error in target specification.\n");
+		return 1;
 	}
 
 	// Creates a proxy for accessing intf on the remote object at path obj
 	// owned by name at dcon.
+	if (!df_is_valid_dbus(name, obj, intf))
+		return 1;
 	dproxy = g_dbus_proxy_new_sync(dcon, G_DBUS_PROXY_FLAGS_NONE, NULL,
 						name, obj, intf, NULL, &error);
 	if (dproxy == NULL) {
+		df_fail("Error: Unable to create proxy for bus name '%s'.\n", name);
 		df_error("Error in g_dbus_proxy_new_sync() on creating proxy",
 				error);
-		return -1;
-	}
-
-	// gets pid of tested process
-	pid = df_get_pid(dcon);
-	if (pid < 0) {
-		g_object_unref(dproxy);
-		df_error("Error in df_get_pid() on getting pid of process",
-				error);
-		return -1;
+		return 1;
 	}
 
 	// Introspection of object through proxy.
-	if (df_init_introspection(dproxy, intf) == -1) {
+	if (df_init_introspection(dproxy, name, intf) == -1) {
 		g_object_unref(dproxy);
-		df_error
-			("Error in df_init_introspection() on introspecting object",
-			error);
-		return -1;
+		df_error("Error in df_init_introspection() on introspecting object",
+				NULL);
+		return 1;
 	}
 
 	// opens process status file
 	if ((statfd = df_open_proc_status_file(pid)) == -1) {
 		df_unref_introspection();
 		g_object_unref(dproxy);
-		df_error("Error in df_open_proc_status_file()", error);
-		return -1;
+		df_error("Error in df_open_proc_status_file()", NULL);
+		return 1;
 	}
 
 	// tells fuzz module to call methods on dproxy, use FD statfd
 	// for monitoring tested process and memory limit for process
-	if (df_fuzz_init(dproxy, statfd, mem_limit) == -1) {
+	if (df_fuzz_init(dproxy, statfd, pid, mem_limit) == -1) {
 		close(statfd);
 		df_unref_introspection();
 		g_object_unref(dproxy);
-		df_error("Error in df_fuzz_add_proxy()", error);
-		return -1;
+		df_error("Error in df_fuzz_add_proxy()", NULL);
+		return 1;
 	}
 
 	GDBusMethodInfo *m;
@@ -293,8 +339,8 @@ int df_fuzz(GDBusConnection * dcon, const char *name,
 			close(statfd);
 			df_unref_introspection();
 			g_object_unref(dproxy);
-			df_error("Error in df_fuzz_add_method()", error);
-			return -1;
+			df_error("Error in df_fuzz_add_method()", NULL);
+			return 1;
 		}
 
 		for (; (in_arg = df_get_method_arg()) != NULL; df_next_method_arg()) {
@@ -303,9 +349,8 @@ int df_fuzz(GDBusConnection * dcon, const char *name,
 				close(statfd);
 				df_unref_introspection();
 				g_object_unref(dproxy);
-				df_error("Error in df_fuzz_add_method_arg()",
-						error);
-				return -1;
+				df_error("Error in df_fuzz_add_method_arg()", NULL);
+				return 1;
 			}
 		}
 
@@ -315,28 +360,31 @@ int df_fuzz(GDBusConnection * dcon, const char *name,
 
 retest:
 		// tests for method
-		ret = df_fuzz_test_method(statfd, buf_size, name,
-								obj, intf, method_found);
+		ret = df_fuzz_test_method(statfd, buf_size, name, obj, intf,
+								pid, method_found);
 		if (ret == -1) {			// error during testing method
 			close(statfd);
 			df_fuzz_clean_method();
 			df_unref_introspection();
 			g_object_unref(dproxy);
-			df_error("Error in df_fuzz_test_method()", error);
-			return -1;
+			df_error("Error in df_fuzz_test_method()", NULL);
+			return 1;
 		} else if (ret == 1) {		// launch process again after crash
+			rv = 2;
 			g_object_unref(dproxy);
+			if (!df_is_valid_dbus(name, obj, intf))
+				return 1;
 			dproxy = g_dbus_proxy_new_sync(dcon, G_DBUS_PROXY_FLAGS_NONE,
 							NULL, name, obj, intf, NULL, &error);
 			if (dproxy == NULL) {
 				close(statfd);
 				df_fuzz_clean_method();
 				df_unref_introspection();
-				g_object_unref(dproxy);
-				df_error
-				    ("Error in g_dbus_proxy_new_sync() on creating"
-				     " proxy", error);
-				return -1;
+				df_fail("Error: Unable to create proxy for bus name '%s'.\n",
+						name);
+				df_error("Error in g_dbus_proxy_new_sync() on creating"
+				     	" proxy", error);
+				return 1;
 			}
 
 			sleep(5);		// wait for application to launch
@@ -348,11 +396,11 @@ retest:
 				df_fuzz_clean_method();
 				df_unref_introspection();
 				g_object_unref(dproxy);
-				df_error
-					("Error in df_get_pid() on getting pid of process",
-					error);
-				return -1;
+				df_error("Error in df_get_pid() on getting pid of process",
+						NULL);
+				return 1;
 			}
+			df_verbose("\e[36m[RE-CONNECTED TO PID:%d]\e[0m\n", pid);
 
 			// opens process status file
 			close(statfd);
@@ -361,20 +409,19 @@ retest:
 				df_fuzz_clean_method();
 				df_unref_introspection();
 				g_object_unref(dproxy);
-				df_error("Error in df_open_proc_status_file()",
-						error);
-				return -1;
+				df_error("Error in df_open_proc_status_file()", NULL);
+				return 1;
 			}
 
 			// tells fuzz module to call methods on different dproxy and to use
 			// new status file of process with PID pid
-			if (df_fuzz_init(dproxy, statfd, mem_limit) == -1) {
+			if (df_fuzz_init(dproxy, statfd, pid, mem_limit) == -1) {
 				close(statfd);
 				df_fuzz_clean_method();
 				df_unref_introspection();
 				g_object_unref(dproxy);
-				df_error("Error in df_fuzz_add_proxy()", error);
-				return -1;
+				df_error("Error in df_fuzz_add_proxy()", NULL);
+				return 1;
 			}
 		}
 
@@ -392,28 +439,38 @@ retest:
 		df_unref_introspection();
 		g_object_unref(dproxy);
 		close(statfd);
-		return 0;
+		return rv;
 	}
 	df_debug(" Cleaning up after fuzzing of interface\n");
 	df_unref_introspection();
 	g_object_unref(dproxy);
 	close(statfd);
-	return 0;
+	return rv;
 }
 
 /**
-	@function Displays an error message and exits with error code 1.
-	@param message Error message which will be printed before exiting program
-	@param error Pointer on GError structure containing error specification
+	@function Checks if name is valid D-Bus name, obj is valid
+	D-Bus object path and intf is valid D-Bus interface.
+	@param name D-Bus name
+	@param obj D-Bus object path
+	@param intf D-Bus interface
+	@return 1 if name, obj and intf are valid, 0 otherwise
 */
-void df_error(char *message, GError * error)
+int df_is_valid_dbus(const char *name, const char *obj, const char *intf)
 {
-	if (error == NULL)
-		fprintf(stderr, "%s\n", message);
-	else {
-		fprintf(stderr, "%s: %s\n", message, error->message);
-		g_error_free(error);
+	if (!g_dbus_is_name(name)) {
+		df_fail("Error: Unknown bus name '%s'.\n", name);
+		return 0;
 	}
+	if (!g_variant_is_object_path(obj)) {
+		df_fail("Error: Unknown object path '%s'.\n", obj);
+		return 0;
+	}
+	if (!g_dbus_is_interface_name(intf)) {
+		df_fail("Error: Unknown interface '%s'.\n", intf);
+		return 0;
+	}
+	return 1;
 }
 
 /**
@@ -428,7 +485,7 @@ int df_open_proc_status_file(int pid)
 
 	int statfd = open(file_path, O_RDONLY);
 	if (statfd == -1) {
-		fprintf(stderr, "Error on opening '%s' file\n", file_path);
+		df_fail("Error: Unable to open file '%s'.\n", file_path);
 		return -1;
 	}
 	return statfd;
@@ -454,8 +511,8 @@ int df_get_pid(GDBusConnection * dcon)
 							"/org/freedesktop/DBus",
 							"org.freedesktop.DBus", NULL, &error);
 	if (pproxy == NULL) {
-		fprintf(stderr, "Error on creating proxy for getting process pid: %s\n",
-				error->message);
+		df_fail("Error: Unable to create proxy for getting process pid.\n");
+		df_error("Error on creating proxy for getting process pid", error);
 		return -1;
 	}
 
@@ -465,10 +522,9 @@ int df_get_pid(GDBusConnection * dcon)
 										g_variant_new("(s)",
 										target_proc.name),
 										G_DBUS_CALL_FLAGS_NONE, -1, NULL,
-										&error);
+										NULL);
 	if (variant_pid == NULL) {
-		fprintf(stderr, "Error on calling GetConnectionUnixProcessID"
-			" through D-Bus: %s\n", error->message);
+		df_fail("Error: Unknown bus name '%s'.\n", target_proc.name);
 		g_object_unref(pproxy);
 		return -1;
 	}
@@ -504,21 +560,21 @@ int df_get_pid(GDBusConnection * dcon)
 void df_parse_parameters(int argc, char **argv)
 {
 	int c = 0;
-	int nflg = 0, oflg = 0, iflg = 0, mflg = 0, bflg = 0, sflg = 0, tflg = 0;
+	int nflg = 0, oflg = 0, iflg = 0, mflg = 0, bflg = 0, tflg = 0;
 
-	while ((c = getopt(argc, argv, "n:o:i:m:b:t:dsvhV")) != -1) {
+	while ((c = getopt(argc, argv, "n:o:i:m:b:t:dvhV")) != -1) {
 		switch (c) {
 		case 'd':
 			df_debug_flag = 1;
 			break;
 		case 'n':
 			if (nflg != 0) {
-				fprintf(stderr, "%s: no duplicate options -- 'n'\n", argv[0]);
+				df_fail("%s: no duplicate options -- 'n'\n", argv[0]);
 				exit(1);
 			}
 			nflg++;
 			if (strlen(optarg) >= MAXLEN) {
-				fprintf(stderr, "%s: maximum %d characters for option --"
+				df_fail("%s: maximum %d characters for option --"
 						" 'n'\n", argv[0], MAXLEN - 1);
 				exit(1);
 			}
@@ -526,12 +582,12 @@ void df_parse_parameters(int argc, char **argv)
 			break;
 		case 'o':
 			if (oflg != 0) {
-				fprintf(stderr, "%s: no duplicate options -- 'o'\n", argv[0]);
+				df_fail("%s: no duplicate options -- 'o'\n", argv[0]);
 				exit(1);
 			}
 			oflg++;
 			if (strlen(optarg) >= MAXLEN) {
-				fprintf(stderr, "%s: maximum %d characters for option --"
+				df_fail("%s: maximum %d characters for option --"
 						" 'o'\n", argv[0], MAXLEN - 1);
 				exit(1);
 			}
@@ -539,12 +595,12 @@ void df_parse_parameters(int argc, char **argv)
 			break;
 		case 'i':
 			if (iflg != 0) {
-				fprintf(stderr, "%s: no duplicate options -- 'i'\n", argv[0]);
+				df_fail("%s: no duplicate options -- 'i'\n", argv[0]);
 				exit(1);
 			}
 			iflg++;
 			if (strlen(optarg) >= MAXLEN) {
-				fprintf(stderr, "%s: maximum %d characters for option --"
+				df_fail("%s: maximum %d characters for option --"
 						" 'i'\n", argv[0], MAXLEN - 1);
 				exit(1);
 			}
@@ -552,45 +608,36 @@ void df_parse_parameters(int argc, char **argv)
 			break;
 		case 'm':
 			if (mflg != 0) {
-				fprintf(stderr, "%s: no duplicate options -- 'm'\n", argv[0]);
+				df_fail("%s: no duplicate options -- 'm'\n", argv[0]);
 				exit(1);
 			}
 			mflg++;
 			mem_limit = strtol(optarg, NULL, 10);
 			if (mem_limit <= 0 || errno == ERANGE || errno == EINVAL) {
-				fprintf(stderr, "%s: invalid value for option -- 'm'\n",
-						argv[0]);
+				df_fail("%s: invalid value for option -- 'm'\n", argv[0]);
 				exit(1);
 			}
 			break;
 		case 'b':
 			if (bflg != 0) {
-				fprintf(stderr, "%s: no duplicate options -- 'b'\n", argv[0]);
+				df_fail("%s: no duplicate options -- 'b'\n", argv[0]);
 				exit(1);
 			}
 			bflg++;
 			buf_size = strtol(optarg, NULL, 10);
 			if (buf_size < MINLEN || errno == ERANGE || errno == EINVAL) {
-				fprintf(stderr, "%s: invalid value for option -- 'b'\n"
+				df_fail("%s: invalid value for option -- 'b'\n"
 						" -- at least %d B are required\n", argv[0], MINLEN);
 				exit(1);
 			}
 			break;
 		case 't':
 			if (tflg != 0) {
-				fprintf(stderr, "%s: no duplicate options -- 't'\n", argv[0]);
+				df_fail("%s: no duplicate options -- 't'\n", argv[0]);
 				exit(1);
 			}
 			tflg++;
 			test_method = optarg;
-			break;
-		case 's':	// TODO: remove this option
-			if (sflg != 0) {
-				fprintf(stderr, "%s: no duplicate options -- 's'\n", argv[0]);
-				exit(1);
-			}
-			sflg++;
-			df_bus_type++;	// system bus
 			break;
 		case 'v':
 			df_verbose_flag = 1;
@@ -631,27 +678,26 @@ void df_print_help(char *name)
 	printf("Usage: dfuzzer -n BUS_NAME [OTHER_OPTIONS]\n\n"
 	"Tool for fuzz testing processes communicating through D-Bus.\n"
 	"The fuzzer traverses through all the methods on the given bus name.\n"
-	"By default only failures are printed. Use -v for verbose mode.\n"
-	"By default the session bus is used. Use -s to use the system bus.\n\n"
+	"By default only failures are printed. Use -v for verbose mode.\n\n"
 	"REQUIRED OPTIONS:\n"
 	"-n BUS_NAME\n\n"
 	"OTHER OPTIONS:\n"
 	"-d\n"
-	"   Enable debug messages.\n"
+	"   Enable debug messages. Implies -v.\n"
 	"-h\n"
 	"   Print dfuzzer help and exit.\n"
-	"-s\n"
-	"   Use system bus instead of default session bus.\n"
 	"-v\n"
 	"   Enable verbose messages.\n"
 	"-V\n"
 	"   Print dfuzzer version and exit.\n"
+	"-o OBJECT_PATH\n"
+	"   Optional object path to test. All children objects are traversed.\n"
+	"-i INTERFACE\n"
+	"   Interface to test. Requires also -o option.\n"
 	"-b MAX_BUF_SIZE [in B]\n"
 	"   Maximum buffer size for generated strings, minimum is 256 B.\n"
 	"   Default maximum size is 50000 B ~= 50 kB (the greater the limit,\n"
 	"   the longer the testing).\n"
-	"-i INTERFACE\n"
-	"   Interface to test. Requires also -o option.\n"
 	"-m MEM_LIMIT [in kB]\n"
 	"   When tested process exceeds this limit it will be noted into\n"
 	"   log file. Default value for this limit is 3x process intial\n"
@@ -660,20 +706,35 @@ void df_print_help(char *name)
 	"   to default value (3x process intial memory size).\n"
 	"-t METHOD_NAME\n"
 	"   When this parameter is provided, only method METHOD_NAME is tested.\n"
-	"   All other methods of an interface are skipped.\n"
-	"-o OBJECT_PATH\n"
-	"   Optional object path to test. All children objects are traversed.\n\n"
+	"   All other methods of an interface are skipped.\n\n"
 	"Examples:\n\n"
 	" Test all methods of GNOME Shell. Be verbose.\n"
 	" # %s -n org.gnome.Shell\n\n"
-	" Test only method of the given bus name, object path and interface on the system bus.\n"
-	" # %s -s -n org.freedesktop.Avahi -o / -i org.freedesktop.Avahi.Server -t"
+	" Test only method of the given bus name, object path and interface.\n"
+	" # %s -n org.freedesktop.Avahi -o / -i org.freedesktop.Avahi.Server -t"
 	"GetAlternativeServiceName\n\n"
-	" Test all methods systemd D-Bus methods under object"
-	"/org/freedesktop/systemd1/unit on system bus.\n"
+	" Test all systemd D-Bus methods under object"
+	"/org/freedesktop/systemd1/unit.\n"
 	" Be verbose.\n"
-	" # %s -sv -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1/unit\n\n",
+	" # %s -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1/unit\n\n",
 	name, name, name);
+}
+
+/**
+	@function Displays an error message.
+	@param message Error message which will be printed
+	@param error Pointer on GError structure containing error specification
+*/
+void df_error(char *message, GError * error)
+{
+	if (!df_debug_flag)
+		return;
+	if (error == NULL)
+		fprintf(stderr, "%s\n", message);
+	else {
+		fprintf(stderr, "%s: %s\n", message, error->message);
+		g_error_free(error);
+	}
 }
 
 /**
