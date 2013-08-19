@@ -519,7 +519,8 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 
 
 	// test passed
-	df_verbose("  \e[32mPASS\e[0m method %s\n", df_list.df_method_name);
+	if (one_method_test != 1)
+		df_verbose("  \e[32mPASS\e[0m method %s\n", df_list.df_method_name);
 	return 0;
 
 
