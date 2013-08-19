@@ -31,7 +31,7 @@
 	@param interface D-Bus interface
 	@return 0 on success, -1 on error
 */
-int df_init_introspection(GDBusProxy * dproxy, const char *name,
+int df_init_introspection(const GDBusProxy *dproxy, const char *name,
 						const char *interface);
 
 /**

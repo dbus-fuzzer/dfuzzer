@@ -73,9 +73,9 @@ static const char *df_str_def[] = {
 };
 
 /** Index into df_str_def array for function df_rand_string() */
-static unsigned index_str;
+static unsigned df_index_str;
 /** Index into df_str_def array for function df_rand_GVariant() */
-static unsigned index_var;
+static unsigned df_index_var;
 
 /**
 	Array of signature definitions, which will be send to tested process if it
@@ -83,15 +83,17 @@ static unsigned index_var;
 */
 static const char df_sig_def[16] = "ybnqiuxtdsogavh";
 
+
 /* Module static functions */
-static void df_rand_random_string(char *buf, long size);
+static void df_rand_random_string(char *buf, const long size);
+
 
 /**
 	@function Initializes global flag variables and seeds pseudo-random
 	numbers generators.
 	@param buf_size Maximum buffer size for generated strings (in Bytes)
 */
-void df_rand_init(long buf_size)
+void df_rand_init(const long buf_size)
 {
 	srand(time(NULL));	// for int rand()
 	srandom(time(NULL));	// for long int random()
@@ -112,8 +114,8 @@ void df_rand_init(long buf_size)
 
 	df_num_fuzz_counter = 0;
 	df_str_len = 0;
-	index_str = 0;
-	index_var = 0;
+	df_index_str = 0;
+	df_index_var = 0;
 }
 
 /**
@@ -392,7 +394,7 @@ gdouble df_rand_gdouble(void)
 	strings lengths
 	@return 1 when callee should continue, 0 otherwise
 */
-int df_rand_continue(int fuzz_on_str_len)
+int df_rand_continue(const int fuzz_on_str_len)
 {
 	static int counter = 0;	// makes sure to test biggest strings more times
 
@@ -420,7 +422,7 @@ int df_rand_continue(int fuzz_on_str_len)
 	@param buf Pointer on buffer where generated string will be stored
 	@param size Size of buffer
 */
-static void df_rand_random_string(char *buf, long size)
+static void df_rand_random_string(char *buf, const long size)
 {
 	if (size < 1)
 		return;
@@ -451,8 +453,8 @@ int df_rand_string(gchar **buf)
 	if (df_str_len > df_buf_size)
 		df_str_len = df_buf_size;
 
-	if (df_str_def[index_str] != NULL)
-		df_str_len = strlen(df_str_def[index_str]) + 1;
+	if (df_str_def[df_index_str] != NULL)
+		df_str_len = strlen(df_str_def[df_index_str]) + 1;
 
 	*buf = malloc(sizeof(gchar) * df_str_len);
 	if (*buf == NULL) {
@@ -460,9 +462,9 @@ int df_rand_string(gchar **buf)
 		return -1;
 	}
 
-	if (df_str_def[index_str] != NULL) {
-		strcpy(*buf, df_str_def[index_str]);
-		index_str++;
+	if (df_str_def[df_index_str] != NULL) {
+		strcpy(*buf, df_str_def[df_index_str]);
+		df_index_str++;
 		return 0;
 	}
 
@@ -589,8 +591,8 @@ int df_rand_GVariant(GVariant **var)
 	if (df_str_len > df_buf_size)
 		df_str_len = df_buf_size;
 
-	if (df_str_def[index_var] != NULL)
-		df_str_len = strlen(df_str_def[index_var]) + 1;
+	if (df_str_def[df_index_var] != NULL)
+		df_str_len = strlen(df_str_def[df_index_var]) + 1;
 
 	buf = malloc(sizeof(gchar) * df_str_len);
 	if (buf == NULL) {
@@ -599,9 +601,9 @@ int df_rand_GVariant(GVariant **var)
 		return -1;
 	}
 
-	if (df_str_def[index_var] != NULL) {
-		strcpy(buf, df_str_def[index_var]);
-		index_var++;
+	if (df_str_def[df_index_var] != NULL) {
+		strcpy(buf, df_str_def[df_index_var]);
+		df_index_var++;
 		*var = g_variant_new("s", buf);
 		free(buf);
 		return 0;

@@ -45,18 +45,18 @@ static long df_initial_mem = -1;
 	limit it will be noted into log file */
 static long df_mem_limit;
 /** Flag for unsupported method signature, 1 means signature is unsupported */
-static int unsupported_sig;
+static int df_unsupported_sig;
 /** Pointer on unsupported signature string (do not free it) */
-static char *unsupported_sig_str;
+static char *df_unsupported_sig_str;
 
 
 /* Module static functions */
-static long df_fuzz_get_proc_mem_size(int statfd);
+static long df_fuzz_get_proc_mem_size(const int statfd);
 static int df_fuzz_write_log(void);
 static GVariant *df_fuzz_create_variant(void);
 static int df_fuzz_create_list_variants(void);
-static int df_fuzz_create_fmt_string(char **fmt, int n);
-static int df_fuzz_call_method(GVariant * value);
+static int df_fuzz_create_fmt_string(char **fmt, const int n);
+static int df_fuzz_call_method(const GVariant *value);
 
 
 /** Error checked write function with short write correction (when write
@@ -210,16 +210,17 @@ int df_list_args_count(void)
 	@return Process memory size on success, 0 when statfd is not readable (that
 	means process exited: errno set to ESRCH - no such process) or -1 on error
 */
-static long df_fuzz_get_proc_mem_size(int statfd)
+static long df_fuzz_get_proc_mem_size(const int statfd)
 {
 	long mem_size = -1;
-	int ret;
 	char buf[MAXLINE];	// buffer for reading from file
 	char *ptr;			// pointer into buf buffer
+	off_t ret;
+	ssize_t n;
 
 	// rewinds file position to the beginning
 	ret = lseek(statfd, 0L, SEEK_SET);
-	if (ret == -1 && errno == ESRCH)	// process exited
+	if (ret == ((off_t) -1) && errno == ESRCH)	// process exited
 		return 0;
 	else if (ret == -1)
 		return -1;
@@ -227,7 +228,7 @@ static long df_fuzz_get_proc_mem_size(int statfd)
 
 	int stopr = 0;
 	while (!stopr) {
-		int n = read(statfd, buf, MAXLINE - 1);
+		n = read(statfd, buf, MAXLINE - 1);
 		if (n == -1 && errno == ESRCH)	// process exited
 			return 0;
 		else if (n == -1)
@@ -461,19 +462,19 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 			goto err_label;
 		}
 		if (used_memory == 0) {
-			df_fail("  \e[31mFAIL\e[0m method %s - process exited [PID:%d], "
-					"[MEM:%ld kB]\n", df_list.df_method_name, pid, prev_memory);
+			df_fail("  \e[31mFAIL\e[0m method %s - process exited [PID: %d],"
+					"[MEM: %ld kB]\n", df_list.df_method_name, pid, prev_memory);
 			goto fail_label;
 		}
 		prev_memory = used_memory;
 
 		// creates variant containing all (fuzzed) method arguments
 		if ((value = df_fuzz_create_variant()) == NULL) {
-			if (unsupported_sig) {
-				unsupported_sig = 0;
+			if (df_unsupported_sig) {
+				df_unsupported_sig = 0;
 				df_debug("  unsupported argument by dfuzzer: ");
-				df_debug("%s\n", unsupported_sig_str);
-				unsupported_sig_str = NULL;
+				df_debug("%s\n", df_unsupported_sig_str);
+				df_unsupported_sig_str = NULL;
 				goto skip_label;
 			}
 			df_debug("Call of df_fuzz_create_variant() returned"
@@ -489,7 +490,7 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 			used_memory = df_fuzz_get_proc_mem_size(statfd);
 			if (used_memory == 0) {			// process exited
 				df_fail("  \e[31mFAIL\e[0m method %s - process exited "
-						"[PID:%d], [MEM:%ld kB]\n",
+						"[PID: %d],[MEM: %ld kB]\n",
 						df_list.df_method_name, pid, prev_memory);
 				goto fail_label;
 			} else if (used_memory == -1) {	// error on reading process status
@@ -504,10 +505,10 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 		// process memory size exceeded maximum normal memory size
 		// (this is just a warning message)
 		if (used_memory >= max_memory) {
-			df_fail("  \e[35mWARN\e[0m method %s - [INIT MEM:%ld kB],"
-					" [CURRENT MEM:%ld kB]\n", df_list.df_method_name,
+			df_fail("  \e[35mWARN\e[0m method %s - [INIT.MEM: %ld kB],"
+					"[CUR.MEM: %ld kB]\n", df_list.df_method_name,
 					df_initial_mem, used_memory);
-			max_memory *= 3;
+			max_memory = used_memory * 2;
 		}
 
 		if (value != NULL) {
@@ -565,7 +566,7 @@ static GVariant *df_fuzz_create_variant(void)
 		df_debug("Error in df_fuzz_create_list_variants()\n");
 		return NULL;
 	} else if (ret == 1) {		// unsupported method signature
-		unsupported_sig++;
+		df_unsupported_sig++;
 		return NULL;
 	}
 
@@ -726,7 +727,7 @@ static int df_fuzz_create_list_variants(void)
 			}
 		} else {	// advanced argument (array of something, dictionary, ...)
 			// fprintf(stderr, "Advanced signatures not yet implemented\n");
-			unsupported_sig_str = s->sig;
+			df_unsupported_sig_str = s->sig;
 			return 1;	// unsupported method signature
 		}
 
@@ -748,7 +749,7 @@ static int df_fuzz_create_list_variants(void)
 	@param n Size of buffer
 	@return 0 on success, -1 on error
 */
-static int df_fuzz_create_fmt_string(char **fmt, int n)
+static int df_fuzz_create_fmt_string(char **fmt, const int n)
 {
 	struct df_signature *s = df_list.list;	// pointer on first signature
 	int total_len = 0;
@@ -792,7 +793,7 @@ static int df_fuzz_create_fmt_string(char **fmt, int n)
 	their values
 	@return 0 on success, -1 on error
 */
-static int df_fuzz_call_method(GVariant * value)
+static int df_fuzz_call_method(const GVariant *value)
 {
 	GError *error = NULL;
 	GVariant *response = NULL;

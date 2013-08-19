@@ -44,6 +44,15 @@ struct fuzzing_target {		// names on D-Bus have the most MAXLEN characters
 	char interface[MAXLEN];
 };
 
+
+/**
+	@function Calls method ListNames to get all available connection names
+	on the bus and prints them on the program output.
+	@param dcon D-Bus connection structure
+	@return 0 on success, -1 on error
+*/
+int df_list_bus_names(const GDBusConnection *dcon);
+
 /**
 	@function Traverses through all interfaces and objects of bus
 	name target_proc.name and for each interface it calls df_fuzz()
@@ -53,7 +62,7 @@ struct fuzzing_target {		// names on D-Bus have the most MAXLEN characters
 	will be traversed)
 	@return 0 on success, 1 on error, 2 when testing detected any failures
 */
-int df_traverse_node(GDBusConnection * dcon, const char *root_node);
+int df_traverse_node(const GDBusConnection *dcon, const char *root_node);
 
 /**
 	@function Controls fuzz testing of all methods of specified interface (intf)
@@ -64,7 +73,7 @@ int df_traverse_node(GDBusConnection * dcon, const char *root_node);
 	@param intf D-Bus interface
 	@return 0 on success, 1 on error, 2 when testing detected any failures
 */
-int df_fuzz(GDBusConnection * dcon, const char *name,
+int df_fuzz(const GDBusConnection *dcon, const char *name,
 			const char *obj, const char *intf);
 
 /**
@@ -82,7 +91,7 @@ int df_is_valid_dbus(const char *name, const char *obj, const char *intf);
 	@param pid PID - identifier of process
 	@return FD of status file on success, -1 on error
 */
-int df_open_proc_status_file(int pid);
+int df_open_proc_status_file(const int pid);
 
 /**
 	@function Calls method GetConnectionUnixProcessID on the interface
@@ -90,7 +99,7 @@ int df_open_proc_status_file(int pid);
 	@param dcon D-Bus connection structure
 	@return Process PID on success, -1 on error
 */
-int df_get_pid(GDBusConnection * dcon);
+int df_get_pid(const GDBusConnection *dcon);
 
 /**
 	@function Parses program options and stores them into global
@@ -120,14 +129,14 @@ void df_parse_parameters(int argc, char **argv);
 	@function Prints help.
 	@param name Name of program
 */
-void df_print_help(char *name);
+void df_print_help(const char *name);
 
 /**
 	@function Displays an error message.
 	@param message Error message which will be printed
 	@param error Pointer on GError structure containing error specification
 */
-void df_error(char *message, GError * error);
+void df_error(const char *message, GError *error);
 
 /**
 	@function Prints debug message.

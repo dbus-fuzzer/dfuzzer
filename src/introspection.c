@@ -35,8 +35,9 @@ static GDBusMethodInfo **df_methods;
 /** Pointer on arguments, each contains information about an argument
 	for a method or a signal. */
 static GDBusArgInfo **df_in_args;
+
 /** Pointer on output arguments */
-GDBusArgInfo **df_out_args;
+//GDBusArgInfo **df_out_args;
 
 
 /**
@@ -49,7 +50,7 @@ GDBusArgInfo **df_out_args;
 	@param interface D-Bus interface
 	@return 0 on success, -1 on error
 */
-int df_init_introspection(GDBusProxy * dproxy, const char *name,
+int df_init_introspection(const GDBusProxy *dproxy, const char *name,
 						const char *interface)
 {
 	if (dproxy == NULL || interface == NULL) {
@@ -69,8 +70,7 @@ int df_init_introspection(GDBusProxy * dproxy, const char *name,
 						NULL, &error);
 	if (response == NULL) {
 		df_fail("Error: Unknown name '%s'.\n", name);
-		df_error("Call of g_dbus_proxy_call_sync() returned NULL"
-				" pointer", error);
+		df_error("Error in g_dbus_proxy_call_sync()", error);
 		return -1;
 	}
 
@@ -88,8 +88,7 @@ int df_init_introspection(GDBusProxy * dproxy, const char *name,
 	g_free(introspection_xml);
 	if (df_introspection_data == NULL) {
 		df_fail("Error: Unable to get introspection data.\n");
-		df_error("Call of g_dbus_node_info_new_for_xml() returned NULL"
-				" pointer", error);
+		df_error("Error in g_dbus_node_info_new_for_xml()", error);
 		return -1;
 	}
 
@@ -98,8 +97,7 @@ int df_init_introspection(GDBusProxy * dproxy, const char *name,
 						interface);
 	if (df_interface_data == NULL) {
 		df_fail("Error: Unable to get interface '%s' data.\n", interface);
-		df_error("Call of g_dbus_node_info_lookup_interface() returned"
-				" NULL pointer", NULL);
+		df_error("Error in g_dbus_node_info_lookup_interface()", NULL);
 		return -1;
 	}
 
@@ -114,7 +112,7 @@ int df_init_introspection(GDBusProxy * dproxy, const char *name,
 
 	// sets pointer on args of current method
 	df_in_args = (*df_methods)->in_args;
-	df_out_args = (*df_methods)->out_args;
+	//df_out_args = (*df_methods)->out_args;
 	return 0;
 }
 

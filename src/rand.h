@@ -43,7 +43,7 @@
 	numbers generators.
 	@param buf_size Maximum buffer size for generated strings (in Bytes)
 */
-void df_rand_init(long buf_size);
+void df_rand_init(const long buf_size);
 
 /**
 	@return Generated pseudo-random 8-bit unsigned integer value
@@ -103,7 +103,7 @@ gdouble df_rand_gdouble(void);
 	strings lengths
 	@return 1 when callee should continue, 0 otherwise
 */
-int df_rand_continue(int fuzz_on_str_len);
+int df_rand_continue(const int fuzz_on_str_len);
 
 /**
 	@function Allocates memory for pseudo-random string of size counted
