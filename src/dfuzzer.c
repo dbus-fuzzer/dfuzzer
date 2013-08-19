@@ -526,11 +526,11 @@ int df_get_pid(GDBusConnection * dcon)
 
 	// Synchronously invokes method GetConnectionUnixProcessID
 	variant_pid = g_dbus_proxy_call_sync(pproxy,
-										"GetConnectionUnixProcessID",
-										g_variant_new("(s)",
-										target_proc.name),
-										G_DBUS_CALL_FLAGS_NONE, -1, NULL,
-										NULL);
+						"GetConnectionUnixProcessID",
+						g_variant_new("(s)",
+						target_proc.name),
+						G_DBUS_CALL_FLAGS_NONE, -1, NULL,
+						NULL);
 	if (variant_pid == NULL) {
 		df_fail("Error: Unknown bus name '%s'.\n", target_proc.name);
 		g_object_unref(pproxy);
@@ -686,43 +686,46 @@ void df_print_help(char *name)
 	printf("Usage: dfuzzer -n BUS_NAME [OTHER_OPTIONS]\n\n"
 	"Tool for fuzz testing processes communicating through D-Bus.\n"
 	"The fuzzer traverses through all the methods on the given bus name.\n"
-	"By default only failures are printed. Use -v for verbose mode.\n\n"
+	"By default only failures and warnings are printed."
+	" Use -v for verbose mode.\n\n"
 	"REQUIRED OPTIONS:\n"
 	"-n BUS_NAME\n\n"
 	"OTHER OPTIONS:\n"
-	"-d\n"
-	"   Enable debug messages. Implies -v.\n"
+	"-V\n"
+	"   Print dfuzzer version and exit.\n"
 	"-h\n"
 	"   Print dfuzzer help and exit.\n"
 	"-v\n"
 	"   Enable verbose messages.\n"
-	"-V\n"
-	"   Print dfuzzer version and exit.\n"
+	"-d\n"
+	"   Enable debug messages. Implies -v. This option is for developers\n"
+	"   and should not be normally used during testing.\n"
 	"-o OBJECT_PATH\n"
 	"   Optional object path to test. All children objects are traversed.\n"
 	"-i INTERFACE\n"
 	"   Interface to test. Requires also -o option.\n"
-	"-b MAX_BUF_SIZE [in B]\n"
-	"   Maximum buffer size for generated strings, minimum is 256 B.\n"
-	"   Default maximum size is 50000 B ~= 50 kB (the greater the limit,\n"
-	"   the longer the testing).\n"
 	"-m MEM_LIMIT [in kB]\n"
 	"   When tested process exceeds this limit it will be noted into\n"
 	"   log file. Default value for this limit is 3x process intial\n"
 	"   memory size. If set memory limit value is less than or\n"
 	"   equal to process initial memory size, it will be adjusted\n"
 	"   to default value (3x process intial memory size).\n"
+	"-b MAX_BUF_SIZE [in B]\n"
+	"   Maximum buffer size for generated strings, minimum is 256 B.\n"
+	"   Default maximum size is 50000 B ~= 50 kB (the greater the limit,\n"
+	"   the longer the testing).\n"
 	"-t METHOD_NAME\n"
 	"   When this parameter is provided, only method METHOD_NAME is tested.\n"
-	"   All other methods of an interface are skipped.\n\n"
+	"   All other methods of an interface are skipped. DO NOT USE IN AUTOMATIC\n"
+	"   SCRIPTS, AS IT NEEDS TO BE USUALLY TERMINATED BY SIGINT!\n\n"
 	"Examples:\n\n"
 	" Test all methods of GNOME Shell. Be verbose.\n"
-	" # %s -n org.gnome.Shell\n\n"
+	" # %s -v -n org.gnome.Shell\n\n"
 	" Test only method of the given bus name, object path and interface.\n"
 	" # %s -n org.freedesktop.Avahi -o / -i org.freedesktop.Avahi.Server -t"
 	"GetAlternativeServiceName\n\n"
 	" Test all systemd D-Bus methods under object"
-	"/org/freedesktop/systemd1/unit.\n"
+	" /org/freedesktop/systemd1/unit.\n"
 	" Be verbose.\n"
 	" # %s -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1/unit\n\n",
 	name, name, name);
