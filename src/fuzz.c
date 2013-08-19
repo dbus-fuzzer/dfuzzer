@@ -208,11 +208,10 @@ int df_list_args_count(void)
 	as process memory size.
 	@param statfd FD of process status file
 	@return Process memory size on success, 0 when statfd is not readable (that
-	means process exited and also disconnected from D-Bus) or -1 on error
+	means process exited: errno set to ESRCH - no such process) or -1 on error
 */
 static long df_fuzz_get_proc_mem_size(int statfd)
 {
-	/** signal ESRCH - No such process */
 	long mem_size = -1;
 	int ret;
 	char buf[MAXLINE];	// buffer for reading from file
@@ -462,8 +461,8 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 			goto err_label;
 		}
 		if (used_memory == 0) {
-			df_fail("  \e[31mFAIL\e[0m method %s - process exited [PID:%d]\n",
-					df_list.df_method_name, pid);
+			df_fail("  \e[31mFAIL\e[0m method %s - process exited [PID:%d], "
+					"[MEM:%ld kB]\n", df_list.df_method_name, pid, prev_memory);
 			goto fail_label;
 		}
 		prev_memory = used_memory;
@@ -490,7 +489,8 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 			used_memory = df_fuzz_get_proc_mem_size(statfd);
 			if (used_memory == 0) {			// process exited
 				df_fail("  \e[31mFAIL\e[0m method %s - process exited "
-						"[PID:%d]\n", df_list.df_method_name, pid);
+						"[PID:%d], [MEM:%ld kB]\n",
+						df_list.df_method_name, pid, prev_memory);
 				goto fail_label;
 			} else if (used_memory == -1) {	// error on reading process status
 				df_fail("Error: Unable to get memory size of [PID:%d].\n", pid);
@@ -504,8 +504,8 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 		// process memory size exceeded maximum normal memory size
 		// (this is just a warning message)
 		if (used_memory >= max_memory) {
-			df_fail("  \e[35mWARN\e[0m method %s - initial mem. [%ld kB],"
-					" current mem. [%ld kB]\n", df_list.df_method_name,
+			df_fail("  \e[35mWARN\e[0m method %s - [INIT MEM:%ld kB],"
+					" [CURRENT MEM:%ld kB]\n", df_list.df_method_name,
 					df_initial_mem, used_memory);
 			max_memory *= 3;
 		}
@@ -780,7 +780,6 @@ static int df_fuzz_create_fmt_string(char **fmt, int n)
 		return -1;
 	}
 	*ptr = ')';
-	total_len++;
 	ptr++;
 	*ptr = '\0';
 

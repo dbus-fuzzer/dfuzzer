@@ -128,10 +128,15 @@ int main(int argc, char **argv)
 		rsys = 1;
 
 
-	if (rses == 1 && rsys == 1)			// error
+	// both tests ended with error
+	if (rses == 1 && rsys == 1)
 		return 1;
-	else if (rses == 2 || rsys == 2)	// testing found failures
+	// at least one test found failures
+	else if (rses == 2 || rsys == 2)
 		return 2;
+	// cases where rses=1,rsys=0 or rses=0,rsys=1 are ok,
+	// because tests on one of the bus daemons finished
+	// successfuly
 	else
 		return 0;
 }
@@ -192,7 +197,7 @@ int df_traverse_node(GDBusConnection * dcon, const char *root_node)
 	g_variant_unref(response);
 	if (introspection_xml == NULL) {
 		df_fail("Error: Unable to get introspection data from GVariant.\n");
-		return -1;
+		return 1;
 	}
 
 	// Parses introspection_xml and returns a GDBusNodeInfo representing
@@ -218,8 +223,7 @@ int df_traverse_node(GDBusConnection * dcon, const char *root_node)
 			g_dbus_node_info_unref(node_data);
 			g_object_unref(dproxy);
 			return 1;
-		}
-		if (rd == 2)
+		} else if (rd == 2)
 			ret = rd;
 		interface = node_data->interfaces[i++];
 	}
@@ -243,7 +247,11 @@ int df_traverse_node(GDBusConnection * dcon, const char *root_node)
 			sprintf(object, "%s/%s", root_node, node->path);
 		df_verbose("Object: \e[1m%s\e[0m\n", object);
 		rt = df_traverse_node(dcon, object);
-		if (rt == 2)
+		if (rt == 1) {
+			g_dbus_node_info_unref(node_data);
+			g_object_unref(dproxy);
+			return 1;
+		} else if (rt == 2)
 			ret = rt;
 		free(object);
 		// move to next node
