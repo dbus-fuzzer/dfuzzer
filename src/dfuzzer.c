@@ -370,8 +370,7 @@ int df_fuzz(const GDBusConnection *dcon, const char *name,
 	// Introspection of object through proxy.
 	if (df_init_introspection(dproxy, name, intf) == -1) {
 		g_object_unref(dproxy);
-		df_error("Error in df_init_introspection() on introspecting object",
-				NULL);
+		df_debug("Error in df_init_introspection() on introspecting object\n");
 		return 1;
 	}
 
@@ -379,7 +378,7 @@ int df_fuzz(const GDBusConnection *dcon, const char *name,
 	if ((statfd = df_open_proc_status_file(df_pid)) == -1) {
 		df_unref_introspection();
 		g_object_unref(dproxy);
-		df_error("Error in df_open_proc_status_file()", NULL);
+		df_debug("Error in df_open_proc_status_file()\n");
 		return 1;
 	}
 
@@ -389,7 +388,7 @@ int df_fuzz(const GDBusConnection *dcon, const char *name,
 		close(statfd);
 		df_unref_introspection();
 		g_object_unref(dproxy);
-		df_error("Error in df_fuzz_add_proxy()", NULL);
+		df_debug("Error in df_fuzz_add_proxy()\n");
 		return 1;
 	}
 
@@ -411,7 +410,7 @@ int df_fuzz(const GDBusConnection *dcon, const char *name,
 			close(statfd);
 			df_unref_introspection();
 			g_object_unref(dproxy);
-			df_error("Error in df_fuzz_add_method()", NULL);
+			df_debug("Error in df_fuzz_add_method()\n");
 			return 1;
 		}
 
@@ -421,7 +420,7 @@ int df_fuzz(const GDBusConnection *dcon, const char *name,
 				close(statfd);
 				df_unref_introspection();
 				g_object_unref(dproxy);
-				df_error("Error in df_fuzz_add_method_arg()", NULL);
+				df_debug("Error in df_fuzz_add_method_arg()\n");
 				return 1;
 			}
 		}
@@ -445,7 +444,7 @@ retest:
 			df_fuzz_clean_method();
 			df_unref_introspection();
 			g_object_unref(dproxy);
-			df_error("Error in df_fuzz_test_method()", NULL);
+			df_debug("Error in df_fuzz_test_method()\n");
 			return 1;
 		} else if (ret == 1) {		// launch process again after crash
 			rv = 2;
@@ -474,8 +473,7 @@ retest:
 				df_fuzz_clean_method();
 				df_unref_introspection();
 				g_object_unref(dproxy);
-				df_error("Error in df_get_pid() on getting pid of process",
-						NULL);
+				df_debug("Error in df_get_pid() on getting pid of process\n");
 				return 1;
 			}
 			printf("\e[36m[RE-CONNECTED TO PID: %d]\e[0m\n", df_pid);
@@ -487,7 +485,7 @@ retest:
 				df_fuzz_clean_method();
 				df_unref_introspection();
 				g_object_unref(dproxy);
-				df_error("Error in df_open_proc_status_file()", NULL);
+				df_debug("Error in df_open_proc_status_file()\n");
 				return 1;
 			}
 
@@ -498,7 +496,7 @@ retest:
 				df_fuzz_clean_method();
 				df_unref_introspection();
 				g_object_unref(dproxy);
-				df_error("Error in df_fuzz_add_proxy()", NULL);
+				df_debug("Error in df_fuzz_add_proxy()\n");
 				return 1;
 			}
 		} else if (ret == 2)// method returning void is returning illegal value

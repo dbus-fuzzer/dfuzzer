@@ -94,7 +94,7 @@ int df_init_introspection(const GDBusProxy *dproxy, const char *name,
 						interface);
 	if (df_interface_data == NULL) {
 		df_fail("Error: Unable to get interface '%s' data.\n", interface);
-		df_error("Error in g_dbus_node_info_lookup_interface()", NULL);
+		df_debug("Error in g_dbus_node_info_lookup_interface()\n");
 		return -1;
 	}
 
