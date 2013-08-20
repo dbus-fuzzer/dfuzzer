@@ -1,23 +1,22 @@
 /** @file introspection.h */
 /*
-
-	dfuzzer - tool for fuzz testing processes communicating through D-Bus.
-	Copyright(C) 2013, Red Hat, Inc., Matus Marhefka <mmarhefk@redhat.com>
-
-	This program is free software: you can redistribute it and/or modify
-	it under the terms of the GNU General Public License as published by
-	the Free Software Foundation, either version 3 of the License, or
-	(at your option) any later version.
-
-	This program is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-	GNU General Public License for more details.
-
-	You should have received a copy of the GNU General Public License
-	along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-*/
+ * dfuzzer - tool for fuzz testing processes communicating through D-Bus.
+ *
+ * Copyright(C) 2013, Red Hat, Inc., Matus Marhefka <mmarhefk@redhat.com>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 #ifndef INTROSPECTION_H
 #define INTROSPECTION_H
 
@@ -56,6 +55,11 @@ GDBusArgInfo *df_get_method_arg(void);
 	(df_get_method()) method arguments.
 */
 void df_next_method_arg(void);
+
+/**
+	@return Returns 1 if method has out arguments (return value), 0 otherwise.
+*/
+int df_method_has_out_args(void);
 
 /**
 	@function Call when done with this module functions (only after

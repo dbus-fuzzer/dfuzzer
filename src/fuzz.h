@@ -1,24 +1,23 @@
 /** @file fuzz.h */
 /*
-
-	dfuzzer - tool for fuzz testing processes communicating through D-Bus.
-	Copyright(C) 2013, Red Hat, Inc., Matus Marhefka <mmarhefk@redhat.com>,
-	Miroslav Vadkerti <mvadkert@redhat.com>
-
-	This program is free software: you can redistribute it and/or modify
-	it under the terms of the GNU General Public License as published by
-	the Free Software Foundation, either version 3 of the License, or
-	(at your option) any later version.
-
-	This program is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-	GNU General Public License for more details.
-
-	You should have received a copy of the GNU General Public License
-	along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-*/
+ * dfuzzer - tool for fuzz testing processes communicating through D-Bus.
+ *
+ * Copyright(C) 2013, Red Hat, Inc., Matus Marhefka <mmarhefk@redhat.com>
+ *                                   Miroslav Vadkerti <mvadkert@redhat.com>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 #ifndef FUZZ_H
 #define FUZZ_H
 
@@ -116,11 +115,13 @@ int df_list_args_count(void);
 	@param pid PID of tested process
 	@param one_method_test If set to 1, reinitialization of rand module
 	is disabled, otherwise it is enabled
-	@return 0 on success, -1 on error or 1 on tested process crash
+	@param void_method If method has out args 1, 0 otherwise
+	@return 0 on success, -1 on error, 1 on tested process crash or 2 on void
+	function returning non-void value
 */
 int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 						const char *obj, const char *intf, const int pid,
-						const int one_method_test);
+						const int one_method_test, const int void_method);
 
 /**
 	@function Releases memory used by this module. This function must be called

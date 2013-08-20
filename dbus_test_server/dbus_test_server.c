@@ -1,21 +1,34 @@
 /*
-	D-Bus test server, for testing dfuzzer.
-	Author: Matus Marhefka  2013
-
-	After executing this test server, execute dfuzzer, for example like this:
-	$ ./dfuzzer -n org.freedesktop.dfuzzerServer -o /org/freedesktop/dfuzzerObject \
-	-i org.freedesktop.dfuzzerInterface -l server.log
-
-
-	Introspect by:
-	$ gdbus introspect --session -d org.freedesktop.dfuzzerServer \
-	-o /org/freedesktop/dfuzzerObject --xml
-
-	Test if org.freedesktop.dfuzzerServer is on SESSION bus:
-	$ gdbus call --session --dest org.freedesktop.DBus -o /org/freedesktop/Dbus \
-	--method org.freedesktop.DBus.ListNames | grep org.freedesktop.dfuzzerServer
-
-*/
+ * D-Bus test server, for testing dfuzzer.
+ *
+ * Copyright(C) 2013, Red Hat, Inc., Matus Marhefka <mmarhefk@redhat.com>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * After executing this test server, execute dfuzzer, for example like this:
+ * $ ./dfuzzer -n org.freedesktop.dfuzzerServer -o /org/freedesktop/dfuzzerObject \
+ * -i org.freedesktop.dfuzzerInterface
+ *
+ *
+ * Introspect by:
+ * $ gdbus introspect --session -d org.freedesktop.dfuzzerServer \
+ * -o /org/freedesktop/dfuzzerObject --xml
+ *
+ * Test if org.freedesktop.dfuzzerServer is on SESSION bus:
+ * $ gdbus call --session --dest org.freedesktop.DBus -o /org/freedesktop/Dbus \
+ * --method org.freedesktop.DBus.ListNames | grep org.freedesktop.dfuzzerServer
+ */
 #include <gio/gio.h>
 #include <glib/gstdio.h>	// g_printf() function
 #include <stdlib.h>

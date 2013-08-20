@@ -1,24 +1,23 @@
 /** @file fuzz.c */
 /*
-
-	dfuzzer - tool for fuzz testing processes communicating through D-Bus.
-	Copyright(C) 2013, Red Hat, Inc., Matus Marhefka <mmarhefk@redhat.com>,
-	Miroslav Vadkerti <mvadkert@redhat.com>
-
-	This program is free software: you can redistribute it and/or modify
-	it under the terms of the GNU General Public License as published by
-	the Free Software Foundation, either version 3 of the License, or
-	(at your option) any later version.
-
-	This program is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-	GNU General Public License for more details.
-
-	You should have received a copy of the GNU General Public License
-	along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-*/
+ * dfuzzer - tool for fuzz testing processes communicating through D-Bus.
+ *
+ * Copyright(C) 2013, Red Hat, Inc., Matus Marhefka <mmarhefk@redhat.com>
+ *                                   Miroslav Vadkerti <mvadkert@redhat.com>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 #include <gio/gio.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -32,6 +31,7 @@
 #include "fuzz.h"
 #include "dfuzzer.h"
 #include "rand.h"
+
 
 /** Pointer on D-Bus interface proxy for calling methods. */
 static GDBusProxy *df_dproxy;
@@ -56,7 +56,7 @@ static int df_fuzz_write_log(void);
 static GVariant *df_fuzz_create_variant(void);
 static int df_fuzz_create_list_variants(void);
 static int df_fuzz_create_fmt_string(char **fmt, const int n);
-static int df_fuzz_call_method(const GVariant *value);
+static int df_fuzz_call_method(const GVariant *value, const int void_method);
 
 
 /** Error checked write function with short write correction (when write
@@ -411,11 +411,13 @@ static int df_fuzz_write_log(void)
 	@param pid PID of tested process
 	@param one_method_test If set to 1, reinitialization of rand module
 	is disabled, otherwise it is enabled
-	@return 0 on success, -1 on error or 1 on tested process crash
+	@param void_method If method has out args 1, 0 otherwise
+	@return 0 on success, -1 on error, 1 on tested process crash or 2 on void
+	function returning non-void value
 */
 int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 						const char *obj, const char *intf, const int pid,
-						const int one_method_test)
+						const int one_method_test, const int void_method)
 {
 	// methods with no arguments are not tested
 	if (df_list.args == 0)
@@ -436,6 +438,7 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 
 	struct df_signature *s = df_list.list;	// pointer on the first signature
 	GVariant *value = NULL;
+	int ret;
 	long used_memory = 0;				// memory size used by process in kB
 	long prev_memory = 0;				// last known memory size
 	long max_memory = df_mem_limit;		// maximum normal memory size used
@@ -482,7 +485,8 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 			goto err_label;
 		}
 
-		if (df_fuzz_call_method(value) == -1) {
+		ret = df_fuzz_call_method(value, void_method);
+		if (ret == -1) {
 			// Here we look at process status file to be sure it really
 			// exited. If file is readable it means process is
 			// processing long string(s) and that is the reason it
@@ -500,6 +504,9 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 			}
 			// else continue, we managed to get process memory size
 			prev_memory = used_memory;
+		} else if (ret == 1) {
+			// method returning void is returning illegal value
+			goto fail_label;
 		}
 
 		// process memory size exceeded maximum normal memory size
@@ -525,10 +532,17 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 
 
 fail_label:
+	if (ret == 1) {		// method returning void is returning illegal value
+		df_fail("   reproducer: \e[33mdfuzzer -v -n %s -o %s -i %s"
+				" -t %s \e[0m\n", name, obj, intf, df_list.df_method_name);
+		if (value != NULL)
+			g_variant_unref(value);
+		return 2;
+	}
 	df_fail("   on input:\n");
 	df_fuzz_write_log();
 	df_fail("   reproducer: \e[33mdfuzzer -v -n %s -o %s -i %s"
-				" -t %s \e[0m\n", name, obj, intf, df_list.df_method_name);
+			" -t %s \e[0m\n", name, obj, intf, df_list.df_method_name);
 	if (value != NULL)
 		g_variant_unref(value);
 	return 1;
@@ -792,20 +806,24 @@ static int df_fuzz_create_fmt_string(char **fmt, const int n)
 	@function Calls method from df_list (using its name) with its arguments.
 	@param value GVariant tuple containing all method arguments signatures and
 	their values
-	@return 0 on success, -1 on error
+	@param void_method If method has out args 1, 0 otherwise
+	@return 0 on success, -1 on error or 1 if void method returned non-void
+	value
 */
-static int df_fuzz_call_method(const GVariant *value)
+static int df_fuzz_call_method(const GVariant *value, const int void_method)
 {
 	GError *error = NULL;
 	GVariant *response = NULL;
 	gchar *dbus_error = NULL;
+	char *fmt;
+
 
 	// Synchronously invokes method with arguments stored in value (GVariant *)
 	// on df_dproxy.
 	response = g_dbus_proxy_call_sync(df_dproxy,
-						df_list.df_method_name,
-						value, G_DBUS_CALL_FLAGS_NONE, -1,
-						NULL, &error);
+					df_list.df_method_name,
+					value, G_DBUS_CALL_FLAGS_NONE, -1,
+					NULL, &error);
 	if (response == NULL) {
 		// D-Bus exceptions are accepted
 		if ((dbus_error = g_dbus_error_get_remote_error(error)) != NULL) {
@@ -820,9 +838,20 @@ static int df_fuzz_call_method(const GVariant *value)
 
 		g_dbus_error_strip_remote_error(error);
 		df_debug("  \e[32mPASS\e[0m method %s - D-Bus exception thrown: "
-			"%.60s\n", df_list.df_method_name, error->message);
+			"%s\n", df_list.df_method_name, error->message);
 		g_error_free(error);
 		return 0;
+	} else {
+		if (void_method) {
+			fmt = g_variant_get_type_string(response);
+			// void function can only return empty tuple
+			if (strcmp(fmt, "()") != 0) {
+				df_fail("  \e[31mFAIL\e[0m method %s - void method returns"
+						" '%s' instead of '()'\n", df_list.df_method_name, fmt);
+				g_variant_unref(response);
+				return 1;
+			}
+		}
 	}
 
 	g_variant_unref(response);

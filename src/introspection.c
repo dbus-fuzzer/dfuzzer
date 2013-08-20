@@ -1,23 +1,22 @@
 /** @file introspection.c */
 /*
-
-	dfuzzer - tool for fuzz testing processes communicating through D-Bus.
-	Copyright(C) 2013, Red Hat, Inc., Matus Marhefka <mmarhefk@redhat.com>
-
-	This program is free software: you can redistribute it and/or modify
-	it under the terms of the GNU General Public License as published by
-	the Free Software Foundation, either version 3 of the License, or
-	(at your option) any later version.
-
-	This program is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-	GNU General Public License for more details.
-
-	You should have received a copy of the GNU General Public License
-	along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-*/
+ * dfuzzer - tool for fuzz testing processes communicating through D-Bus.
+ *
+ * Copyright(C) 2013, Red Hat, Inc., Matus Marhefka <mmarhefk@redhat.com>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 #include <gio/gio.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -25,19 +24,17 @@
 #include "introspection.h"
 #include "dfuzzer.h"
 
+
 /** Information about nodes in a remote object hierarchy. */
 static GDBusNodeInfo *df_introspection_data;
 /** Information about a D-Bus interface. */
 static GDBusInterfaceInfo *df_interface_data;
-/** Pointer on methods, each contains information about a method
-	on a D-Bus interface. */
+/** Pointer on methods, each contains information about itself. */
 static GDBusMethodInfo **df_methods;
-/** Pointer on arguments, each contains information about an argument
-	for a method or a signal. */
+/** Pointer on input arguments, each contains information about itself. */
 static GDBusArgInfo **df_in_args;
-
 /** Pointer on output arguments */
-//GDBusArgInfo **df_out_args;
+static GDBusArgInfo **df_out_args;
 
 
 /**
@@ -112,7 +109,7 @@ int df_init_introspection(const GDBusProxy *dproxy, const char *name,
 
 	// sets pointer on args of current method
 	df_in_args = (*df_methods)->in_args;
-	//df_out_args = (*df_methods)->out_args;
+	df_out_args = (*df_methods)->out_args;
 	return 0;
 }
 
@@ -131,9 +128,11 @@ GDBusMethodInfo *df_get_method(void)
 void df_next_method(void)
 {
 	df_methods++;
-	if (*df_methods != NULL)
+	if (*df_methods != NULL) {
 		// sets pointer on args of current method
 		df_in_args = (*df_methods)->in_args;
+		df_out_args = (*df_methods)->out_args;
+	}
 }
 
 /**
@@ -152,6 +151,16 @@ GDBusArgInfo *df_get_method_arg(void)
 void df_next_method_arg(void)
 {
 	df_in_args++;
+}
+
+/**
+	@return Returns 1 if method has out arguments (return value), 0 otherwise.
+*/
+int df_method_has_out_args(void)
+{
+	if (*df_out_args != NULL)
+		return 1;
+	return 0;
 }
 
 /**
