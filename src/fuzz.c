@@ -466,6 +466,8 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 				df_debug("  unsupported argument by dfuzzer: ");
 				df_debug("%s\n", df_unsupported_sig_str);
 				df_unsupported_sig_str = NULL;
+				df_verbose("  \e[34mSKIP\e[0m method %s - advanced signatures"
+						" not yet implemented\n", df_list.df_method_name);
 				goto skip_label;
 			}
 			df_debug("Call of df_fuzz_create_variant() returned"
@@ -495,6 +497,9 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 		} else if (ret == 1) {
 			// method returning void is returning illegal value
 			goto fail_label;
+		} else if (ret == 2) {
+			// tested method returned exception
+			goto skip_label;
 		}
 
 		// process memory size exceeded maximum normal memory size
@@ -540,8 +545,6 @@ fail_label:
 
 
 skip_label:
-	df_verbose("  \e[34mSKIP\e[0m method %s - advanced signatures"
-			" not yet implemented\n", df_list.df_method_name);
 	if (value != NULL)
 		g_variant_unref(value);
 	return 0;
@@ -798,8 +801,8 @@ static int df_fuzz_create_fmt_string(char **fmt, const int n)
 	@param value GVariant tuple containing all method arguments signatures and
 	their values
 	@param void_method If method has out args 1, 0 otherwise
-	@return 0 on success, -1 on error or 1 if void method returned non-void
-	value
+	@return 0 on success, -1 on error, 1 if void method returned non-void
+	value or 2 when tested method raised exception (so it should be skipped)
 */
 static int df_fuzz_call_method(const GVariant *value, const int void_method)
 {
@@ -823,8 +826,12 @@ static int df_fuzz_call_method(const GVariant *value, const int void_method)
 				g_free(dbus_error);
 				g_error_free(error);
 				return -1;
+			} else {
+				df_verbose("  \e[34mSKIP\e[0m method %s - raised exception "
+					"'%s'\n", df_list.df_method_name, dbus_error);
+				g_free(dbus_error);
+				return 2;
 			}
-			g_free(dbus_error);
 		}
 
 		g_dbus_error_strip_remote_error(error);
