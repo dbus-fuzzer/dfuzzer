@@ -75,6 +75,7 @@ int main(int argc, char **argv)
 	if ((dcon = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, &error)) == NULL) {
 		df_fail("Session bus not found.\n");
 		df_error("Error in g_bus_get_sync()", error);
+		error = NULL;
 		goto skip_session;
 	}
 	if (df_list_names) {
@@ -125,6 +126,7 @@ skip_session:
 	if ((dcon = g_bus_get_sync(G_BUS_TYPE_SYSTEM, NULL, &error)) == NULL) {
 		df_fail("System bus not found.\n");
 		df_error("Error in g_bus_get_sync()", error);
+		error = NULL;
 		goto skip_system;
 	}
 	if (df_list_names) {
@@ -164,8 +166,7 @@ skip_session:
 		} else
 			rsys = 1;
 	}
-	if (dcon != NULL)
-		g_object_unref(dcon);
+	g_object_unref(dcon);
 
 
 skip_system:
@@ -960,8 +961,7 @@ void df_error(const char *message, GError *error)
 		fprintf(stderr, "%s\n", message);
 	else {
 		fprintf(stderr, "%s: %s\n", message, error->message);
-		if (error != NULL)
-			g_error_free(error);
+		g_error_free(error);
 	}
 }
 
