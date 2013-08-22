@@ -836,7 +836,6 @@ static int df_fuzz_call_method(const GVariant *value, const int void_method)
 		if (void_method) {
 			// fmt points to GVariant, do not free it
 			fmt = g_variant_get_type_string(response);
-			printf("%s\n", fmt);
 			// void function can only return empty tuple
 			if (strcmp(fmt, "()") != 0) {
 				df_fail("  \e[31mFAIL\e[0m method %s - void method returns"
