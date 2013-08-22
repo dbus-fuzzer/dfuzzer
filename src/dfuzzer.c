@@ -178,6 +178,9 @@ skip_system:
 	// at least one test found failures
 	else if (rses == 2 || rsys == 2)
 		return 2;
+	// at least one test found warnings
+	else if (rses == 3 || rsys == 3)
+		return 3;
 	// cases where rses=1,rsys=0 or rses=0,rsys=1 are ok,
 	// because tests on one of the bus daemons finished
 	// successfuly
@@ -278,7 +281,7 @@ int df_is_object_on_bus(const GDBusConnection *dcon, const char *root_node)
 					NULL, G_DBUS_CALL_FLAGS_NONE, -1, NULL, &error);
 	if (response == NULL) {
 		g_object_unref(dproxy);
-		df_fail("Error: Unknown bus name '%s'.\n", target_proc.name);
+		df_fail("Unknown bus name '%s'.\n", target_proc.name);
 		df_error("Error in g_dbus_proxy_call_sync()", error);
 		return 0;
 	}
@@ -343,6 +346,7 @@ int df_is_object_on_bus(const GDBusConnection *dcon, const char *root_node)
 	@param root_node Starting object path (all nodes from this object path
 	will be traversed)
 	@return 0 on success, 1 on error, 2 when testing detected any failures
+	or warnings, 3 on warnings
 */
 int df_traverse_node(const GDBusConnection *dcon, const char *root_node)
 {
@@ -382,7 +386,7 @@ int df_traverse_node(const GDBusConnection *dcon, const char *root_node)
 					NULL, G_DBUS_CALL_FLAGS_NONE, -1, NULL, &error);
 	if (response == NULL) {
 		g_object_unref(dproxy);
-		df_fail("Error: Unknown bus name '%s'.\n", target_proc.name);
+		df_fail("Unknown bus name '%s'.\n", target_proc.name);
 		df_error("Error in g_dbus_proxy_call_sync()", error);
 		return 1;
 	}
@@ -416,8 +420,10 @@ int df_traverse_node(const GDBusConnection *dcon, const char *root_node)
 			g_dbus_node_info_unref(node_data);
 			g_object_unref(dproxy);
 			return 1;
-		} else if (rd == 2)
-			ret = rd;
+		} else {
+			if (ret != 2)
+				ret = rd;
+		}
 		interface = node_data->interfaces[i++];
 	}
 
@@ -450,8 +456,10 @@ int df_traverse_node(const GDBusConnection *dcon, const char *root_node)
 			g_dbus_node_info_unref(node_data);
 			g_object_unref(dproxy);
 			return 1;
-		} else if (rt == 2)
-			ret = rt;
+		} else {
+			if (ret != 2)
+				ret = rt;
+		}
 		free(object);
 		// move to next node
 		node = node_data->nodes[i++];
@@ -470,7 +478,8 @@ int df_traverse_node(const GDBusConnection *dcon, const char *root_node)
 	@param name D-Bus name
 	@param obj D-Bus object path
 	@param intf D-Bus interface
-	@return 0 on success, 1 on error, 2 when testing detected any failures
+	@return 0 on success, 1 on error, 2 when testing detected any failures,
+	3 on warnings
 */
 int df_fuzz(const GDBusConnection *dcon, const char *name,
 			const char *obj, const char *intf)
@@ -574,18 +583,19 @@ int df_fuzz(const GDBusConnection *dcon, const char *name,
 			void_method = 1;
 		
 
-retest:
 		// tests for method
 		ret = df_fuzz_test_method(statfd, df_buf_size, name, obj, intf,
-					df_pid, method_found, void_method);
-		if (ret == -1) {			// error during testing method
+					df_pid, void_method);
+		if (ret == -1) {
+			// error during testing method
 			close(statfd);
 			df_fuzz_clean_method();
 			df_unref_introspection();
 			g_object_unref(dproxy);
 			df_debug("Error in df_fuzz_test_method()\n");
 			return 1;
-		} else if (ret == 1) {		// launch process again after crash
+		} else if (ret == 1 && df_test_method == NULL) {
+			// launch process again after crash
 			rv = 2;
 			g_object_unref(dproxy);
 			if (!df_is_valid_dbus(name, obj, intf))
@@ -638,13 +648,13 @@ retest:
 				df_debug("Error in df_fuzz_add_proxy()\n");
 				return 1;
 			}
-		} else if (ret == 2)// method returning void is returning illegal value
+		} else if (ret == 2) {
+			// method returning void is returning illegal value
 			rv = 2;
-
-
-		// when testing only one specific method (-t option), do not clean
-		if (df_test_method != NULL)
-			goto retest;
+		} else if (ret == 3) {
+			// warnings
+			rv = 3;
+		}
 
 		df_fuzz_clean_method();		// cleaning up after testing method
 	}
@@ -740,7 +750,7 @@ int df_get_pid(const GDBusConnection *dcon)
 					g_variant_new("(s)", target_proc.name),
 					G_DBUS_CALL_FLAGS_NONE, -1, NULL, &error);
 	if (variant_pid == NULL) {
-		df_fail("Error: Unknown bus name '%s'.\n", target_proc.name);
+		df_fail("Unknown bus name '%s'.\n", target_proc.name);
 		df_error("Error in g_dbus_proxy_call_sync()", error);
 		g_object_unref(pproxy);
 		return -1;

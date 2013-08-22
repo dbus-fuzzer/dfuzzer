@@ -59,8 +59,9 @@ static int df_fuzz_create_fmt_string(char **fmt, const int n);
 static int df_fuzz_call_method(const GVariant *value, const int void_method);
 
 
-/** Error checked write function with short write correction (when write
-	is interrupted by a signal).
+/**
+	@function Error checked write function with short write correction (when
+	write is interrupted by a signal).
 	@param fd File descriptor where to write
 	@param buf Buffer from which to write to file descriptor fd
 	@param count Number of bytes to be written
@@ -406,41 +407,28 @@ static int df_fuzz_write_log(void)
 	@param obj D-Bus object path
 	@param intf D-Bus interface
 	@param pid PID of tested process
-	@param one_method_test If set to 1, reinitialization of rand module
-	is disabled, otherwise it is enabled
 	@param void_method If method has out args 1, 0 otherwise
-	@return 0 on success, -1 on error, 1 on tested process crash or 2 on void
-	function returning non-void value
+	@return 0 on success, -1 on error, 1 on tested process crash, 2 on void
+	function returning non-void value, 3 on warnings
 */
 int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 						const char *obj, const char *intf, const int pid,
-						const int one_method_test, const int void_method)
+						const int void_method)
 {
 	// methods with no arguments are not tested
 	if (df_list.args == 0)
 		return 0;
 
-	if (buf_size < MINLEN)
-		buf_size = MAX_BUF_LEN;
-
-	// when testing only one specific method (-t option), rand module
-	// should not be reinitialized
-	static int reinit_rand_module = 1;
-	if (one_method_test == 1) {
-		if (reinit_rand_module)
-			df_rand_init(buf_size);		// initialization of random module
-		reinit_rand_module = 0;
-	}
-
-
 	struct df_signature *s = df_list.list;	// pointer on the first signature
 	GVariant *value = NULL;
-	int ret;
+	int ret = 0;
+	int leaking_mem_flg = 0;			// if set to 1, leaks were detected
 	long used_memory = 0;				// memory size used by process in kB
 	long prev_memory = 0;				// last known memory size
 	long max_memory = df_mem_limit;		// maximum normal memory size used
 										// by process in kB
 
+	// DEBUG:
 	int j = 0;
 	df_debug("  Method: \e[1m%s", df_list.df_method_name);
 	df_debug("(");
@@ -449,8 +437,10 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 	df_debug(")\e[0m\n");
 
 
-	if (reinit_rand_module)
-		df_rand_init(buf_size);		// initialization of random module
+	if (buf_size < MINLEN)
+		buf_size = MAX_BUF_LEN;
+	// initialization of random module
+	df_rand_init(buf_size);
 
 
 	while (df_rand_continue(df_list.fuzz_on_str_len)) {
@@ -462,8 +452,9 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 			goto err_label;
 		}
 		if (used_memory == 0) {
-			df_fail("  \e[31mFAIL\e[0m method %s - process exited [PID: %d],"
-					"[MEM: %ld kB]\n", df_list.df_method_name, pid, prev_memory);
+			df_fail("  \e[31mFAIL\e[0m method %s - process exited\n"
+					"   [PID: %d], [MEM: %ld kB]\n",
+					df_list.df_method_name, pid, prev_memory);
 			goto fail_label;
 		}
 		prev_memory = used_memory;
@@ -490,8 +481,8 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 			// didn't respond so we continue.
 			used_memory = df_fuzz_get_proc_mem_size(statfd);
 			if (used_memory == 0) {			// process exited
-				df_fail("  \e[31mFAIL\e[0m method %s - process exited "
-						"[PID: %d],[MEM: %ld kB]\n",
+				df_fail("  \e[31mFAIL\e[0m method %s - process exited\n"
+						"   [PID: %d], [MEM: %ld kB]\n",
 						df_list.df_method_name, pid, prev_memory);
 				goto fail_label;
 			} else if (used_memory == -1) {	// error on reading process status
@@ -509,10 +500,12 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 		// process memory size exceeded maximum normal memory size
 		// (this is just a warning message)
 		if (used_memory >= max_memory) {
-			df_fail("  \e[35mWARN\e[0m method %s - [INIT.MEM: %ld kB],"
-					"[CUR.MEM: %ld kB]\n", df_list.df_method_name,
+			df_fail("  \e[35mWARN\e[0m method %s - memory usage %.1fx more "
+					"than initial memory\n   (%ld -> %ld [kB])\n",
+					df_list.df_method_name,	(((float) used_memory)/df_initial_mem),
 					df_initial_mem, used_memory);
 			max_memory = used_memory * 2;
+			leaking_mem_flg = 1;
 		}
 
 		if (value != NULL) {
@@ -523,8 +516,9 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 
 
 	// test passed
-	if (one_method_test != 1)
-		df_verbose("  \e[32mPASS\e[0m method %s\n", df_list.df_method_name);
+	if (leaking_mem_flg)	// warning
+		return 3;
+	df_verbose("  \e[32mPASS\e[0m method %s\n", df_list.df_method_name);
 	return 0;
 
 
@@ -604,9 +598,6 @@ static GVariant *df_fuzz_create_variant(void)
 		return NULL;
 	}
 
-	/*#ifdef DEBUG
-	   printf("fmt string: [%s]\nargs: [%d]\n\n", fmt, df_list.args);
-	   #endif */
 
 	// Initialize the argument info vectors
 	args[0] = &ffi_type_pointer;

@@ -66,7 +66,7 @@ int df_init_introspection(const GDBusProxy *dproxy, const char *name,
 						NULL, G_DBUS_CALL_FLAGS_NONE, -1,
 						NULL, &error);
 	if (response == NULL) {
-		df_fail("Error: Unknown name '%s'.\n", name);
+		df_fail("Unknown bus name '%s'.\n", name);
 		df_error("Error in g_dbus_proxy_call_sync()", error);
 		return -1;
 	}

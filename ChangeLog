@@ -1,4 +1,4 @@
-2013-08-21  Matus Marhefka  <mmarhefk@redhat.com>
+2013-08-22  Matus Marhefka  <mmarhefk@redhat.com>
 
 	version 1.3
 	* changed error reporting
@@ -8,7 +8,8 @@
 	* return values of dfuzzer changed (for automatic scripts):
 		* 0 - testing ended successfuly
 		* 1 - internal dfuzzer error occured (use -d option to debug)
-		* 2 - testing detected failures
+		* 2 - testing detected failures (including warnings)
+		* 3 - testing detected only warnings
 	* man page and help actualized
 	* code clean ups and improvements
 

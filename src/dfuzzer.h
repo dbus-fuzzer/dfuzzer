@@ -70,6 +70,7 @@ int df_is_object_on_bus(const GDBusConnection *dcon, const char *root_node);
 	@param root_node Starting object path (all nodes from this object path
 	will be traversed)
 	@return 0 on success, 1 on error, 2 when testing detected any failures
+	or warnings, 3 on warnings
 */
 int df_traverse_node(const GDBusConnection *dcon, const char *root_node);
 
@@ -81,6 +82,7 @@ int df_traverse_node(const GDBusConnection *dcon, const char *root_node);
 	@param obj D-Bus object path
 	@param intf D-Bus interface
 	@return 0 on success, 1 on error, 2 when testing detected any failures
+	or warnings, 3 on warnings
 */
 int df_fuzz(const GDBusConnection *dcon, const char *name,
 			const char *obj, const char *intf);

@@ -57,8 +57,9 @@ struct df_sig_list {
 };
 
 
-/** Error checked write function with short write correction (when write
-	is interrupted by a signal).
+/**
+	@function Error checked write function with short write correction (when
+	write is interrupted by a signal).
 	@param fd File descriptor where to write
 	@param buf Buffer from which to write to file descriptor fd
 	@param count Number of bytes to be written
@@ -113,15 +114,13 @@ int df_list_args_count(void);
 	@param obj D-Bus object path
 	@param intf D-Bus interface
 	@param pid PID of tested process
-	@param one_method_test If set to 1, reinitialization of rand module
-	is disabled, otherwise it is enabled
 	@param void_method If method has out args 1, 0 otherwise
-	@return 0 on success, -1 on error, 1 on tested process crash or 2 on void
-	function returning non-void value
+	@return 0 on success, -1 on error, 1 on tested process crash, 2 on void
+	function returning non-void value, 3 on warnings
 */
 int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 						const char *obj, const char *intf, const int pid,
-						const int one_method_test, const int void_method);
+						const int void_method);
 
 /**
 	@function Releases memory used by this module. This function must be called
