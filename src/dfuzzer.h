@@ -22,7 +22,7 @@
 #define DFUZZER_H
 
 /** Version of dfuzzer */
-#define DF_VERSION "dfuzzer 1.2\n" \
+#define DF_VERSION "dfuzzer 1.3\n" \
 	"Copyright(C) 2013, Red Hat, Inc., Matus Marhefka <mmarhefk@redhat.com>\n" \
 	"Additional changes by Miroslav Vadkerti <mvadkert@redhat.com>\n" \
 	"License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>.\n"
@@ -51,6 +51,16 @@ struct fuzzing_target {		// names on D-Bus have the most MAXLEN characters
 	@return 0 on success, -1 on error
 */
 int df_list_bus_names(const GDBusConnection *dcon);
+
+/**
+	@function Traverses through all objects of bus name target_proc.name
+	and is looking for object path target_proc.obj_path
+	@param dcon D-Bus connection structure
+	@param root_node Starting object path (all nodes from this object path
+	will be traversed)
+	@return 1 when obj. path target_proc.obj_path is found on bus, 0 otherwise
+*/
+int df_is_object_on_bus(const GDBusConnection *dcon, const char *root_node);
 
 /**
 	@function Traverses through all interfaces and objects of bus

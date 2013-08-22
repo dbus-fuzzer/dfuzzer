@@ -398,8 +398,7 @@ int df_rand_continue(const int fuzz_on_str_len)
 	static int counter = 0;	// makes sure to test biggest strings more times
 
 	if (fuzz_on_str_len) {
-		// it will never be more than df_buf_size
-		if (df_str_len == df_buf_size) {
+		if (df_str_len >= df_buf_size) {
 			if (counter >= 10) {
 				counter = 0;
 				return 0;
@@ -596,7 +595,7 @@ int df_rand_GVariant(GVariant **var)
 	buf = malloc(sizeof(gchar) * df_str_len);
 	if (buf == NULL) {
 		fprintf(stderr, "Error: Could not allocate memory for random "
-				"variant.\n");
+				"GVariant.\n");
 		return -1;
 	}
 

@@ -264,10 +264,7 @@ static long df_fuzz_get_proc_mem_size(const int statfd)
 }
 
 /**
-	@function Writes all method signatures and their values into the log file.
-	//@param logfd FD of log file
-	//@param buf_size Maximum buffer size for generated strings
-	//by rand module (in Bytes)
+	@function Prints all method signatures and their values on the output.
 	@return 0 on success, -1 on error
 */
 static int df_fuzz_write_log(void)
@@ -603,6 +600,7 @@ static GVariant *df_fuzz_create_variant(void)
 	if (df_fuzz_create_fmt_string(&fmt, MAXFMT + 1) == -1) {
 		df_fail("Error: Unable to create format string.\n");
 		df_debug("Error in df_fuzz_create_fmt_string()\n");
+		free(fmt);
 		return NULL;
 	}
 
@@ -629,19 +627,21 @@ static GVariant *df_fuzz_create_variant(void)
 		// their owner
 	} else {
 		df_fail("ffi_prep_cif() failed on initializing cif.\n");
+		free(fmt);
 		return NULL;
 	}
 
 	// GVariant containing method parameters must not be floating, because
 	// it would be consumed by g_dbus_proxy_call_sync() function and as
 	// result we couldn't have get GVariant values from items of linked list
-	// (needed for loging into log file)
+	// (needed for loging)
 	val = g_variant_ref_sink(val);	// converts floating to normal reference
 									// so val cannot be consumed
 									// by g_dbus_proxy_call_sync() function
 	if (g_variant_is_floating(val)) {
 		df_fail("Error: Unable to convert GVariant from floating to normal"
 				" reference\n(for method '%s()'.\n", df_list.df_method_name);
+		free(fmt);
 		return NULL;
 	}
 
@@ -815,7 +815,7 @@ static int df_fuzz_call_method(const GVariant *value, const int void_method)
 	GError *error = NULL;
 	GVariant *response = NULL;
 	gchar *dbus_error = NULL;
-	char *fmt;
+	gchar *fmt;
 
 
 	// Synchronously invokes method with arguments stored in value (GVariant *)
@@ -843,7 +843,9 @@ static int df_fuzz_call_method(const GVariant *value, const int void_method)
 		return 0;
 	} else {
 		if (void_method) {
+			// fmt points to GVariant, do not free it
 			fmt = g_variant_get_type_string(response);
+			printf("%s\n", fmt);
 			// void function can only return empty tuple
 			if (strcmp(fmt, "()") != 0) {
 				df_fail("  \e[31mFAIL\e[0m method %s - void method returns"
