@@ -963,7 +963,7 @@ void df_print_help(const char *name)
 	" /org/freedesktop/systemd1/unit.\n Be verbose and print on the program"
 	" output and also to the file systemd1.log:\n"
 	" # %s -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1/unit"
-	" 2>&1 | tee ./systemd1.log\n\n",
+	" 1>&2 | tee ./systemd1.log\n\n",
 	name, name, name);
 }
 

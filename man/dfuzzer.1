@@ -130,7 +130,7 @@ Test only method of the given bus name, object path and interface:
 Test all systemd D-Bus methods under object /org/freedesktop/systemd1/unit.
 Be verbose and print on the program output and also to the file systemd1.log:
 .RE
-\fB# dfuzzer -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1/unit 2>&1 | tee ./systemd1.log\fR
+\fB# dfuzzer -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1/unit 1>&2 | tee ./systemd1.log\fR
 
 
 
