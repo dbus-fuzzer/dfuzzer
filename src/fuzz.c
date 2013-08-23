@@ -826,12 +826,16 @@ static int df_fuzz_call_method(const GVariant *value, const int void_method)
 				g_free(dbus_error);
 				g_error_free(error);
 				return -1;
-			} else {
+			} else if ((strcmp(dbus_error, 
+							"org.freedesktop.DBus.Error.AccessDenied") == 0) ||
+					   (strcmp(dbus_error,
+							"org.freedesktop.DBus.Error.AuthFailed") == 0)) {
 				df_verbose("  \e[34mSKIP\e[0m method %s - raised exception "
 					"'%s'\n", df_list.df_method_name, dbus_error);
 				g_free(dbus_error);
 				return 2;
 			}
+			g_free(dbus_error);
 		}
 
 		g_dbus_error_strip_remote_error(error);

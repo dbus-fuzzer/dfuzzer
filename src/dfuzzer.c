@@ -205,7 +205,9 @@ int df_list_bus_names(const GDBusConnection *dcon)
 
 	// Uses dcon (GDBusConnection *) to create proxy for accessing
 	// org.freedesktop.DBus (for calling its method ListNames)
-	proxy = g_dbus_proxy_new_sync(dcon, G_DBUS_PROXY_FLAGS_NONE, NULL,
+	proxy = g_dbus_proxy_new_sync(dcon,
+				G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES
+				| G_DBUS_PROXY_FLAGS_DO_NOT_CONNECT_SIGNALS, NULL,
 				"org.freedesktop.DBus",
 				"/org/freedesktop/DBus",
 				"org.freedesktop.DBus",
@@ -266,7 +268,9 @@ int df_is_object_on_bus(const GDBusConnection *dcon, const char *root_node)
 
 	if (!df_is_valid_dbus(target_proc.name, root_node, intro_iface))
 		return 0;
-	dproxy = g_dbus_proxy_new_sync(dcon, G_DBUS_PROXY_FLAGS_NONE, NULL,
+	dproxy = g_dbus_proxy_new_sync(dcon,
+						G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES
+						| G_DBUS_PROXY_FLAGS_DO_NOT_CONNECT_SIGNALS, NULL,
 						target_proc.name, root_node, intro_iface,
 						NULL, &error);
 	if (dproxy == NULL) {
@@ -371,7 +375,9 @@ int df_traverse_node(const GDBusConnection *dcon, const char *root_node)
 
 	if (!df_is_valid_dbus(target_proc.name, root_node, intro_iface))
 		return 1;
-	dproxy = g_dbus_proxy_new_sync(dcon, G_DBUS_PROXY_FLAGS_NONE, NULL,
+	dproxy = g_dbus_proxy_new_sync(dcon,
+						G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES
+						| G_DBUS_PROXY_FLAGS_DO_NOT_CONNECT_SIGNALS, NULL,
 						target_proc.name, root_node, intro_iface,
 						NULL, &error);
 	if (dproxy == NULL) {
@@ -503,7 +509,9 @@ int df_fuzz(const GDBusConnection *dcon, const char *name,
 	// owned by name at dcon.
 	if (!df_is_valid_dbus(name, obj, intf))
 		return 1;
-	dproxy = g_dbus_proxy_new_sync(dcon, G_DBUS_PROXY_FLAGS_NONE, NULL,
+	dproxy = g_dbus_proxy_new_sync(dcon,
+					G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES
+					| G_DBUS_PROXY_FLAGS_DO_NOT_CONNECT_SIGNALS, NULL,
 					name, obj, intf, NULL, &error);
 	if (dproxy == NULL) {
 		df_fail("Error: Unable to create proxy for bus name '%s'.\n", name);
@@ -600,7 +608,9 @@ int df_fuzz(const GDBusConnection *dcon, const char *name,
 			g_object_unref(dproxy);
 			if (!df_is_valid_dbus(name, obj, intf))
 				return 1;
-			dproxy = g_dbus_proxy_new_sync(dcon, G_DBUS_PROXY_FLAGS_NONE,
+			dproxy = g_dbus_proxy_new_sync(dcon,
+						G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES
+						| G_DBUS_PROXY_FLAGS_DO_NOT_CONNECT_SIGNALS,
 						NULL, name, obj, intf, NULL, &error);
 			if (dproxy == NULL) {
 				close(statfd);
@@ -733,7 +743,9 @@ int df_get_pid(const GDBusConnection *dcon)
 
 	// Uses dcon (GDBusConnection *) to create proxy for accessing
 	// org.freedesktop.DBus (for calling its method GetConnectionUnixProcessID)
-	pproxy = g_dbus_proxy_new_sync(dcon, G_DBUS_PROXY_FLAGS_NONE, NULL,
+	pproxy = g_dbus_proxy_new_sync(dcon,
+				G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES
+				| G_DBUS_PROXY_FLAGS_DO_NOT_CONNECT_SIGNALS, NULL,
 				"org.freedesktop.DBus",
 				"/org/freedesktop/DBus",
 				"org.freedesktop.DBus",
@@ -940,8 +952,7 @@ void df_print_help(const char *name)
 	"   the longer the testing).\n"
 	"-t METHOD_NAME\n"
 	"   When this parameter is provided, only method METHOD_NAME is tested.\n"
-	"   All other methods of an interface are skipped. DO NOT USE IN AUTOMATIC\n"
-	"   SCRIPTS, AS IT NEEDS TO BE USUALLY TERMINATED BY SIGINT!\n\n"
+	"   All other methods of an interface are skipped.\n\n"
 	"Examples:\n\n"
 	" Test all methods of GNOME Shell. Be verbose.\n"
 	" # %s -v -n org.gnome.Shell\n\n"
