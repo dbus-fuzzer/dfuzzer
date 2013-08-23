@@ -50,7 +50,7 @@ void df_rand_init(const long buf_size);
 guint8 df_rand_guint8(void);
 
 /**
-	@return Generated pseudo-random boolean value
+	@return Boolean value FALSE
 */
 gboolean df_rand_gboolean(void);
 
