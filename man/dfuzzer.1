@@ -17,7 +17,7 @@
 .\" * along with this program. If not, see <http://www.gnu.org/licenses/>.
 .\" *
 .\" **************************************************************************
-.TH man 1 "15 August 2013" "dfuzzer 1.2" "dfuzzer"
+.TH man 1 "23 August 2013" "dfuzzer 1.3" "dfuzzer"
 .SH NAME
 dfuzzer \- Tool for fuzz testing processes communicating through D-Bus
 .SH SYNOPSIS
@@ -32,13 +32,18 @@ dfuzzer \- Tool for fuzz testing processes communicating through D-Bus
 through D-Bus. The fuzzer traverses through all the methods on the given bus name.
 By default only failures and warnings are printed. Use -v for verbose mode.
 
-Fuzz tests are being done on methods of a chosen interface(s) and an object(s)
+Fuzz tests are performed on methods of a chosen interface(s) and an object(s)
 for the given bus name. Fuzzer generates random arguments for each method
 of an interface and calls these methods everytime with different generated arguments.
 
 dfuzzer is monitoring tested process state and memory usage during fuzz testing.
-In case tested process crashes or its memory usage is abnormal it is printed
+In case tested process crashed or its memory usage is abnormal it is printed
 on the output of dfuzzer.
+
+When you are getting exceptions (printed only in verbose mode: \fB-v\fR option)
+like \fBorg.freedesktop.DBus.Error.AccessDenied\fR or
+\fBorg.freedesktop.DBus.Error.AuthFailed\fR during testing, try
+to run dfuzzer as root (warning: this is dangerous, proceed with caution).
 
 
 .SH REQUIRED OPTIONS
@@ -73,8 +78,8 @@ Enable verbose messages.
 .PP
 \fB\-d\fR
 .RS 4
-Enable debug messages. Implies -v. This option is for developers and should
-not be normally used during testing.
+Enable debug messages. Implies -v. This option should not be normally used
+during testing.
 .RE
 .PP
 \fB\-o\fR \fIOBJECT_PATH\fR
@@ -89,7 +94,7 @@ Interface to test. Requires also -o option.
 .PP
 \fB\-m\fR \fIMEM_LIMIT\fR [in kB]
 .RS 4
-When tested process exceeds this limit it will be noted into log file.
+When tested process exceeds this limit, warning is printed on the output.
 Default value for this limit is 3x process intial memory size. If set memory
 limit value is less than or equal to process initial memory size, it will be
 adjusted to the default value (3x process intial memory size).
@@ -97,9 +102,9 @@ adjusted to the default value (3x process intial memory size).
 .PP
 \fB\-b\fR \fImax_buf_size\fR [in B]
 .RS 4
-Maximum buffer size for generated strings, minimum is 256 B.
-Default maximum size is 50000 B ~= 50 kB (the greater the limit, the longer
-testing).
+Maximum buffer size for generated strings, minimal value for this option is
+256 B. Default maximum size is 50000 B ~= 50 kB (the greater the limit,
+the longer the testing).
 .RE
 .PP
 \fB\-t\fR \fIMETHOD_NAME\fR
@@ -109,12 +114,27 @@ All other methods of an interface are skipped.
 .RE
 
 
+.SH EXAMPLES
+List all names on bus:
+.RE
+\fB# dfuzzer -l\fR
+
+Test all methods of GNOME Shell. Be verbose.
+.RE
+\fB# dfuzzer -v -n org.gnome.Shell\fR
+
+Test only method of the given bus name, object path and interface:
+.RE
+\fB# dfuzzer -n org.freedesktop.Avahi -o / -i org.freedesktop.Avahi.Server -t GetAlternativeServiceName\fR
+
+
+
 .SH EXIT STATUS
 dfuzzer may return these codes:
 
 0    testing ended successfuly
 .RE
-1    internal dfuzzer error occured (use -d option to debug)
+1    internal dfuzzer error occured (-d option to debug)
 .RE
 2    testing detected failures (including warnings)
 .RE
@@ -125,7 +145,7 @@ dfuzzer may return these codes:
 gdbus(1)
 
 .SH BUGS
-No known bugs.
+No known bugs. Report bugs to \fImmarhefk@redhat.com\fR.
 
 .SH AUTHOR
 Matus Marhefka (mmarhefk@redhat.com)
