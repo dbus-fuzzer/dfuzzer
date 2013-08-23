@@ -71,7 +71,7 @@ int main(int argc, char **argv)
 
 
 	// Synchronously connects to the session bus daemon.
-	printf("\e[36m[SESSION BUS]\e[0m\n", target_proc.name);
+	fprintf(stderr, "\e[36m[SESSION BUS]\e[0m\n", target_proc.name);
 	if ((dcon = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, &error)) == NULL) {
 		df_fail("Session bus not found.\n");
 		df_error("Error in g_bus_get_sync()", error);
@@ -88,10 +88,11 @@ int main(int argc, char **argv)
 		// gets pid of tested process
 		df_pid = df_get_pid(dcon);
 		if (df_pid > 0) {
-			printf("\e[36m[CONNECTED TO PID: %d]\e[0m\n", df_pid);
+			fprintf(stderr, "\e[36m[CONNECTED TO PID: %d]\e[0m\n", df_pid);
 			if (strlen(target_proc.interface) != 0) {
-				printf("Object: \e[1m%s\e[0m\n", target_proc.obj_path);
-				printf(" Interface: \e[1m%s\e[0m\n", target_proc.interface);
+				fprintf(stderr, "Object: \e[1m%s\e[0m\n", target_proc.obj_path);
+				fprintf(stderr, " Interface: \e[1m%s\e[0m\n",
+						target_proc.interface);
 				if (!df_is_object_on_bus(dcon, root_node)) {
 					df_fail("Error: Unknown object path '%s'.\n",
 							target_proc.obj_path);
@@ -101,7 +102,7 @@ int main(int argc, char **argv)
 								target_proc.interface);
 				}
 			} else if (strlen(target_proc.obj_path) != 0) {
-				printf("Object: \e[1m%s\e[0m\n", target_proc.obj_path);
+				fprintf(stderr, "Object: \e[1m%s\e[0m\n", target_proc.obj_path);
 				if (!df_is_object_on_bus(dcon, root_node)) {
 					df_fail("Error: Unknown object path '%s'.\n",
 							target_proc.obj_path);
@@ -109,7 +110,7 @@ int main(int argc, char **argv)
 				} else
 					rses = df_traverse_node(dcon, target_proc.obj_path);
 			} else {
-				printf("Object: \e[1m/\e[0m\n");
+				fprintf(stderr, "Object: \e[1m/\e[0m\n");
 				rses = df_traverse_node(dcon, root_node);
 			}
 		} else
@@ -122,7 +123,7 @@ skip_session:
 
 
 	// Synchronously connects to the system bus daemon.
-	printf("\e[36m[SYSTEM  BUS]\e[0m\n", target_proc.name);
+	fprintf(stderr, "\e[36m[SYSTEM  BUS]\e[0m\n", target_proc.name);
 	if ((dcon = g_bus_get_sync(G_BUS_TYPE_SYSTEM, NULL, &error)) == NULL) {
 		df_fail("System bus not found.\n");
 		df_error("Error in g_bus_get_sync()", error);
@@ -139,10 +140,11 @@ skip_session:
 		// gets pid of tested process
 		df_pid = df_get_pid(dcon);
 		if (df_pid > 0) {
-			printf("\e[36m[CONNECTED TO PID: %d]\e[0m\n", df_pid);
+			fprintf(stderr, "\e[36m[CONNECTED TO PID: %d]\e[0m\n", df_pid);
 			if (strlen(target_proc.interface) != 0) {
-				printf("Object: \e[1m%s\e[0m\n", target_proc.obj_path);
-				printf(" Interface: \e[1m%s\e[0m\n", target_proc.interface);
+				fprintf(stderr, "Object: \e[1m%s\e[0m\n", target_proc.obj_path);
+				fprintf(stderr, " Interface: \e[1m%s\e[0m\n",
+						target_proc.interface);
 				if (!df_is_object_on_bus(dcon, root_node)) {
 					df_fail("Error: Unknown object path '%s'.\n",
 							target_proc.obj_path);
@@ -152,7 +154,7 @@ skip_session:
 								target_proc.interface);
 				}
 			} else if (strlen(target_proc.obj_path) != 0) {
-				printf("Object: \e[1m%s\e[0m\n", target_proc.obj_path);
+				fprintf(stderr, "Object: \e[1m%s\e[0m\n", target_proc.obj_path);
 				if (!df_is_object_on_bus(dcon, root_node)) {
 					df_fail("Error: Unknown object path '%s'.\n",
 							target_proc.obj_path);
@@ -160,7 +162,7 @@ skip_session:
 				} else
 					rsys = df_traverse_node(dcon, target_proc.obj_path);
 			} else {
-				printf("Object: \e[1m/\e[0m\n");
+				fprintf(stderr, "Object: \e[1m/\e[0m\n");
 				rsys = df_traverse_node(dcon, root_node);
 			}
 		} else
@@ -173,19 +175,24 @@ skip_system:
 
 
 	// both tests ended with error
-	if (rses == 1 && rsys == 1)
+	if (rses == 1 && rsys == 1) {
+		printf("\e[1mExit status: 1\e[0m\n");
 		return 1;
-	// at least one test found failures
-	else if (rses == 2 || rsys == 2)
+	} else if (rses == 2 || rsys == 2) {
+		// at least one test found failures
+		printf("\e[1mExit status: 2\e[0m\n");
 		return 2;
-	// at least one test found warnings
-	else if (rses == 3 || rsys == 3)
+	} else if (rses == 3 || rsys == 3) {
+		// at least one test found warnings
+		printf("\e[1mExit status: 3\e[0m\n");
 		return 3;
-	// cases where rses=1,rsys=0 or rses=0,rsys=1 are ok,
-	// because tests on one of the bus daemons finished
-	// successfuly
-	else
+	} else {
+		// cases where rses=1,rsys=0 or rses=0,rsys=1 are ok,
+		// because tests on one of the bus daemons finished
+		// successfuly
+		printf("\e[1mExit status: 0\e[0m\n");
 		return 0;
+	}
 }
 
 /**
@@ -419,7 +426,7 @@ int df_traverse_node(const GDBusConnection *dcon, const char *root_node)
 	i = 0;
 	interface = node_data->interfaces[i++];
 	while (interface != NULL) {
-		printf(" Interface: \e[1m%s\e[0m\n", interface->name);
+		fprintf(stderr, " Interface: \e[1m%s\e[0m\n", interface->name);
 		// start fuzzing on the target_proc.name
 		rd = df_fuzz(dcon, target_proc.name, root_node, interface->name);
 		if (rd == 1) {
@@ -455,7 +462,7 @@ int df_traverse_node(const GDBusConnection *dcon, const char *root_node)
 			sprintf(object, "%s%s", root_node, node->path);
 		else
 			sprintf(object, "%s/%s", root_node, node->path);
-		printf("Object: \e[1m%s\e[0m\n", object);
+		fprintf(stderr, "Object: \e[1m%s\e[0m\n", object);
 		rt = df_traverse_node(dcon, object);
 		if (rt == 1) {
 			free(object);
@@ -635,7 +642,7 @@ int df_fuzz(const GDBusConnection *dcon, const char *name,
 				df_debug("Error in df_get_pid() on getting pid of process\n");
 				return 1;
 			}
-			printf("\e[36m[RE-CONNECTED TO PID: %d]\e[0m\n", df_pid);
+			fprintf(stderr, "\e[36m[RE-CONNECTED TO PID: %d]\e[0m\n", df_pid);
 
 			// opens process status file
 			close(statfd);
@@ -658,6 +665,9 @@ int df_fuzz(const GDBusConnection *dcon, const char *name,
 				df_debug("Error in df_fuzz_add_proxy()\n");
 				return 1;
 			}
+		} else if (ret == 1 && df_test_method != NULL) {
+			// for one method, testing ends with failure
+			rv = 2;
 		} else if (ret == 2) {
 			// method returning void is returning illegal value
 			rv = 2;
@@ -959,11 +969,9 @@ void df_print_help(const char *name)
 	" Test only method of the given bus name, object path and interface.\n"
 	" # %s -n org.freedesktop.Avahi -o / -i org.freedesktop.Avahi.Server -t"
 	" GetAlternativeServiceName\n\n"
-	" Test all systemd D-Bus methods under object"
-	" /org/freedesktop/systemd1/unit.\n Be verbose and print on the program"
-	" output and also to the file systemd1.log:\n"
-	" # %s -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1/unit"
-	" 1>&2 | tee ./systemd1.log\n\n",
+	" Test all methods of Avahi and be verbose. Redirect all failures\n"
+	" and warnings into avahi.log:\n"
+	" # %s -v -n org.freedesktop.Avahi 3>&1 1>&2 2>&3 | tee avahi.log\n\n",
 	name, name, name);
 }
 

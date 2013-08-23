@@ -27,10 +27,11 @@ dfuzzer \- Tool for fuzz testing processes communicating through D-Bus
 [\fIOTHER_OPTIONS\fR]
 
 
+
 .SH DESCRIPTION
 \fBdfuzzer\fR is D-Bus fuzzer, a tool for fuzz testing processes communicating
 through D-Bus. The fuzzer traverses through all the methods on the given bus name.
-By default only failures and warnings are printed. Use -v for verbose mode.
+By default only failures and warnings are printed. Use \fB-v\fR for verbose mode.
 
 Fuzz tests are performed on methods of a chosen interface(s) and an object(s)
 for the given bus name. Fuzzer generates random arguments for each method
@@ -38,12 +39,14 @@ of an interface and calls these methods everytime with different generated argum
 
 dfuzzer is monitoring tested process state and memory usage during fuzz testing.
 In case tested process crashed or its memory usage is abnormal it is printed
-on the output of dfuzzer.
+on the output of dfuzzer. Fuzzer always prints exit status (see section
+\fBEXIT STATUS\fR) before exiting.
 
 When you are getting exceptions (printed only in verbose mode: \fB-v\fR option)
 like \fBorg.freedesktop.DBus.Error.AccessDenied\fR or
 \fBorg.freedesktop.DBus.Error.AuthFailed\fR during testing, try
 to run dfuzzer as root (warning: this is dangerous, proceed with caution).
+
 
 
 .SH REQUIRED OPTIONS
@@ -52,6 +55,7 @@ to run dfuzzer as root (warning: this is dangerous, proceed with caution).
 .RS 4
 D-Bus name to test.
 .RE
+
 
 
 .SH OTHER OPTIONS
@@ -114,6 +118,7 @@ All other methods of an interface are skipped.
 .RE
 
 
+
 .SH EXAMPLES
 List all names on bus:
 .RE
@@ -127,10 +132,10 @@ Test only method of the given bus name, object path and interface:
 .RE
 \fB# dfuzzer -n org.freedesktop.Avahi -o / -i org.freedesktop.Avahi.Server -t GetAlternativeServiceName\fR
 
-Test all systemd D-Bus methods under object /org/freedesktop/systemd1/unit.
-Be verbose and print on the program output and also to the file systemd1.log:
+Test all methods of Avahi and be verbose. Redirect all failures and warnings
+into avahi.log:
 .RE
-\fB# dfuzzer -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1/unit 1>&2 | tee ./systemd1.log\fR
+\fB# dfuzzer -v -n org.freedesktop.Avahi 3>&1 1>&2 2>&3 | tee avahi.log\fR
 
 
 
@@ -146,16 +151,24 @@ dfuzzer may return these codes:
 3    testing detected only warnings
 .RE
 
+
+
 .SH SEE ALSO
 gdbus(1)
 
+
+
 .SH BUGS
 No known bugs. Report bugs to \fImmarhefk@redhat.com\fR.
+
+
 
 .SH AUTHOR
 Matus Marhefka (mmarhefk@redhat.com)
 .RE
 Additional changes by Miroslav Vadkerti (mvadkert@redhat.com)
+
+
 
 .SH COPYRIGHT
 2013, Red Hat, Inc.

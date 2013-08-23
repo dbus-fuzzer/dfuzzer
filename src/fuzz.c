@@ -277,7 +277,7 @@ static int df_fuzz_write_log(void)
 	while (s != NULL) {
 		len = strlen(s->sig);
 		if (len <= 0) {
-			fprintf(stderr, "No argument signature\n");
+			df_fail("No argument signature\n");
 			return -1;
 		} else if (len == 1) {	// one character argument
 			df_fail("    --");
@@ -383,11 +383,11 @@ static int df_fuzz_write_log(void)
 				df_fail("-- '%d'\n", tmp13);
 				break;
 			default:
-				fprintf(stderr, "Unknown argument signature '%s'\n", s->sig);
+				df_fail("Unknown argument signature '%s'\n", s->sig);
 				return -1;
 			}
 		} else {	// advanced argument (array of something, dictionary, ...)
-			fprintf(stderr, "Not yet implemented in df_fuzz_write_log()\n");
+			df_fail("Not yet implemented in df_fuzz_write_log()\n");
 			return 0;
 		}
 

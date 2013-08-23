@@ -5,6 +5,7 @@
 	* -s option removed (dfuzzer traverses via both buses by default now)
 	* -l option added to list all available connection names on both buses
 	* proper void methods checking added
+	* skipping exceptions AccessDenied and AuthFailed
 	* return values of dfuzzer changed (for automatic scripts):
 		* 0 - testing ended successfuly
 		* 1 - internal dfuzzer error occured (use -d option to debug)
