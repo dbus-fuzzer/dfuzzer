@@ -1,2 +1,12 @@
 [org.freedesktop.login1]
 TerminateSession
+ReleaseSession
+LockSession
+TerminateUser
+Suspend
+Reboot
+PowerOff
+KillUser
+KillSession
+Hibernate
+TerminateSeat

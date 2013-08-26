@@ -456,6 +456,7 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 	// initialization of random module
 	df_rand_init(buf_size);
 
+	df_verbose("  %s...", df_list.df_method_name);
 
 	while (df_rand_continue(df_list.fuzz_on_str_len)) {
 		// parsing proces memory size from its status file described by statfd
@@ -466,7 +467,7 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 			goto err_label;
 		}
 		if (used_memory == 0) {
-			df_fail("  \e[31mFAIL\e[0m method %s - process exited\n"
+			df_fail("\r  \e[31mFAIL\e[0m %s - process exited\n"
 					"   [PID: %d], [MEM: %ld kB]\n",
 					df_list.df_method_name, pid, prev_memory);
 			goto fail_label;
@@ -480,7 +481,7 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 				df_debug("  unsupported argument by dfuzzer: ");
 				df_debug("%s\n", df_unsupported_sig_str);
 				df_unsupported_sig_str = NULL;
-				df_verbose("  \e[34mSKIP\e[0m method %s - advanced signatures"
+				df_verbose("\r  \e[34mSKIP\e[0m %s - advanced signatures"
 						" not yet implemented\n", df_list.df_method_name);
 				goto skip_label;
 			}
@@ -497,7 +498,7 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 			// didn't respond so we continue.
 			used_memory = df_fuzz_get_proc_mem_size(statfd);
 			if (used_memory == 0) {			// process exited
-				df_fail("  \e[31mFAIL\e[0m method %s - process exited\n"
+				df_fail("\r  \e[31mFAIL\e[0m %s - process exited\n"
 						"   [PID: %d], [MEM: %ld kB]\n",
 						df_list.df_method_name, pid, prev_memory);
 				goto fail_label;
@@ -519,7 +520,7 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 		// process memory size exceeded maximum normal memory size
 		// (this is just a warning message)
 		if (used_memory >= max_memory) {
-			df_fail("  \e[35mWARN\e[0m method %s - memory usage %.1fx more "
+			df_fail("\r  \e[35mWARN\e[0m %s - memory usage %.1fx more "
 					"than initial memory\n   (%ld -> %ld [kB])\n",
 					df_list.df_method_name,	(((float) used_memory)/df_initial_mem),
 					df_initial_mem, used_memory);
@@ -537,7 +538,7 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 	// test passed
 	if (leaking_mem_flg)	// warning
 		return 3;
-	df_verbose("  \e[32mPASS\e[0m method %s\n", df_list.df_method_name);
+	df_verbose("\r  \e[32mPASS\e[0m %s\n", df_list.df_method_name);
 	return 0;
 
 
@@ -844,7 +845,7 @@ static int df_fuzz_call_method(const GVariant *value, const int void_method)
 							"org.freedesktop.DBus.Error.AccessDenied") == 0) ||
 					   (strcmp(dbus_error,
 							"org.freedesktop.DBus.Error.AuthFailed") == 0)) {
-				df_verbose("  \e[34mSKIP\e[0m method %s - raised exception "
+				df_verbose("\r  \e[34mSKIP\e[0m %s - raised exception "
 					"'%s'\n", df_list.df_method_name, dbus_error);
 				g_free(dbus_error);
 				return 2;
@@ -853,7 +854,7 @@ static int df_fuzz_call_method(const GVariant *value, const int void_method)
 		}
 
 		g_dbus_error_strip_remote_error(error);
-		df_debug("  \e[32mPASS\e[0m method %s - D-Bus exception thrown: "
+		df_debug("\r  \e[32mPASS\e[0m %s - D-Bus exception thrown: "
 			"%s\n", df_list.df_method_name, error->message);
 		g_error_free(error);
 		return 0;
@@ -863,7 +864,7 @@ static int df_fuzz_call_method(const GVariant *value, const int void_method)
 			fmt = g_variant_get_type_string(response);
 			// void function can only return empty tuple
 			if (strcmp(fmt, "()") != 0) {
-				df_fail("  \e[31mFAIL\e[0m method %s - void method returns"
+				df_fail("\r  \e[31mFAIL\e[0m %s - void method returns"
 						" '%s' instead of '()'\n", df_list.df_method_name, fmt);
 				g_variant_unref(response);
 				return 1;

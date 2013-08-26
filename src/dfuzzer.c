@@ -597,7 +597,7 @@ int df_fuzz(const GDBusConnection *dcon, const char *name,
 				}
 			}
 			if (skipflg) {
-				df_verbose("  \e[34mSKIP\e[0m method %s - suppressed method\n",
+				df_verbose("\r  \e[34mSKIP\e[0m %s - suppressed method\n",
 						m->name);
 				continue;
 			}
@@ -625,7 +625,7 @@ int df_fuzz(const GDBusConnection *dcon, const char *name,
 
 		// methods with no arguments are not tested
 		if (df_list_args_count() == 0) {
-			df_verbose("  \e[34mSKIP\e[0m method %s - void method\n", m->name);
+			df_verbose("\r  \e[34mSKIP\e[0m %s - void method\n", m->name);
 			df_fuzz_clean_method();
 			continue;
 		}
