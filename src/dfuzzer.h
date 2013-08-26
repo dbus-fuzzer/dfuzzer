@@ -130,11 +130,31 @@ int df_get_pid(const GDBusConnection *dcon);
 		Be verbose
 	* df_debug_flag	
 		Include debug output
+	* df_sup_file
+		Name of suppression file which contains names of methods
+		which won't be tested
 	If error occures function ends program.
 	@param argc Count of options
 	@param argv Pointer on strings containing options of program
 */
 void df_parse_parameters(int argc, char **argv);
+
+/**
+	@function Searches target_proc.name in suppression file df_sup_file.
+	If it is found, df_suppression array is seeded with names of methods
+	for this bus name. (df_suppression array is used to skip methods
+	which it contains when testing target_proc.name)
+	File df_sup_file is in format:
+	[bus_name]
+	method1
+	method2
+	[bus_name2]
+	method1
+	method2
+	...
+	@return 0 on success, -1 on error
+*/
+int df_load_suppressions(void);
 
 /**
 	@function Prints help.

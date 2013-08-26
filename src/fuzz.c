@@ -215,9 +215,12 @@ static long df_fuzz_get_proc_mem_size(const int statfd)
 {
 	long mem_size = -1;
 	char buf[MAXLINE];	// buffer for reading from file
-	char *ptr;			// pointer into buf buffer
+	char *ptr;			// pointer into buf
+	char *mem;			// pointer into buf, on VmRSS line
+	int stopr;
 	off_t ret;
 	ssize_t n;
+	ssize_t count;		// total count of bytes read from file
 
 	// rewinds file position to the beginning
 	ret = lseek(statfd, 0L, SEEK_SET);
@@ -227,36 +230,47 @@ static long df_fuzz_get_proc_mem_size(const int statfd)
 		return -1;
 
 
-	int stopr = 0;
+	stopr = 0;
+	ret = 0;
+	n = 0;
+	count = 0;
+	ptr = buf;
 	while (!stopr) {
-		n = read(statfd, buf, MAXLINE - 1);
+		n = read(statfd, ptr, (MAXLINE - 1 - count));
 		if (n == -1 && errno == ESRCH)	// process exited
 			return 0;
 		else if (n == -1)
 			return -1;
 		else if (n == 0)
 			stopr++;
-		buf[n] = '\0';
+		ptr += n;
+		count += n;
+		*ptr = '\0';
 
-		if ((ptr = strstr(buf, "VmRSS:")) == NULL)	// process exited
-			return 0;
-
-		// check for new line (that whole memory size number is in buffer)
-		char *nl = ptr;
-		while (*nl != '\0') {
-			if (*nl == '\n') {
-				stopr++;
-				break;
+		if ((mem = strstr(buf, "VmRSS:")) != NULL) {
+			// check for new line (that whole memory size number is in buffer)
+			char *nl = mem;
+			while (*nl != '\0') {
+				if (*nl == '\n') {
+					stopr++;
+					ret = 1;
+					break;
+				}
+				nl++;
 			}
-			nl++;
-		}
+		} else
+			ret = 0;
 	}
 
-	// now ptr points to VmRSS:
-	while (isdigit(*ptr) == 0)
-		ptr++;
+	if (ret == 0)
+		return ret;
 
-	mem_size = strtol(ptr, NULL, 10);
+	// now mem points to "VmRSS:" and we are sure that number with memory
+	// size is in buf too
+	while (isdigit(*mem) == 0)
+		mem++;
+
+	mem_size = strtol(mem, NULL, 10);
 	if (errno == ERANGE || errno == EINVAL) {
 		df_debug("Error on conversion of process memory to a long integer\n");
 		return -1;

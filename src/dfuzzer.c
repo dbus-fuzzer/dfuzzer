@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -44,10 +45,15 @@ static long df_mem_limit;
 /** Maximum buffer size for generated strings by rand module (in Bytes) */
 static long df_buf_size;
 /** Contains method name or NULL. When not NULL, only method with this name
-	will be tested*/
-static char *df_test_method = NULL;
+	will be tested (do not free - points to argv) */
+static char *df_test_method;
 /** Tested process PID */
 static int df_pid = -1;
+/** NULL terminated array of method names which will be skipped from testing */
+char **df_suppression;
+/** Name of file from which df_suppression is loaded (do not free - points
+	to argv) */
+char *df_sup_file;
 
 
 /**
@@ -64,11 +70,26 @@ int main(int argc, char **argv)
 	int rses = 0;				// return value from session bus testing
 	int rsys = 0;				// return value from system bus testing
 
+
 	df_parse_parameters(argc, argv);
+
+
+	if (df_sup_file != NULL) {		// -s option
+		if (df_load_suppressions() == -1) {
+			// dealocate all memory
+			if (df_suppression != NULL) {
+				int i;
+				for (i = 0; df_suppression[i] != NULL; i++)
+					free(df_suppression[i]);
+				free(df_suppression);
+			}
+			printf("\e[1mExit status: 1\e[0m\n");
+			return 1;
+		}
+	}
 
 	// Initializes the type system.
 	g_type_init();
-
 
 	// Synchronously connects to the session bus daemon.
 	fprintf(stderr, "\e[36m[SESSION BUS]\e[0m\n", target_proc.name);
@@ -504,6 +525,7 @@ int df_fuzz(const GDBusConnection *dcon, const char *name,
 	int statfd;				// FD for process status file
 	GError *error = NULL;	// must be set to NULL
 	int rv = 0;				// return value of function
+	int i;
 
 
 	// Sanity check fuzzing target
@@ -563,6 +585,19 @@ int df_fuzz(const GDBusConnection *dcon, const char *name,
 				continue;
 			}
 			method_found = 1;
+		}
+
+		// if method name is in df_suppression array of names, it is skipped
+		if (df_suppression != NULL) {
+			int skipflg = 0;
+			for (i = 0; df_suppression[i] != NULL; i++) {
+				if (strstr(df_suppression[i], m->name) != NULL) {
+					skipflg++;
+					break;
+				}
+			}
+			if (skipflg)
+				continue;
 		}
 
 		// adds method name to the fuzzing module
@@ -802,6 +837,9 @@ int df_get_pid(const GDBusConnection *dcon)
 		Be verbose
 	* df_debug_flag	
 		Include debug output
+	* df_sup_file
+		Name of suppression file which contains names of methods
+		which won't be tested
 	If error occures function ends program.
 	@param argc Count of options
 	@param argv Pointer on strings containing options of program
@@ -809,9 +847,9 @@ int df_get_pid(const GDBusConnection *dcon)
 void df_parse_parameters(int argc, char **argv)
 {
 	int c = 0;
-	int nflg = 0, oflg = 0, iflg = 0, mflg = 0, bflg = 0, tflg = 0;
+	int nflg = 0, oflg = 0, iflg = 0, mflg = 0, bflg = 0, tflg = 0, sflg = 0;
 
-	while ((c = getopt(argc, argv, "n:o:i:m:b:t:dvlhV")) != -1) {
+	while ((c = getopt(argc, argv, "n:o:i:m:b:t:s:dvlhV")) != -1) {
 		switch (c) {
 		case 'n':
 			if (nflg != 0) {
@@ -885,6 +923,14 @@ void df_parse_parameters(int argc, char **argv)
 			tflg++;
 			df_test_method = optarg;
 			break;
+		case 's':
+			if (sflg != 0) {
+				df_fail("%s: no duplicate options -- 's'\n", argv[0]);
+				exit(1);
+			}
+			sflg++;
+			df_sup_file = optarg;
+			break;
 		case 'd':
 			df_debug_flag = 1;
 			break;
@@ -919,6 +965,93 @@ void df_parse_parameters(int argc, char **argv)
 				"See -h for help.\n");
 		exit(1);
 	}
+}
+
+/**
+	@function Searches target_proc.name in suppression file df_sup_file.
+	If it is found, df_suppression array is seeded with names of methods
+	for this bus name. (df_suppression array is used to skip methods
+	which it contains when testing target_proc.name)
+	File df_sup_file is in format:
+	[bus_name]
+	method1
+	method2
+	[bus_name2]
+	method1
+	method2
+	...
+	@return 0 on success, -1 on error
+*/
+int df_load_suppressions(void)
+{
+	FILE *f;
+	char buf[MAXLEN+2];
+	char *ptr;
+	int name_found = 0;
+	int i;
+
+
+	f = fopen(df_sup_file, "r");
+	if (f == NULL) {
+		df_fail("Error: Unable to open file '%s'.\n", df_sup_file);
+		return -1;
+	}
+
+	// determines if currently tested bus name is in suppression file
+	while (fgets(buf, MAXLEN+2, f) != NULL) {
+		if (strstr(buf, target_proc.name) != NULL) {
+			name_found++;
+			break;
+		}
+	}
+	if (ferror(f)) {
+		df_fail("Error: Reading from file '%s'.\n", df_sup_file);
+		fclose(f);
+		return -1;
+	}
+
+	// no suppressions for tested bus name
+	if (!name_found) {
+		fclose(f);
+		return 0;
+	} else
+		df_verbose("Found suppressions for bus name '%s'\n", target_proc.name);
+
+
+	if ((df_suppression = malloc(sizeof(char*) * MAXLEN)) == NULL) {
+		df_fail("Error: Could not allocate memory for suppressions\n");
+		fclose(f);
+		return -1;
+	}
+	// seeds method names into df_suppression array
+	for (i = 0; (fgets(buf, MAXLEN, f) != NULL) && (i < MAXLEN); i++) {
+		if (buf[0] == '[')
+			break;
+		ptr = buf;
+		while (isspace(*ptr))
+			ptr++;
+		if (strlen(ptr) == 0) {
+			--i;
+			continue;
+		}
+
+		df_suppression[i] = malloc((strlen(ptr) + 1) * sizeof(char));
+		if (df_suppression[i] == NULL) {
+			df_fail("Error: Could not allocate memory for suppressions\n");
+			fclose(f);
+			return -1;
+		}
+		strcpy(df_suppression[i], ptr);
+	}
+	df_suppression[i] = NULL;
+	if (ferror(f)) {
+		df_fail("Error: Reading from file '%s'.\n", df_sup_file);
+		fclose(f);
+		return -1;
+	}
+
+	fclose(f);
+	return 0;
 }
 
 /**
@@ -962,7 +1095,18 @@ void df_print_help(const char *name)
 	"   the limit, the longer the testing).\n"
 	"-t METHOD_NAME\n"
 	"   When this parameter is provided, only method METHOD_NAME is tested.\n"
-	"   All other methods of an interface are skipped.\n\n"
+	"   All other methods of an interface are skipped.\n"
+	"-s SUPPRESSION_FILE\n"
+	"   Path to file containing list of methods for bus name which will\n"
+	"   be skipped when testing. Example suppression file:\n"
+	"   [bus_name]\n"
+	"   method1\n"
+	"   [bus_name_foo]\n"
+	"   method1\n"
+	"   method2\n"
+	"   ...\n"
+	"   tells that for example methods \"method1\" and \"method2\" will be\n"
+	"   skipped when testing bus name \"bus_name_foo\".\n\n"
 	"Examples:\n\n"
 	" Test all methods of GNOME Shell. Be verbose.\n"
 	" # %s -v -n org.gnome.Shell\n\n"
@@ -971,8 +1115,14 @@ void df_print_help(const char *name)
 	" GetAlternativeServiceName\n\n"
 	" Test all methods of Avahi and be verbose. Redirect all failures\n"
 	" and warnings into avahi.log:\n"
-	" # %s -v -n org.freedesktop.Avahi 3>&1 1>&2 2>&3 | tee avahi.log\n\n",
-	name, name, name);
+	" # %s -v -n org.freedesktop.Avahi 3>&1 1>&2 2>&3 | tee avahi.log\n\n"
+	" Test name org.freedesktop.login1, be verbose and use suppression file\n"
+	" sup_file, which makes sure to skip method \"TerminateSession\":\n"
+	" # %s -v -n org.freedesktop.login1 -s sup_file\n"
+	" sup_file:\n"
+	" [org.freedesktop.login1]\n"
+	" TerminateSession\n",
+	name, name, name, name);
 }
 
 /**
