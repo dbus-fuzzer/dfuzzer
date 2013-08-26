@@ -147,14 +147,13 @@ guint8 df_rand_guint8(void)
 }
 
 /**
-	@return Boolean value FALSE
+	@return Generated pseudo-random boolean value
 */
 gboolean df_rand_gboolean(void)
 {
 	if (df_num_fuzz_counter < MAX_FUZZ_COUNTER)
 		df_num_fuzz_counter++;
-	return FALSE;		// false because some services may have
-						// methods to poweroff/suspend/hibernate/logout...
+	return ((gboolean) (rand() % 2));
 }
 
 /**

@@ -596,8 +596,11 @@ int df_fuzz(const GDBusConnection *dcon, const char *name,
 					break;
 				}
 			}
-			if (skipflg)
+			if (skipflg) {
+				df_verbose("  \e[34mSKIP\e[0m method %s - suppressed method\n",
+						m->name);
 				continue;
+			}
 		}
 
 		// adds method name to the fuzzing module
