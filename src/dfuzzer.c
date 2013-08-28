@@ -426,9 +426,23 @@ int df_traverse_node(const GDBusConnection *dcon, const char *root_node)
 					NULL, G_DBUS_CALL_FLAGS_NONE, -1, NULL, &error);
 	if (response == NULL) {
 		g_object_unref(dproxy);
-		df_fail("Unknown bus name '%s'.\n", target_proc.name);
-		df_error("Error in g_dbus_proxy_call_sync()", error);
-		return 1;
+		gchar *dbus_error = NULL;
+		// D-Bus exceptions
+		if ((dbus_error = g_dbus_error_get_remote_error(error)) != NULL) {
+			// if process does not respond
+			if (strcmp(dbus_error, "org.freedesktop.DBus.Error.NoReply") == 0) {
+				g_free(dbus_error);
+				g_error_free(error);
+				return 2;
+			}
+			g_free(dbus_error);
+			g_error_free(error);
+			return 0;
+		} else {
+			df_fail("Unknown bus name '%s'.\n", target_proc.name);
+			df_error("Error in g_dbus_proxy_call_sync()", error);
+			return 1;
+		}
 	}
 	g_variant_get(response, "(s)", &introspection_xml);
 	g_variant_unref(response);
