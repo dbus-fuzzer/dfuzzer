@@ -21,52 +21,52 @@
 #define INTROSPECTION_H
 
 /**
-	@function Gets introspection of object pointed by dproxy (in XML format),
-	then parses XML data and fills GDBusNodeInfo representing the data.
-	At the end looks up information about an interface and initializes module
-	global pointers on first method and its first argument.
-	@param dproxy Pointer on D-Bus interface proxy
-	@param name D-Bus name
-	@param interface D-Bus interface
-	@return 0 on success, -1 on error
-*/
+ * @function Gets introspection of object pointed by dproxy (in XML format),
+ * then parses XML data and fills GDBusNodeInfo representing the data.
+ * At the end looks up information about an interface and initializes module
+ * global pointers on first method and its first argument.
+ * @param dproxy Pointer on D-Bus interface proxy
+ * @param name D-Bus name
+ * @param interface D-Bus interface
+ * @return 0 on success, -1 on error
+ */
 int df_init_introspection(const GDBusProxy *dproxy, const char *name,
-						const char *interface);
+				const char *interface);
 
 /**
-	@return Pointer on GDBusMethodInfo which contains information about method
-	(do not free it).
-*/
+ * @return Pointer on GDBusMethodInfo which contains information about method
+ * (do not free it).
+ */
 GDBusMethodInfo *df_get_method(void);
 
 /**
-	@function Function is used as "iterator" for interface methods.
-*/
+ * @function Function is used as "iterator" for interface methods.
+ */
 void df_next_method(void);
 
 /**
-	@return Pointer on GDBusArgInfo which contains information about argument
-	of current (df_get_method()) method (do not free it).
-*/
+ * @return Pointer on GDBusArgInfo which contains information about argument
+ * of current (df_get_method()) method (do not free it).
+ */
 GDBusArgInfo *df_get_method_arg(void);
 
 /**
-	@function Function is used as "iterator" for interface current
-	(df_get_method()) method arguments.
-*/
+ * @function Function is used as "iterator" for interface current
+ * (df_get_method()) method arguments.
+ */
 void df_next_method_arg(void);
 
 /**
-	@return Returns 1 if method has out arguments (return value), 0 otherwise.
-*/
+ * @return Returns 1 if method has out arguments (return value), 0 otherwise.
+ */
 int df_method_has_out_args(void);
 
 /**
-	@function Call when done with this module functions (only after
-	df_init_introspection() function call). It frees memory used
-	by introspection_data (GDBusNodeInfo *) which is used to look up
-	information about the interface (methods, their arguments, etc.).
-*/
+ * @function Call when done with this module functions (only after
+ * df_init_introspection() function call). It frees memory used
+ * by introspection_data (GDBusNodeInfo *) which is used to look up
+ * information about the interface (methods, their arguments, etc.).
+ */
 void df_unref_introspection(void);
 
 #endif

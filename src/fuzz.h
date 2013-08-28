@@ -21,13 +21,13 @@
 #ifndef FUZZ_H
 #define FUZZ_H
 
-/** maximum length of D-Bus signature string */
+/** Maximum length of D-Bus signature string */
 #define MAXSIG 255
 
 /** MAXSIG * 2 because of '@' character for every signature */
 #define MAXFMT MAXSIG * 2
 
-/** maximum length read from file */
+/** Maximum length read from file */
 #define MAXLINE 1024
 
 
@@ -58,75 +58,75 @@ struct df_sig_list {
 
 
 /**
-	@function Error checked write function with short write correction (when
-	write is interrupted by a signal).
-	@param fd File descriptor where to write
-	@param buf Buffer from which to write to file descriptor fd
-	@param count Number of bytes to be written
-	@return 0 on success, -1 on error
-*/
+ * @function Error checked write function with short write correction (when
+ * write is interrupted by a signal).
+ * @param fd File descriptor where to write
+ * @param buf Buffer from which to write to file descriptor fd
+ * @param count Number of bytes to be written
+ * @return 0 on success, -1 on error
+ */
 inline int df_ewrite(int fd, const void *buf, size_t count);
 
 /**
-	@function Saves pointer on D-Bus interface proxy for this module to be
-	able to call methods through this proxy during fuzz testing. Also saves
-	process initial memory size to global var. df_initial_mem from file
-	described by statfd.
-	@param dproxy Pointer on D-Bus interface proxy
-	@param statfd FD of process status file
-	@param pid PID of tested process
-	@param mem_limit Memory limit in kB - if tested process exceeds this limit
-	it will be noted into log file
-	@return 0 on success, -1 on error
-*/
+ * @function Saves pointer on D-Bus interface proxy for this module to be
+ * able to call methods through this proxy during fuzz testing. Also saves
+ * process initial memory size to global var. df_initial_mem from file
+ * described by statfd.
+ * @param dproxy Pointer on D-Bus interface proxy
+ * @param statfd FD of process status file
+ * @param pid PID of tested process
+ * @param mem_limit Memory limit in kB - if tested process exceeds this limit
+ * it will be noted into log file
+ * @return 0 on success, -1 on error
+ */
 int df_fuzz_init(GDBusProxy *dproxy, const int statfd,
 				const int pid, const long mem_limit);
 
 /**
-	@function Initializes the global variable df_list (struct df_sig_list)
-	including allocationg memory for method name inside df_list.
-	@param name Name of method which will be tested
-	@return 0 on success, -1 on error
-*/
+ * @function Initializes the global variable df_list (struct df_sig_list)
+ * including allocationg memory for method name inside df_list.
+ * @param name Name of method which will be tested
+ * @return 0 on success, -1 on error
+ */
 int df_fuzz_add_method(const char *name);
 
 /**
-	@function Adds item (struct df_signature) at the end of the linked list
-	in the global variable df_list (struct df_sig_list). This includes
-	allocating memory for item and for signature string.
-	@param signature D-Bus signature of the argument
-	@return 0 on success, -1 on error
-*/
+ * @function Adds item (struct df_signature) at the end of the linked list
+ * in the global variable df_list (struct df_sig_list). This includes
+ * allocating memory for item and for signature string.
+ * @param signature D-Bus signature of the argument
+ * @return 0 on success, -1 on error
+ */
 int df_fuzz_add_method_arg(const char *signature);
 
 /**
-	@return Number of arguments of tested method
-*/
+ * @return Number of arguments of tested method
+ */
 int df_list_args_count(void);
 
 /**
-	@function Function is testing a method in a cycle, each cycle generates
-	data for function arguments, calls method and waits for result.
-	@param statfd FD of process status file
-	@param buf_size Maximum buffer size for generated strings
-	by rand module (in Bytes)
-	@param name D-Bus name
-	@param obj D-Bus object path
-	@param intf D-Bus interface
-	@param pid PID of tested process
-	@param void_method If method has out args 1, 0 otherwise
-	@return 0 on success, -1 on error, 1 on tested process crash, 2 on void
-	function returning non-void value, 3 on warnings
-*/
+ * @function Function is testing a method in a cycle, each cycle generates
+ * data for function arguments, calls method and waits for result.
+ * @param statfd FD of process status file
+ * @param buf_size Maximum buffer size for generated strings
+ * by rand module (in Bytes)
+ * @param name D-Bus name
+ * @param obj D-Bus object path
+ * @param intf D-Bus interface
+ * @param pid PID of tested process
+ * @param void_method If method has out args 1, 0 otherwise
+ * @return 0 on success, -1 on error, 1 on tested process crash, 2 on void
+ * function returning non-void value, 3 on warnings
+ */
 int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 						const char *obj, const char *intf, const int pid,
 						const int void_method);
 
 /**
-	@function Releases memory used by this module. This function must be called
-	after df_fuzz_add_method() and df_fuzz_add_method_arg() functions calls
-	after the end of fuzz testing of each method.
-*/
+ * @function Releases memory used by this module. This function must be called
+ * after df_fuzz_add_method() and df_fuzz_add_method_arg() functions calls
+ * after the end of fuzz testing of each method.
+ */
 void df_fuzz_clean_method(void);
 
 #endif

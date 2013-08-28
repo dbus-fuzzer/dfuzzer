@@ -60,13 +60,13 @@ static int df_fuzz_call_method(const GVariant *value, const int void_method);
 
 
 /**
-	@function Error checked write function with short write correction (when
-	write is interrupted by a signal).
-	@param fd File descriptor where to write
-	@param buf Buffer from which to write to file descriptor fd
-	@param count Number of bytes to be written
-	@return 0 on success, -1 on error
-*/
+ * @function Error checked write function with short write correction (when
+ * write is interrupted by a signal).
+ * @param fd File descriptor where to write
+ * @param buf Buffer from which to write to file descriptor fd
+ * @param count Number of bytes to be written
+ * @return 0 on success, -1 on error
+ */
 inline int df_ewrite(int fd, const void *buf, size_t count)
 {
 	ssize_t written = 0;
@@ -87,17 +87,17 @@ inline int df_ewrite(int fd, const void *buf, size_t count)
 }
 
 /**
-	@function Saves pointer on D-Bus interface proxy for this module to be
-	able to call methods through this proxy during fuzz testing. Also saves
-	process initial memory size to global var. df_initial_mem from file
-	described by statfd.
-	@param dproxy Pointer on D-Bus interface proxy
-	@param statfd FD of process status file
-	@param pid PID of tested process
-	@param mem_limit Memory limit in kB - if tested process exceeds this limit
-	it will be noted into log file
-	@return 0 on success, -1 on error
-*/
+ * @function Saves pointer on D-Bus interface proxy for this module to be
+ * able to call methods through this proxy during fuzz testing. Also saves
+ * process initial memory size to global var. df_initial_mem from file
+ * described by statfd.
+ * @param dproxy Pointer on D-Bus interface proxy
+ * @param statfd FD of process status file
+ * @param pid PID of tested process
+ * @param mem_limit Memory limit in kB - if tested process exceeds this limit
+ * it will be noted into log file
+ * @return 0 on success, -1 on error
+ */
 int df_fuzz_init(GDBusProxy *dproxy, const int statfd,
 				const int pid, const long mem_limit)
 {
@@ -123,11 +123,11 @@ int df_fuzz_init(GDBusProxy *dproxy, const int statfd,
 }
 
 /**
-	@function Initializes the global variable df_list (struct df_sig_list)
-	including allocationg memory for method name inside df_list.
-	@param name Name of method which will be tested
-	@return 0 on success, -1 on error
-*/
+ * @function Initializes the global variable df_list (struct df_sig_list)
+ * including allocationg memory for method name inside df_list.
+ * @param name Name of method which will be tested
+ * @return 0 on success, -1 on error
+ */
 int df_fuzz_add_method(const char *name)
 {
 	if (name == NULL) {
@@ -152,12 +152,12 @@ int df_fuzz_add_method(const char *name)
 }
 
 /**
-	@function Adds item (struct df_signature) at the end of the linked list
-	in the global variable df_list (struct df_sig_list). This includes
-	allocating memory for item and for signature string.
-	@param signature D-Bus signature of the argument
-	@return 0 on success, -1 on error
-*/
+ * @function Adds item (struct df_signature) at the end of the linked list
+ * in the global variable df_list (struct df_sig_list). This includes
+ * allocating memory for item and for signature string.
+ * @param signature D-Bus signature of the argument
+ * @return 0 on success, -1 on error
+ */
 int df_fuzz_add_method_arg(const char *signature)
 {
 	if (signature == NULL)
@@ -197,20 +197,20 @@ int df_fuzz_add_method_arg(const char *signature)
 }
 
 /**
-	@return Number of arguments of tested method
-*/
+ * @return Number of arguments of tested method
+ */
 int df_list_args_count(void)
 {
 	return df_list.args;
 }
 
 /**
-	@function Parses VmRSS (Resident Set Size) value from statfd and returns it
-	as process memory size.
-	@param statfd FD of process status file
-	@return Process memory size on success, 0 when statfd is not readable (that
-	means process exited: errno set to ESRCH - no such process) or -1 on error
-*/
+ * @function Parses VmRSS (Resident Set Size) value from statfd and returns it
+ * as process memory size.
+ * @param statfd FD of process status file
+ * @return Process memory size on success, 0 when statfd is not readable (that
+ * means process exited: errno set to ESRCH - no such process) or -1 on error
+ */
 static long df_fuzz_get_proc_mem_size(const int statfd)
 {
 	long mem_size = -1;
@@ -279,9 +279,9 @@ static long df_fuzz_get_proc_mem_size(const int statfd)
 }
 
 /**
-	@function Prints all method signatures and their values on the output.
-	@return 0 on success, -1 on error
-*/
+ * @function Prints all method signatures and their values on the output.
+ * @return 0 on success, -1 on error
+ */
 static int df_fuzz_write_log(void)
 {
 	struct df_signature *s = df_list.list;	// pointer on first signature
@@ -412,19 +412,19 @@ static int df_fuzz_write_log(void)
 }
 
 /**
-	@function Function is testing a method in a cycle, each cycle generates
-	data for function arguments, calls method and waits for result.
-	@param statfd FD of process status file
-	@param buf_size Maximum buffer size for generated strings
-	by rand module (in Bytes)
-	@param name D-Bus name
-	@param obj D-Bus object path
-	@param intf D-Bus interface
-	@param pid PID of tested process
-	@param void_method If method has out args 1, 0 otherwise
-	@return 0 on success, -1 on error, 1 on tested process crash, 2 on void
-	function returning non-void value, 3 on warnings
-*/
+ * @function Function is testing a method in a cycle, each cycle generates
+ * data for function arguments, calls method and waits for result.
+ * @param statfd FD of process status file
+ * @param buf_size Maximum buffer size for generated strings
+ * by rand module (in Bytes)
+ * @param name D-Bus name
+ * @param obj D-Bus object path
+ * @param intf D-Bus interface
+ * @param pid PID of tested process
+ * @param void_method If method has out args 1, 0 otherwise
+ * @return 0 on success, -1 on error, 1 on tested process crash, 2 on void
+ * function returning non-void value, 3 on warnings
+ */
 int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 						const char *obj, const char *intf, const int pid,
 						const int void_method)
@@ -572,14 +572,14 @@ err_label:
 }
 
 /**
-	@function Creates GVariant tuple variable which contains all the signatures
-	of method arguments including their values. This tuple is constructed
-	from each signature of method argument by one call of g_variant_new()
-	function. This call is constructed dynamically (using libffi) as we don't
-	know number of function parameters on compile time.
-	@return Pointer on a new GVariant variable containing tuple with method
-	arguments
-*/
+ * @function Creates GVariant tuple variable which contains all the signatures
+ * of method arguments including their values. This tuple is constructed
+ * from each signature of method argument by one call of g_variant_new()
+ * function. This call is constructed dynamically (using libffi) as we don't
+ * know number of function parameters on compile time.
+ * @return Pointer on a new GVariant variable containing tuple with method
+ * arguments
+ */
 static GVariant *df_fuzz_create_variant(void)
 {
 	struct df_signature *s = df_list.list;	// pointer on first signature
@@ -659,10 +659,10 @@ static GVariant *df_fuzz_create_variant(void)
 }
 
 /**
-	@function Generates data for each method argument according to argument
-	signature and stores it into Gvariant variable in items of linked list.
-	@return 0 on success, 1 on unsupported method signature, -1 on error
-*/
+ * @function Generates data for each method argument according to argument
+ * signature and stores it into Gvariant variable in items of linked list.
+ * @return 0 on success, 1 on unsupported method signature, -1 on error
+ */
 static int df_fuzz_create_list_variants(void)
 {
 	struct df_signature *s = df_list.list;	// pointer on first signature
@@ -767,12 +767,12 @@ static int df_fuzz_create_list_variants(void)
 }
 
 /**
-	@function Creates format string (tuple) from method arguments signatures
-	with maximum length of n-1. The final string is saved in parameter fmt.
-	@param fmt Pointer on buffer where format string should be stored
-	@param n Size of buffer
-	@return 0 on success, -1 on error
-*/
+ * @function Creates format string (tuple) from method arguments signatures
+ * with maximum length of n-1. The final string is saved in parameter fmt.
+ * @param fmt Pointer on buffer where format string should be stored
+ * @param n Size of buffer
+ * @return 0 on success, -1 on error
+ */
 static int df_fuzz_create_fmt_string(char **fmt, const int n)
 {
 	struct df_signature *s = df_list.list;	// pointer on first signature
@@ -812,13 +812,13 @@ static int df_fuzz_create_fmt_string(char **fmt, const int n)
 }
 
 /**
-	@function Calls method from df_list (using its name) with its arguments.
-	@param value GVariant tuple containing all method arguments signatures and
-	their values
-	@param void_method If method has out args 1, 0 otherwise
-	@return 0 on success, -1 on error, 1 if void method returned non-void
-	value or 2 when tested method raised exception (so it should be skipped)
-*/
+ * @function Calls method from df_list (using its name) with its arguments.
+ * @param value GVariant tuple containing all method arguments signatures and
+ * their values
+ * @param void_method If method has out args 1, 0 otherwise
+ * @return 0 on success, -1 on error, 1 if void method returned non-void
+ * value or 2 when tested method raised exception (so it should be skipped)
+ */
 static int df_fuzz_call_method(const GVariant *value, const int void_method)
 {
 	GError *error = NULL;
@@ -877,10 +877,10 @@ static int df_fuzz_call_method(const GVariant *value, const int void_method)
 }
 
 /**
-	@function Releases memory used by this module. This function must be called
-	after df_fuzz_add_method() and df_fuzz_add_method_arg() functions calls
-	after the end of fuzz testing of each method.
-*/
+ * @function Releases memory used by this module. This function must be called
+ * after df_fuzz_add_method() and df_fuzz_add_method_arg() functions calls
+ * after the end of fuzz testing of each method.
+ */
 void df_fuzz_clean_method(void)
 {
 	free(df_list.df_method_name);
