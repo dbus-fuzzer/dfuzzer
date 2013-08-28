@@ -69,6 +69,7 @@ int main(int argc, char **argv)
 	char *root_node = "/";
 	int rses = 0;				// return value from session bus testing
 	int rsys = 0;				// return value from system bus testing
+	int bus_skip = 0;			// if skipping one of buses or both, set to 1
 
 
 	df_parse_parameters(argc, argv);
@@ -92,11 +93,12 @@ int main(int argc, char **argv)
 	g_type_init();
 
 	// Synchronously connects to the session bus daemon.
-	fprintf(stderr, "\e[36m[SESSION BUS]\e[0m\n", target_proc.name);
+	fprintf(stderr, "\r\e[36m[SESSION BUS]\e[0m\n", target_proc.name);
 	if ((dcon = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, &error)) == NULL) {
 		df_fail("Session bus not found.\n");
 		df_error("Error in g_bus_get_sync()", error);
 		error = NULL;
+		bus_skip = 1;
 		goto skip_session;
 	}
 	if (df_list_names) {
@@ -109,7 +111,7 @@ int main(int argc, char **argv)
 		// gets pid of tested process
 		df_pid = df_get_pid(dcon);
 		if (df_pid > 0) {
-			fprintf(stderr, "\e[36m[CONNECTED TO PID: %d]\e[0m\n", df_pid);
+			fprintf(stderr, "\r\e[36m[CONNECTED TO PID: %d]\e[0m\n", df_pid);
 			if (strlen(target_proc.interface) != 0) {
 				fprintf(stderr, "Object: \e[1m%s\e[0m\n", target_proc.obj_path);
 				fprintf(stderr, " Interface: \e[1m%s\e[0m\n",
@@ -144,11 +146,12 @@ skip_session:
 
 
 	// Synchronously connects to the system bus daemon.
-	fprintf(stderr, "\e[36m[SYSTEM  BUS]\e[0m\n", target_proc.name);
+	fprintf(stderr, "\r\e[36m[SYSTEM  BUS]\e[0m\n", target_proc.name);
 	if ((dcon = g_bus_get_sync(G_BUS_TYPE_SYSTEM, NULL, &error)) == NULL) {
 		df_fail("System bus not found.\n");
 		df_error("Error in g_bus_get_sync()", error);
 		error = NULL;
+		bus_skip = 1;
 		goto skip_system;
 	}
 	if (df_list_names) {
@@ -161,7 +164,7 @@ skip_session:
 		// gets pid of tested process
 		df_pid = df_get_pid(dcon);
 		if (df_pid > 0) {
-			fprintf(stderr, "\e[36m[CONNECTED TO PID: %d]\e[0m\n", df_pid);
+			fprintf(stderr, "\r\e[36m[CONNECTED TO PID: %d]\e[0m\n", df_pid);
 			if (strlen(target_proc.interface) != 0) {
 				fprintf(stderr, "Object: \e[1m%s\e[0m\n", target_proc.obj_path);
 				fprintf(stderr, " Interface: \e[1m%s\e[0m\n",
@@ -197,6 +200,9 @@ skip_system:
 
 	// both tests ended with error
 	if (rses == 1 && rsys == 1) {
+		printf("\e[1mExit status: 1\e[0m\n");
+		return 1;
+	} else if (bus_skip == 1 && (rses == 1 || rsys == 1)) {
 		printf("\e[1mExit status: 1\e[0m\n");
 		return 1;
 	} else if (rses == 2 || rsys == 2) {
@@ -454,10 +460,8 @@ int df_traverse_node(const GDBusConnection *dcon, const char *root_node)
 			g_dbus_node_info_unref(node_data);
 			g_object_unref(dproxy);
 			return 1;
-		} else {
-			if (ret != 2)
-				ret = rd;
-		}
+		} else if (ret != 2)
+			ret = rd;
 		interface = node_data->interfaces[i++];
 	}
 
@@ -490,10 +494,8 @@ int df_traverse_node(const GDBusConnection *dcon, const char *root_node)
 			g_dbus_node_info_unref(node_data);
 			g_object_unref(dproxy);
 			return 1;
-		} else {
-			if (ret != 2)
-				ret = rt;
-		}
+		} else if (ret != 2)
+			ret = rt;
 		free(object);
 		// move to next node
 		node = node_data->nodes[i++];
@@ -680,7 +682,7 @@ int df_fuzz(const GDBusConnection *dcon, const char *name,
 				df_debug("Error in df_get_pid() on getting pid of process\n");
 				return 1;
 			}
-			fprintf(stderr, "\e[36m[RE-CONNECTED TO PID: %d]\e[0m\n", df_pid);
+			fprintf(stderr, "\r\e[36m[RE-CONNECTED TO PID: %d]\e[0m\n", df_pid);
 
 			// opens process status file
 			close(statfd);

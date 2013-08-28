@@ -6,7 +6,9 @@ TerminateUser
 Suspend
 Reboot
 PowerOff
+HybridSleep
 KillUser
 KillSession
+LockSession
 Hibernate
 TerminateSeat
