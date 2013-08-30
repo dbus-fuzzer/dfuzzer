@@ -17,7 +17,7 @@
 .\" * along with this program. If not, see <http://www.gnu.org/licenses/>.
 .\" *
 .\" **************************************************************************
-.TH man 1 "23 August 2013" "dfuzzer 1.3" "dfuzzer"
+.TH man 1 "28 August 2013" "dfuzzer 1.3" "dfuzzer"
 .SH NAME
 dfuzzer \- Tool for fuzz testing processes communicating through D-Bus
 .SH SYNOPSIS
@@ -116,6 +116,28 @@ the longer the testing).
 When this parameter is provided, only method \fIMETHOD_NAME\fR is tested.
 All other methods of an interface are skipped.
 .RE
+.PP
+\fB\-s\fR \fISUPPRESSION_FILE\fR
+.RS 4
+Path to file containing list of methods for bus name which will
+be skipped when testing. Example suppression file:
+.RE
+    [bus_name]
+.RE
+    method1
+.RE
+    [bus_name_foo]
+.RE
+    method1
+.RE
+    method2
+.RE
+    ...
+.RE
+.RS 4
+tells that for example methods \fImethod1\fR and \fImethod2\fR will be
+skipped when testing bus name \fIbus_name_foo\fR.
+.RE
 
 
 
@@ -137,6 +159,10 @@ into avahi.log:
 .RE
 \fB# dfuzzer -v -n org.freedesktop.Avahi 3>&1 1>&2 2>&3 | tee avahi.log\fR
 
+Test name org.freedesktop.login1, be verbose and use suppression file sup_file:
+.RE
+\fB# dfuzzer -v -n org.freedesktop.login1 -s sup_file\fR
+
 
 
 .SH EXIT STATUS
@@ -144,7 +170,8 @@ dfuzzer may return these codes:
 
 0    testing ended successfuly
 .RE
-1    internal dfuzzer error occured (-d option to debug)
+1    error occured, either internal dfuzzer error
+     or D-Bus related error (-d option to debug)
 .RE
 2    testing detected failures (including warnings)
 .RE

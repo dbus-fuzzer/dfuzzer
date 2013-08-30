@@ -1,6 +1,6 @@
 ##############################################################################
-#	This file is part of dfuzzer.
-#	Copyright(C) 2013, Red Hat, Inc., Matus Marhefka <mmarhefk@redhat.com>
+# This file is part of dfuzzer.
+# Copyright(C) 2013, Red Hat, Inc., Matus Marhefka <mmarhefk@redhat.com>
 ##############################################################################
 
 CC=gcc
