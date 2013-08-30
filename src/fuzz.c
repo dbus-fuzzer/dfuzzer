@@ -422,12 +422,14 @@ static int df_fuzz_write_log(void)
  * @param intf D-Bus interface
  * @param pid PID of tested process
  * @param void_method If method has out args 1, 0 otherwise
+ * @param execute_cmd Command/Script to execute after each method call.
+ * If command/script returns 1, dfuzzer prints fail message, if 0 it continues
  * @return 0 on success, -1 on error, 1 on tested process crash, 2 on void
  * function returning non-void value, 3 on warnings
  */
 int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 						const char *obj, const char *intf, const int pid,
-						const int void_method)
+						const int void_method, const char *execute_cmd)
 {
 	// methods with no arguments are not tested
 	if (df_list.args == 0)

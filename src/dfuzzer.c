@@ -54,6 +54,10 @@ char **df_suppression;
 /** Name of file from which df_suppression is loaded (do not free - points
 	to argv) */
 char *df_sup_file;
+/** Command/Script to execute by dfuzzer after each method call.
+	If command/script returns 1, dfuzzer prints fail message,
+	if 0 it continues */
+char *df_execute_cmd;
 
 
 /**
@@ -474,8 +478,10 @@ int df_traverse_node(const GDBusConnection *dcon, const char *root_node)
 			g_dbus_node_info_unref(node_data);
 			g_object_unref(dproxy);
 			return 1;
-		} else if (ret != 2)
-			ret = rd;
+		} else if (ret != 2) {
+			if (rd != 0)
+				ret = rd;
+		}
 		interface = node_data->interfaces[i++];
 	}
 
@@ -508,8 +514,10 @@ int df_traverse_node(const GDBusConnection *dcon, const char *root_node)
 			g_dbus_node_info_unref(node_data);
 			g_object_unref(dproxy);
 			return 1;
-		} else if (ret != 2)
-			ret = rt;
+		} else if (ret != 2) {
+			if (rt != 0)
+				ret = rt;
+		}
 		free(object);
 		// move to next node
 		node = node_data->nodes[i++];
@@ -654,7 +662,7 @@ int df_fuzz(const GDBusConnection *dcon, const char *name,
 
 		// tests for method
 		ret = df_fuzz_test_method(statfd, df_buf_size, name, obj, intf,
-					df_pid, void_method);
+					df_pid, void_method, df_execute_cmd);
 		if (ret == -1) {
 			// error during testing method
 			close(statfd);
@@ -859,6 +867,8 @@ int df_get_pid(const GDBusConnection *dcon)
  *  - df_sup_file -
  *     Name of suppression file which contains names of methods
  *     which won't be tested
+ *  - df_execute_cmd -
+ *     Command/script to execute after each method call
  * If error occures function ends program.
  * @param argc Count of options
  * @param argv Pointer on strings containing options of program
@@ -866,9 +876,10 @@ int df_get_pid(const GDBusConnection *dcon)
 void df_parse_parameters(int argc, char **argv)
 {
 	int c = 0;
-	int nflg = 0, oflg = 0, iflg = 0, mflg = 0, bflg = 0, tflg = 0, sflg = 0;
+	int nflg = 0, oflg = 0, iflg = 0, mflg = 0, bflg = 0, tflg = 0, sflg = 0,
+		eflg = 0;
 
-	while ((c = getopt(argc, argv, "n:o:i:m:b:t:s:dvlhV")) != -1) {
+	while ((c = getopt(argc, argv, "n:o:i:m:b:t:s:e:dvlhV")) != -1) {
 		switch (c) {
 		case 'n':
 			if (nflg != 0) {
@@ -949,6 +960,14 @@ void df_parse_parameters(int argc, char **argv)
 			}
 			sflg++;
 			df_sup_file = optarg;
+			break;
+		case 'e':
+			if (eflg != 0) {
+				df_fail("%s: no duplicate options -- 'e'\n", argv[0]);
+				exit(1);
+			}
+			eflg++;
+			df_execute_cmd = optarg;
 			break;
 		case 'd':
 			df_debug_flag = 1;

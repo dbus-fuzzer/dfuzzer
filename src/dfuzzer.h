@@ -134,6 +134,8 @@ int df_get_pid(const GDBusConnection *dcon);
  *  - df_sup_file -
  *     Name of suppression file which contains names of methods
  *     which won't be tested
+ *  - df_execute_cmd -
+ *     Command/script to execute after each method call
  * If error occures function ends program.
  * @param argc Count of options
  * @param argv Pointer on strings containing options of program
