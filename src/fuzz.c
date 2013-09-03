@@ -468,12 +468,6 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 			df_debug("Error in df_fuzz_get_proc_mem_size()\n");
 			goto err_label;
 		}
-		if (used_memory == 0) {
-			df_fail("\r  \e[31mFAIL\e[0m %s - process exited\n"
-					"   [PID: %d], [MEM: %ld kB]\n",
-					df_list.df_method_name, pid, prev_memory);
-			goto fail_label;
-		}
 		prev_memory = used_memory;
 
 		// creates variant containing all (fuzzed) method arguments
@@ -547,7 +541,7 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 fail_label:
 	if (ret == 1) {		// method returning void is returning illegal value
 		df_fail("   reproducer: \e[33mdfuzzer -v -n %s -o %s -i %s"
-				" -t %s \e[0m\n", name, obj, intf, df_list.df_method_name);
+				" -t %s\e[0m\n", name, obj, intf, df_list.df_method_name);
 		if (value != NULL)
 			g_variant_unref(value);
 		return 2;
@@ -555,7 +549,7 @@ fail_label:
 	df_fail("   on input:\n");
 	df_fuzz_write_log();
 	df_fail("   reproducer: \e[33mdfuzzer -v -n %s -o %s -i %s"
-			" -t %s \e[0m\n", name, obj, intf, df_list.df_method_name);
+			" -t %s\e[0m\n", name, obj, intf, df_list.df_method_name);
 	if (value != NULL)
 		g_variant_unref(value);
 	return 1;

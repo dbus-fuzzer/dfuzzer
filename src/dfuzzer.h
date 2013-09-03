@@ -131,9 +131,8 @@ int df_get_pid(const GDBusConnection *dcon);
  *     Be verbose
  *  - df_debug_flag	-
  *     Include debug output
- *  - df_sup_file -
- *     Name of suppression file which contains names of methods
- *     which won't be tested
+ *  - df_supflg -
+ *     If -s option is passed 1, otherwise 0
  *  - df_execute_cmd -
  *     Command/script to execute after each method call
  * If error occures function ends program.
@@ -143,11 +142,11 @@ int df_get_pid(const GDBusConnection *dcon);
 void df_parse_parameters(int argc, char **argv);
 
 /**
- * @function Searches target_proc.name in suppression file df_sup_file.
- * If it is found, df_suppression array is seeded with names of methods
- * for this bus name. (df_suppression array is used to skip methods
- * which it contains when testing target_proc.name)
- * File df_sup_file is in format:
+ * @function Searches target_proc.name in suppression file SF1, SF2 and SF3
+ * (the file which is opened first is parsed). If it is found, df_suppression
+ * array is seeded with names of methods for this bus name (df_suppression
+ * array is used to skip methods which it contains when testing
+ * target_proc.name). Suppression file is in format:
  * [bus_name]
  * method1
  * method2

@@ -50,14 +50,19 @@ static char *df_test_method;
 /** Tested process PID */
 static int df_pid = -1;
 /** NULL terminated array of method names which will be skipped from testing */
-char **df_suppression;
-/** Name of file from which df_suppression is loaded (do not free - points
-	to argv) */
-char *df_sup_file;
+static char **df_suppression;
+/** If -s option is passed 1, otherwise 0 */
+static int df_supflg;
+/** Suppression file #1 */
+#define SF1 "./dfuzzer.conf"
+/** Suppression file #2 */
+#define SF2 "~/dfuzzer.conf"
+/** Suppression file #3 (mandatory) */
+#define SF3 "/etc/dfuzzer.conf"
 /** Command/Script to execute by dfuzzer after each method call.
 	If command/script returns 1, dfuzzer prints fail message,
 	if 0 it continues */
-char *df_execute_cmd;
+static char *df_execute_cmd;
 
 
 /**
@@ -79,9 +84,9 @@ int main(int argc, char **argv)
 	df_parse_parameters(argc, argv);
 
 
-	if (df_sup_file != NULL) {		// -s option
+	if (!df_supflg) {		// -s option
 		if (df_load_suppressions() == -1) {
-			// dealocate all memory
+			// free all memory
 			if (df_suppression != NULL) {
 				int i;
 				for (i = 0; df_suppression[i] != NULL; i++)
@@ -864,9 +869,8 @@ int df_get_pid(const GDBusConnection *dcon)
  *     Be verbose
  *  - df_debug_flag	-
  *     Include debug output
- *  - df_sup_file -
- *     Name of suppression file which contains names of methods
- *     which won't be tested
+ *  - df_supflg -
+ *     If -s option is passed 1, otherwise 0
  *  - df_execute_cmd -
  *     Command/script to execute after each method call
  * If error occures function ends program.
@@ -876,10 +880,9 @@ int df_get_pid(const GDBusConnection *dcon)
 void df_parse_parameters(int argc, char **argv)
 {
 	int c = 0;
-	int nflg = 0, oflg = 0, iflg = 0, mflg = 0, bflg = 0, tflg = 0, sflg = 0,
-		eflg = 0;
+	int nflg = 0, oflg = 0, iflg = 0, mflg = 0, bflg = 0, tflg = 0, eflg = 0;
 
-	while ((c = getopt(argc, argv, "n:o:i:m:b:t:s:e:dvlhV")) != -1) {
+	while ((c = getopt(argc, argv, "n:o:i:m:b:t:e:sdvlhV")) != -1) {
 		switch (c) {
 		case 'n':
 			if (nflg != 0) {
@@ -953,14 +956,6 @@ void df_parse_parameters(int argc, char **argv)
 			tflg++;
 			df_test_method = optarg;
 			break;
-		case 's':
-			if (sflg != 0) {
-				df_fail("%s: no duplicate options -- 's'\n", argv[0]);
-				exit(1);
-			}
-			sflg++;
-			df_sup_file = optarg;
-			break;
 		case 'e':
 			if (eflg != 0) {
 				df_fail("%s: no duplicate options -- 'e'\n", argv[0]);
@@ -968,6 +963,9 @@ void df_parse_parameters(int argc, char **argv)
 			}
 			eflg++;
 			df_execute_cmd = optarg;
+			break;
+		case 's':
+			df_supflg = 1;
 			break;
 		case 'd':
 			df_debug_flag = 1;
@@ -1006,11 +1004,11 @@ void df_parse_parameters(int argc, char **argv)
 }
 
 /**
- * @function Searches target_proc.name in suppression file df_sup_file.
- * If it is found, df_suppression array is seeded with names of methods
- * for this bus name. (df_suppression array is used to skip methods
- * which it contains when testing target_proc.name)
- * File df_sup_file is in format:
+ * @function Searches target_proc.name in suppression file SF1, SF2 and SF3
+ * (the file which is opened first is parsed). If it is found, df_suppression
+ * array is seeded with names of methods for this bus name (df_suppression
+ * array is used to skip methods which it contains when testing
+ * target_proc.name). Suppression file is in format:
  * [bus_name]
  * method1
  * method2
@@ -1023,17 +1021,33 @@ void df_parse_parameters(int argc, char **argv)
 int df_load_suppressions(void)
 {
 	FILE *f;
+	char *sup_file;
 	char buf[MAXLEN+2];
 	char *ptr;
 	int name_found = 0;
 	int i;
 
 
-	f = fopen(df_sup_file, "r");
+	sup_file = SF1;
+	f = fopen(sup_file, "r");
+	if (f == NULL)
+		df_verbose("'%s' file not found.\n", sup_file);
+	else
+		goto file_open;
+	sup_file = SF2;
+	f = fopen(sup_file, "r");
+	if (f == NULL)
+		df_verbose("'%s' file not found.\n", sup_file);
+	else
+		goto file_open;
+	sup_file = SF3;		// mandatory (must exist)
+	f = fopen(sup_file, "r");
 	if (f == NULL) {
-		df_fail("Error: Unable to open file '%s'.\n", df_sup_file);
+		df_fail("Error: Unable to open file '%s'.\n", sup_file);
 		return -1;
 	}
+
+file_open:
 
 	// determines if currently tested bus name is in suppression file
 	while (fgets(buf, MAXLEN+2, f) != NULL) {
@@ -1043,7 +1057,7 @@ int df_load_suppressions(void)
 		}
 	}
 	if (ferror(f)) {
-		df_fail("Error: Reading from file '%s'.\n", df_sup_file);
+		df_fail("Error: Reading from file '%s'.\n", sup_file);
 		fclose(f);
 		return -1;
 	}
@@ -1083,7 +1097,7 @@ int df_load_suppressions(void)
 	}
 	df_suppression[i] = NULL;
 	if (ferror(f)) {
-		df_fail("Error: Reading from file '%s'.\n", df_sup_file);
+		df_fail("Error: Reading from file '%s'.\n", sup_file);
 		fclose(f);
 		return -1;
 	}
@@ -1117,6 +1131,22 @@ void df_print_help(const char *name)
 	"-d\n"
 	"   Enable debug messages. Implies -v. This option should not be normally\n"
 	"   used during testing.\n"
+	"-s\n"
+	"   Do not use suppression file. Default behaviour is to use suppression\n"
+	"   files in this order (if one doesn't exist next in order is taken\n"
+	"   for loading suppressions):\n"
+	"   1. '%s'\n"
+	"   2. '%s'\n"
+	"   3. '%s'    (mandatory)\n"
+	"   Suppression files must be defined in this format:\n"
+	"   [bus_name_1]\n"
+	"   method0\n"
+	"   [bus_name_2]\n"
+	"   method1\n"
+	"   method2\n"
+	"   ...\n"
+	"   tells that for example methods 'method1' and 'method2' will be\n"
+	"   skipped when testing bus name 'bus_name_2'.\n"
 	"-o OBJECT_PATH\n"
 	"   Optional object path to test. All children objects are traversed.\n"
 	"-i INTERFACE\n"
@@ -1134,18 +1164,7 @@ void df_print_help(const char *name)
 	"-t METHOD_NAME\n"
 	"   When this parameter is provided, only method METHOD_NAME is tested.\n"
 	"   All other methods of an interface are skipped.\n"
-	"-s SUPPRESSION_FILE\n"
-	"   Path to file containing list of methods for bus name which will\n"
-	"   be skipped when testing. Example suppression file:\n"
-	"   [bus_name]\n"
-	"   method1\n"
-	"   [bus_name_foo]\n"
-	"   method1\n"
-	"   method2\n"
-	"   ...\n"
-	"   tells that for example methods \"method1\" and \"method2\" will be\n"
-	"   skipped when testing bus name \"bus_name_foo\".\n\n"
-	"Examples:\n\n"
+	"\nExamples:\n\n"
 	" Test all methods of GNOME Shell. Be verbose.\n"
 	" # %s -v -n org.gnome.Shell\n\n"
 	" Test only method of the given bus name, object path and interface.\n"
@@ -1154,10 +1173,10 @@ void df_print_help(const char *name)
 	" Test all methods of Avahi and be verbose. Redirect all failures\n"
 	" and warnings into avahi.log:\n"
 	" # %s -v -n org.freedesktop.Avahi 3>&1 1>&2 2>&3 | tee avahi.log\n\n"
-	" Test name org.freedesktop.login1, be verbose and use suppression file\n"
-	" sup_file:\n"
-	" # %s -v -n org.freedesktop.login1 -s sup_file\n",
-	name, name, name, name);
+	" Test name org.freedesktop.Avahi, be verbose and do not use suppression\n"
+	" file:\n"
+	" # %s -v -s -n org.freedesktop.Avahi\n",
+	SF1, SF2, SF3, name, name, name, name);
 }
 
 /**
