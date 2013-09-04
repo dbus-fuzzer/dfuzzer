@@ -55,12 +55,12 @@ static char **df_suppression;
 static int df_supflg;
 /** Suppression file #1 */
 #define SF1 "./dfuzzer.conf"
-/** Suppression file #2 */
-#define SF2 "~/dfuzzer.conf"
+/** Suppression file #2 (home dir) */
+#define SF2 ".dfuzzer.conf"
 /** Suppression file #3 (mandatory) */
 #define SF3 "/etc/dfuzzer.conf"
 /** Command/Script to execute by dfuzzer after each method call.
-	If command/script returns 1, dfuzzer prints fail message,
+	If command/script returns >0, dfuzzer prints fail message,
 	if 0 it continues */
 static char *df_execute_cmd;
 
@@ -84,7 +84,7 @@ int main(int argc, char **argv)
 	df_parse_parameters(argc, argv);
 
 
-	if (!df_supflg) {		// -s option
+	if (!df_supflg) {		// if -s option was not passed
 		if (df_load_suppressions() == -1) {
 			// free all memory
 			if (df_suppression != NULL) {
@@ -740,7 +740,11 @@ int df_fuzz(const GDBusConnection *dcon, const char *name,
 			rv = 2;
 		} else if (ret == 3) {
 			// warnings
-			rv = 3;
+			if (rv != 2)
+				rv = 3;
+		} else if (ret == 4) {
+			// executed command finished unsuccessfuly
+			rv = 2;
 		}
 
 		df_fuzz_clean_method();		// cleaning up after testing method
@@ -755,7 +759,6 @@ int df_fuzz(const GDBusConnection *dcon, const char *name,
 		close(statfd);
 		return rv;
 	}
-	df_debug(" Cleaning up after fuzzing of interface\n");
 	df_unref_introspection();
 	g_object_unref(dproxy);
 	close(statfd);
@@ -1022,24 +1025,37 @@ int df_load_suppressions(void)
 {
 	FILE *f;
 	char *sup_file;
+	char *env = NULL;
 	char buf[MAXLEN+2];
 	char *ptr;
 	int name_found = 0;
 	int i;
 
 
+	// the same dir
 	sup_file = SF1;
 	f = fopen(sup_file, "r");
 	if (f == NULL)
 		df_verbose("'%s' file not found.\n", sup_file);
 	else
 		goto file_open;
-	sup_file = SF2;
+	// home dir
+	env = getenv("HOME");
+	sup_file = malloc(sizeof(char) * (strlen(env) + strlen(SF2) + 2));
+	if (sup_file == NULL) {
+		df_fail("Error: Could not allocate memory for suppression file name\n");
+		return -1;
+	}
+	sprintf(sup_file, "%s/%s", env, SF2);
 	f = fopen(sup_file, "r");
-	if (f == NULL)
+	if (f == NULL) {
 		df_verbose("'%s' file not found.\n", sup_file);
+		free(sup_file);
+		env = NULL;
+	}
 	else
 		goto file_open;
+	// dir /etc
 	sup_file = SF3;		// mandatory (must exist)
 	f = fopen(sup_file, "r");
 	if (f == NULL) {
@@ -1048,6 +1064,7 @@ int df_load_suppressions(void)
 	}
 
 file_open:
+	df_verbose("Suppressions from '%s'\n", sup_file);
 
 	// determines if currently tested bus name is in suppression file
 	while (fgets(buf, MAXLEN+2, f) != NULL) {
@@ -1059,12 +1076,16 @@ file_open:
 	if (ferror(f)) {
 		df_fail("Error: Reading from file '%s'.\n", sup_file);
 		fclose(f);
+		if (env != NULL)
+			free(sup_file);
 		return -1;
 	}
 
 	// no suppressions for tested bus name
 	if (!name_found) {
 		fclose(f);
+		if (env != NULL)
+			free(sup_file);
 		return 0;
 	} else
 		df_verbose("Found suppressions for bus name '%s'\n", target_proc.name);
@@ -1073,6 +1094,8 @@ file_open:
 	if ((df_suppression = malloc(sizeof(char*) * MAXLEN)) == NULL) {
 		df_fail("Error: Could not allocate memory for suppressions\n");
 		fclose(f);
+		if (env != NULL)
+			free(sup_file);
 		return -1;
 	}
 	// seeds method names into df_suppression array
@@ -1091,6 +1114,8 @@ file_open:
 		if (df_suppression[i] == NULL) {
 			df_fail("Error: Could not allocate memory for suppressions\n");
 			fclose(f);
+			if (env != NULL)
+				free(sup_file);
 			return -1;
 		}
 		strcpy(df_suppression[i], ptr);
@@ -1099,10 +1124,14 @@ file_open:
 	if (ferror(f)) {
 		df_fail("Error: Reading from file '%s'.\n", sup_file);
 		fclose(f);
+		if (env != NULL)
+			free(sup_file);
 		return -1;
 	}
 
 	fclose(f);
+	if (env != NULL)
+		free(sup_file);
 	return 0;
 }
 
@@ -1134,10 +1163,10 @@ void df_print_help(const char *name)
 	"-s\n"
 	"   Do not use suppression file. Default behaviour is to use suppression\n"
 	"   files in this order (if one doesn't exist next in order is taken\n"
-	"   for loading suppressions):\n"
+	"   for loading suppressions - this way user can define his own file):\n"
 	"   1. '%s'\n"
-	"   2. '%s'\n"
-	"   3. '%s'    (mandatory)\n"
+	"   2. '~/%s'\n"
+	"   3. '%s'\n"
 	"   Suppression files must be defined in this format:\n"
 	"   [bus_name_1]\n"
 	"   method0\n"
@@ -1164,6 +1193,10 @@ void df_print_help(const char *name)
 	"-t METHOD_NAME\n"
 	"   When this parameter is provided, only method METHOD_NAME is tested.\n"
 	"   All other methods of an interface are skipped.\n"
+	"-e COMMAND\n"
+	"   Command/Script to execute after each method call. If command/script\n"
+	"   finished unsuccessfuly, fail message is printed with its return\n"
+	"   value.\n"
 	"\nExamples:\n\n"
 	" Test all methods of GNOME Shell. Be verbose.\n"
 	" # %s -v -n org.gnome.Shell\n\n"

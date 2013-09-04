@@ -23,7 +23,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <ctype.h>
 #include <errno.h>
 #include <ffi.h>		// dynamic function call construction
@@ -53,6 +55,7 @@ static char *df_unsupported_sig_str;
 /* Module static functions */
 static long df_fuzz_get_proc_mem_size(const int statfd);
 static int df_fuzz_write_log(void);
+static int df_exec_cmd_check(const char *cmd);
 static GVariant *df_fuzz_create_variant(void);
 static int df_fuzz_create_list_variants(void);
 static int df_fuzz_create_fmt_string(char **fmt, const int n);
@@ -412,6 +415,53 @@ static int df_fuzz_write_log(void)
 }
 
 /**
+ * @function Executes command/script cmd.
+ * @return 0 on successful completition of cmd, value higher than 0
+ * on unsuccessful completition of cmd or -1 on error
+ */
+static int df_exec_cmd_check(const char *cmd)
+{
+	const char *fn = "/dev/null";
+	int fd;
+	int stdoutcpy;
+	int stderrcpy;
+	int status = 0;
+
+	fd = open(fn, O_RDWR, S_IRUSR | S_IWUSR);
+	if (fd == -1) {
+		perror("\ropen");
+		return -1;
+	}
+
+	// backup std descriptors
+	stdoutcpy = dup(1);
+	stderrcpy = dup(2);
+
+	// make stdout and stderr go to fd
+	if (dup2(fd, 1) == -1)
+		return -1;
+	if (dup2(fd, 2) == -1)
+		return -1;
+	close(fd);		// fd no longer needed
+
+	// execute cmd
+	status = system(cmd);
+
+	// restore std descriptors
+	if (dup2(stdoutcpy, 1) == -1)
+		return -1;
+	close(stdoutcpy);
+	if (dup2(stderrcpy, 2) == -1)
+		return -1;
+	close(stderrcpy);
+
+
+	if (status == -1)
+		return status;
+	return WEXITSTATUS(status);
+}
+
+/**
  * @function Function is testing a method in a cycle, each cycle generates
  * data for function arguments, calls method and waits for result.
  * @param statfd FD of process status file
@@ -423,9 +473,9 @@ static int df_fuzz_write_log(void)
  * @param pid PID of tested process
  * @param void_method If method has out args 1, 0 otherwise
  * @param execute_cmd Command/Script to execute after each method call.
- * If command/script returns 1, dfuzzer prints fail message, if 0 it continues
  * @return 0 on success, -1 on error, 1 on tested process crash, 2 on void
- * function returning non-void value, 3 on warnings
+ * function returning non-void value, 3 on warnings and 4 when executed
+ * command finished unsuccessfuly
  */
 int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 						const char *obj, const char *intf, const int pid,
@@ -437,7 +487,8 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 
 	struct df_signature *s = df_list.list;	// pointer on the first signature
 	GVariant *value = NULL;
-	int ret = 0;
+	int ret = 0;			// return value from df_fuzz_call_method()
+	int execr = 0;			// return value from execution of execute_cmd
 	int leaking_mem_flg = 0;			// if set to 1, leaks were detected
 	long used_memory = 0;				// memory size used by process in kB
 	long prev_memory = 0;				// last known memory size
@@ -487,6 +538,9 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 		}
 
 		ret = df_fuzz_call_method(value, void_method);
+		execr = df_exec_cmd_check(execute_cmd);
+		if (execr == -1)
+			goto err_label;
 		if (ret == -1) {
 			// Here we look at process status file to be sure it really
 			// exited. If file is readable it means process is
@@ -497,20 +551,38 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 				df_fail("\r  \e[31mFAIL\e[0m %s - process exited\n"
 						"   [PID: %d], [MEM: %ld kB]\n",
 						df_list.df_method_name, pid, prev_memory);
+				if (execr > 0)
+					df_fail("\r   '%s' returned \e[31m%d\e[0m\n",
+							execute_cmd, execr);
 				goto fail_label;
 			} else if (used_memory == -1) {	// error on reading process status
 				df_fail("Error: Unable to get memory size of [PID:%d].\n", pid);
 				df_debug("Error in df_fuzz_get_proc_mem_size()\n");
+				if (execr > 0)
+					df_fail("\r   '%s' returned \e[31m%d\e[0m\n",
+							execute_cmd, execr);
 				goto err_label;
 			}
 			// else continue, we managed to get process memory size
 			prev_memory = used_memory;
 		} else if (ret == 1) {
 			// method returning void is returning illegal value
+			if (execr > 0)
+				df_fail("\r   '%s' returned \e[31m%d\e[0m\n",
+						execute_cmd, execr);
 			goto fail_label;
 		} else if (ret == 2) {
 			// tested method returned exception
+			if (execr > 0)
+				df_fail("\r   '%s' returned \e[31m%d\e[0m\n",
+						execute_cmd, execr);
 			goto skip_label;
+		}
+
+		if (execr > 0) {
+			df_fail("\r  \e[31mFAIL\e[0m %s - '%s' returned \e[31m%d\e[0m\n",
+					df_list.df_method_name, execute_cmd, execr);
+			goto fail_label;
 		}
 
 		// process memory size exceeded maximum normal memory size
@@ -552,6 +624,8 @@ fail_label:
 			" -t %s\e[0m\n", name, obj, intf, df_list.df_method_name);
 	if (value != NULL)
 		g_variant_unref(value);
+	if (execr > 0)
+		return 4;
 	return 1;
 
 

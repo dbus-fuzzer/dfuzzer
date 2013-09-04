@@ -17,7 +17,7 @@
 .\" * along with this program. If not, see <http://www.gnu.org/licenses/>.
 .\" *
 .\" **************************************************************************
-.TH man 1 "3 September 2013" "dfuzzer 1.3" "dfuzzer"
+.TH man 1 "4 September 2013" "dfuzzer 1.3" "dfuzzer"
 .SH NAME
 dfuzzer \- Tool for fuzz testing processes communicating through D-Bus
 .SH SYNOPSIS
@@ -86,17 +86,17 @@ Enable debug messages. Implies -v. This option should not be normally used
 during testing.
 .RE
 .PP
-\fB\-s\fR \fISUPPRESSION_FILE\fR
+\fB\-s\fR
 .RS 4
 Do not use suppression file. Default behaviour is to use suppression
 files in this order (if one doesn't exist next in order is taken for loading
-suppressions):
+suppressions - this way user can define his own file):
 .RE
     1. \fI./dfuzzer.conf\fR
 .RE
-    2. \fI~/dfuzzer.conf\fR
+    2. \fI~/.dfuzzer.conf\fR
 .RE
-    3. \fI/etc/dfuzzer.conf\fR    (mandatory)
+    3. \fI/etc/dfuzzer.conf\fR
 .RE
     Suppression files must be defined in this format:
 .RE
@@ -146,6 +146,13 @@ the longer the testing).
 .RS 4
 When this parameter is provided, only method \fIMETHOD_NAME\fR is tested.
 All other methods of an interface are skipped.
+.RE
+.PP
+\fB\-e\fR \fICOMMAND\fR
+.RS 4
+Command/Script to execute after each method call. If command/script
+finished unsuccessfuly, fail message is printed with its return
+value.
 .RE
 
 
