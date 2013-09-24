@@ -416,11 +416,15 @@ static int df_fuzz_write_log(void)
 
 /**
  * @function Executes command/script cmd.
- * @return 0 on successful completition of cmd, value higher than 0
- * on unsuccessful completition of cmd or -1 on error
+ * @param cmd Command/Script to execute
+ * @return 0 on successful completition of cmd or when cmd is NULL, value
+ * higher than 0 on unsuccessful completition of cmd or -1 on error
  */
 static int df_exec_cmd_check(const char *cmd)
 {
+	if (cmd == NULL)
+		return 0;
+
 	const char *fn = "/dev/null";
 	int fd;
 	int stdoutcpy;
@@ -510,6 +514,7 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 	df_rand_init(buf_size);
 
 	df_verbose("  %s...", df_list.df_method_name);
+
 
 	while (df_rand_continue(df_list.fuzz_on_str_len)) {
 		// parsing proces memory size from its status file described by statfd

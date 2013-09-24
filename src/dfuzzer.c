@@ -1193,7 +1193,7 @@ void df_print_help(const char *name)
 	"-t METHOD_NAME\n"
 	"   When this parameter is provided, only method METHOD_NAME is tested.\n"
 	"   All other methods of an interface are skipped.\n"
-	"-e COMMAND\n"
+	"-e 'COMMAND'\n"
 	"   Command/Script to execute after each method call. If command/script\n"
 	"   finished unsuccessfuly, fail message is printed with its return\n"
 	"   value.\n"
