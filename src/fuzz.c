@@ -916,7 +916,12 @@ static int df_fuzz_call_method(const GVariant *value, const int void_method)
 				g_free(dbus_error);
 				g_error_free(error);
 				return -1;
-			} else if ((strcmp(dbus_error, 
+			} else if (strcmp(dbus_error,
+								"org.freedesktop.DBus.Error.Timeout") == 0) {
+				g_free(dbus_error);
+				g_error_free(error);
+				return -1;
+			} else if ((strcmp(dbus_error,
 							"org.freedesktop.DBus.Error.AccessDenied") == 0) ||
 					   (strcmp(dbus_error,
 							"org.freedesktop.DBus.Error.AuthFailed") == 0)) {
