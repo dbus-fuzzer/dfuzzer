@@ -265,7 +265,8 @@ int df_list_bus_names(const GDBusConnection *dcon)
 	response = g_dbus_proxy_call_sync(proxy, "ListNames", NULL,
 					G_DBUS_CALL_FLAGS_NONE, -1, NULL, &error);
 	if (response == NULL) {
-		df_fail("Error: Unable to get bus names.\n");
+		g_dbus_error_strip_remote_error(error);
+		df_fail("Error: %s: %s.\n", target_proc.name, error->message);
 		df_error("Error in g_dbus_proxy_call_sync()", error);
 		g_object_unref(proxy);
 		return -1;
@@ -328,7 +329,8 @@ int df_is_object_on_bus(const GDBusConnection *dcon, const char *root_node)
 					NULL, G_DBUS_CALL_FLAGS_NONE, -1, NULL, &error);
 	if (response == NULL) {
 		g_object_unref(dproxy);
-		df_fail("Unknown bus name '%s'.\n", target_proc.name);
+		g_dbus_error_strip_remote_error(error);
+		df_fail("Error: %s: %s.\n", target_proc.name, error->message);
 		df_error("Error in g_dbus_proxy_call_sync()", error);
 		return 0;
 	}
@@ -444,11 +446,17 @@ int df_traverse_node(const GDBusConnection *dcon, const char *root_node)
 				g_error_free(error);
 				return 2;
 			}
+			if (strcmp(dbus_error, "org.freedesktop.DBus.Error.Timeout") == 0) {
+				g_free(dbus_error);
+				g_error_free(error);
+				return 2;
+			}
 			g_free(dbus_error);
 			g_error_free(error);
 			return 0;
 		} else {
-			df_fail("Unknown bus name '%s'.\n", target_proc.name);
+			g_dbus_error_strip_remote_error(error);
+			df_fail("Error: %s: %s.\n", target_proc.name, error->message);
 			df_error("Error in g_dbus_proxy_call_sync()", error);
 			return 1;
 		}
@@ -842,7 +850,8 @@ int df_get_pid(const GDBusConnection *dcon)
 					g_variant_new("(s)", target_proc.name),
 					G_DBUS_CALL_FLAGS_NONE, -1, NULL, &error);
 	if (variant_pid == NULL) {
-		df_fail("Unknown bus name '%s'.\n", target_proc.name);
+		g_dbus_error_strip_remote_error(error);
+		df_fail("Error: %s: %s.\n", target_proc.name, error->message);
 		df_error("Error in g_dbus_proxy_call_sync()", error);
 		g_object_unref(pproxy);
 		return -1;
