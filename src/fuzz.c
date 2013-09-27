@@ -46,6 +46,9 @@ static long df_initial_mem = -1;
 /** Memory limit for tested process in kB - if tested process exceeds this
 	limit it will be noted into log file */
 static long df_mem_limit;
+/** If memory limit passed to function df_fuzz_init() is non-zero, this flag
+	is set to 1 */
+static int df_mlflg;
 /** Flag for unsupported method signature, 1 means signature is unsupported */
 static int df_unsupported_sig;
 /** Pointer on unsupported signature string (do not free it) */
@@ -117,6 +120,8 @@ int df_fuzz_init(GDBusProxy *dproxy, const int statfd,
 		return -1;
 	}
 
+	if (mem_limit != 0)
+		df_mlflg = 1;
 	if (mem_limit <= df_initial_mem)
 		df_mem_limit = 3 * df_initial_mem;
 	else
@@ -404,7 +409,7 @@ static int df_fuzz_write_log(void)
 				return -1;
 			}
 		} else {	// advanced argument (array of something, dictionary, ...)
-			df_fail("Not yet implemented in df_fuzz_write_log()\n");
+			df_debug("Not yet implemented in df_fuzz_write_log()\n");
 			return 0;
 		}
 
@@ -494,6 +499,8 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 	int ret = 0;			// return value from df_fuzz_call_method()
 	int execr = 0;			// return value from execution of execute_cmd
 	int leaking_mem_flg = 0;			// if set to 1, leaks were detected
+	int buf_size_flg = 0;				// if set to 1, buf_size was specified
+										// by option -b
 	long used_memory = 0;				// memory size used by process in kB
 	long prev_memory = 0;				// last known memory size
 	long max_memory = df_mem_limit;		// maximum normal memory size used
@@ -508,13 +515,15 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 	df_debug(")\e[0m\n");
 
 
+	if (buf_size != 0)
+		buf_size_flg = 1;
 	if (buf_size < MINLEN)
 		buf_size = MAX_BUF_LEN;
 	// initialization of random module
 	df_rand_init(buf_size);
 
-	df_verbose("  %s...", df_list.df_method_name);
 
+	df_verbose("  %s...", df_list.df_method_name);
 
 	while (df_rand_continue(df_list.fuzz_on_str_len)) {
 		// parsing proces memory size from its status file described by statfd
@@ -616,20 +625,26 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 
 
 fail_label:
-	if (ret == 1) {		// method returning void is returning illegal value
-		df_fail("   reproducer: \e[33mdfuzzer -v -n %s -o %s -i %s"
-				" -t %s\e[0m\n", name, obj, intf, df_list.df_method_name);
-		if (value != NULL)
-			g_variant_unref(value);
-		return 2;
+	if (ret != 1) {
+		df_fail("   on input:\n");
+		df_fuzz_write_log();
 	}
-	df_fail("   on input:\n");
-	df_fuzz_write_log();
-	df_fail("   reproducer: \e[33mdfuzzer -v -n %s -o %s -i %s"
-			" -t %s\e[0m\n", name, obj, intf, df_list.df_method_name);
 	if (value != NULL)
 		g_variant_unref(value);
-	if (execr > 0)
+
+	df_fail("   reproducer: \e[33mdfuzzer -v -n %s -o %s -i %s"
+			" -t %s", name, obj, intf, df_list.df_method_name);
+	if (df_mlflg)
+		df_fail(" -m %ld", df_mem_limit);
+	if (buf_size_flg)
+		df_fail(" -b %ld", buf_size);
+	if (execute_cmd != NULL)
+		df_fail(" -e '%s'", execute_cmd);
+	df_fail("\e[0m\n");
+
+	if (ret == 1)		// method returning void is returning illegal value
+		return 2;
+	if (execr > 0)		// command/script execution ended with error
 		return 4;
 	return 1;
 
