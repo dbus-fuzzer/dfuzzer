@@ -209,24 +209,24 @@ skip_system:
 
 	// both tests ended with error
 	if (rses == 1 && rsys == 1) {
-		printf("\e[1mExit status: 1\e[0m\n");
+		fprintf(stderr, "\e[1mExit status: 1\e[0m\n");
 		return 1;
 	} else if (bus_skip == 1 && (rses == 1 || rsys == 1)) {
-		printf("\e[1mExit status: 1\e[0m\n");
+		fprintf(stderr, "\e[1mExit status: 1\e[0m\n");
 		return 1;
 	} else if (rses == 2 || rsys == 2) {
 		// at least one test found failures
-		printf("\e[1mExit status: 2\e[0m\n");
+		fprintf(stderr, "\e[1mExit status: 2\e[0m\n");
 		return 2;
 	} else if (rses == 3 || rsys == 3) {
 		// at least one test found warnings
-		printf("\e[1mExit status: 3\e[0m\n");
+		fprintf(stderr, "\e[1mExit status: 3\e[0m\n");
 		return 3;
 	} else {
 		// cases where rses=1,rsys=0 or rses=0,rsys=1 are ok,
 		// because tests on one of the bus daemons finished
 		// successfuly
-		printf("\e[1mExit status: 0\e[0m\n");
+		fprintf(stderr, "\e[1mExit status: 0\e[0m\n");
 		return 0;
 	}
 }
