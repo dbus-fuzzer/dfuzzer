@@ -935,6 +935,8 @@ static int df_fuzz_call_method(const GVariant *value, const int void_method)
 								"org.freedesktop.DBus.Error.Timeout") == 0) {
 				g_free(dbus_error);
 				g_error_free(error);
+				sleep(10);		// wait for tested process; processing
+								// of longer inputs may take a longer time
 				return -1;
 			} else if ((strcmp(dbus_error,
 							"org.freedesktop.DBus.Error.AccessDenied") == 0) ||
