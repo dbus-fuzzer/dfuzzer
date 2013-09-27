@@ -266,7 +266,7 @@ int df_list_bus_names(const GDBusConnection *dcon)
 					G_DBUS_CALL_FLAGS_NONE, -1, NULL, &error);
 	if (response == NULL) {
 		g_dbus_error_strip_remote_error(error);
-		df_fail("Error: %s: %s.\n", target_proc.name, error->message);
+		df_fail("Error: %s.\n", error->message);
 		df_error("Error in g_dbus_proxy_call_sync()", error);
 		g_object_unref(proxy);
 		return -1;
@@ -330,7 +330,7 @@ int df_is_object_on_bus(const GDBusConnection *dcon, const char *root_node)
 	if (response == NULL) {
 		g_object_unref(dproxy);
 		g_dbus_error_strip_remote_error(error);
-		df_fail("Error: %s: %s.\n", target_proc.name, error->message);
+		df_fail("Error: %s.\n", error->message);
 		df_error("Error in g_dbus_proxy_call_sync()", error);
 		return 0;
 	}
@@ -456,7 +456,7 @@ int df_traverse_node(const GDBusConnection *dcon, const char *root_node)
 			return 0;
 		} else {
 			g_dbus_error_strip_remote_error(error);
-			df_fail("Error: %s: %s.\n", target_proc.name, error->message);
+			df_fail("Error: %s.\n", error->message);
 			df_error("Error in g_dbus_proxy_call_sync()", error);
 			return 1;
 		}
@@ -851,7 +851,7 @@ int df_get_pid(const GDBusConnection *dcon)
 					G_DBUS_CALL_FLAGS_NONE, -1, NULL, &error);
 	if (variant_pid == NULL) {
 		g_dbus_error_strip_remote_error(error);
-		df_fail("Error: %s: %s.\n", target_proc.name, error->message);
+		df_fail("Error: %s.\n", error->message);
 		df_error("Error in g_dbus_proxy_call_sync()", error);
 		g_object_unref(pproxy);
 		return -1;

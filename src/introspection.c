@@ -67,7 +67,7 @@ int df_init_introspection(const GDBusProxy *dproxy, const char *name,
 						NULL, &error);
 	if (response == NULL) {
 		g_dbus_error_strip_remote_error(error);
-		df_fail("Error: %s: %s.\n", name, error->message);
+		df_fail("Error: %s.\n", error->message);
 		df_error("Error in g_dbus_proxy_call_sync()", error);
 		return -1;
 	}
