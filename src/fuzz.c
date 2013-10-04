@@ -45,8 +45,9 @@ static struct df_signature *df_last;
 	indicates that initial memory was not loaded so far */
 static long df_initial_mem = -2;
 /** Memory limit for tested process in kB - if tested process exceeds this
-	limit it will be noted into log file */
-static long df_mem_limit;
+	limit it will be noted into log file; if set to -1 memory limit will
+	be reloaded in df_fuzz_init() */
+static long df_mem_limit = -1;
 /** If memory limit passed to function df_fuzz_init() is non-zero, this flag
 	is set to 1 */
 static int df_mlflg;
@@ -127,7 +128,7 @@ int df_fuzz_init(GDBusProxy *dproxy, const int statfd,
 		df_mlflg = 1;
 	if (mem_limit <= df_initial_mem)
 		df_mem_limit = 3 * df_initial_mem;
-	else
+	else if (df_mem_limit == -1)
 		df_mem_limit = mem_limit;
 
 	return 0;
@@ -506,8 +507,6 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 										// by option -b
 	long used_memory = 0;				// memory size used by process in kB
 	long prev_memory = 0;				// last known memory size
-	long max_memory = df_mem_limit;		// maximum normal memory size used
-										// by process in kB
 
 	// DEBUG:
 	int j = 0;
@@ -621,12 +620,12 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 
 		// process memory size exceeded maximum normal memory size
 		// (this is just a warning message)
-		if (used_memory >= max_memory) {
+		if (used_memory >= df_mem_limit) {
 			df_fail("\r  \e[35mWARN\e[0m %s - memory usage %.1fx more "
 					"than initial memory\n   (%ld -> %ld [kB])\n",
 					df_list.df_method_name,	(((float) used_memory)/df_initial_mem),
 					df_initial_mem, used_memory);
-			max_memory = used_memory * 2;
+			df_mem_limit = used_memory * 2;
 			leaking_mem_flg = 1;
 		}
 
@@ -668,6 +667,7 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 
 
 fail_label:
+	df_mem_limit = -1;		// set to -1 to reload memory limit
 	if (ret != 1) {
 		df_fail("   on input:\n");
 		df_fuzz_write_log();
