@@ -41,8 +41,9 @@ static GDBusProxy *df_dproxy;
 static struct df_sig_list df_list;
 /** Pointer on the last item of the linked list in the global var. df_list. */
 static struct df_signature *df_last;
-/** Initial memory size of process is saved into this variable */
-static long df_initial_mem = -1;
+/** Initial memory size of process is saved into this variable; value -2
+	indicates that initial memory was not loaded so far */
+static long df_initial_mem = -2;
 /** Memory limit for tested process in kB - if tested process exceeds this
 	limit it will be noted into log file */
 static long df_mem_limit;
@@ -113,7 +114,9 @@ int df_fuzz_init(GDBusProxy *dproxy, const int statfd,
 	}
 	df_dproxy = dproxy;
 
-	df_initial_mem = df_fuzz_get_proc_mem_size(statfd);
+	// load initial memory only on the beginning
+	if (df_initial_mem == -2)
+		df_initial_mem = df_fuzz_get_proc_mem_size(statfd);
 	if (df_initial_mem == -1) {
 		df_fail("Error: Unable to get memory size of [PID:%d].\n", pid);
 		df_debug("Error in df_fuzz_get_proc_mem_size()\n");
