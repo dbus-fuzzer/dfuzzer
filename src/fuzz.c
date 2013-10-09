@@ -124,12 +124,17 @@ int df_fuzz_init(GDBusProxy *dproxy, const int statfd,
 		return -1;
 	}
 
-	if (mem_limit != 0)
-		df_mlflg = 1;
-	if (mem_limit <= df_initial_mem)
-		df_mem_limit = 3 * df_initial_mem;
-	else if (df_mem_limit == -1)
-		df_mem_limit = mem_limit;
+	// on crash, df_mem_limit is always set to -1 in df_fuzz_test_method()
+	if (df_mem_limit == -1) {
+		if (mem_limit != 0) {	// user specified memory limit
+			df_mlflg = 1;
+			if (mem_limit <= df_initial_mem)
+				df_mem_limit = 3 * df_initial_mem;
+			else
+				df_mem_limit = mem_limit;
+		} else
+			df_mem_limit = 3 * df_initial_mem;
+	}
 
 	return 0;
 }
