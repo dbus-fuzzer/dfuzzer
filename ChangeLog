@@ -1,8 +1,9 @@
-2013-09-03  Matus Marhefka  <mmarhefk@redhat.com>
+2013-10-16  Matus Marhefka  <mmarhefk@redhat.com>
 
 	version 1.3
 	* changed error reporting
 	* -s option removed (dfuzzer traverses via both buses by default now)
+	* added suppression file (dfuzzer.conf)
 	* -s option redefined - used to disable suppression file
 	* -l option added to list all available service names on both buses
 	* proper void methods checking added
