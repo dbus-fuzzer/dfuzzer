@@ -628,7 +628,7 @@ int df_fuzz(const GDBusConnection *dcon, const char *name,
 		if (df_suppression != NULL) {
 			int skipflg = 0;
 			for (i = 0; df_suppression[i] != NULL; i++) {
-				if (strstr(df_suppression[i], m->name) != NULL) {
+				if (strcmp(df_suppression[i], m->name) == 0) {
 					skipflg++;
 					break;
 				}
@@ -1127,7 +1127,8 @@ file_open:
 				free(sup_file);
 			return -1;
 		}
-		strcpy(df_suppression[i], ptr);
+		// copy method name except new line character
+		strncpy(df_suppression[i], ptr, strlen(ptr)-1);
 	}
 	df_suppression[i] = NULL;
 	if (ferror(f)) {
