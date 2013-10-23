@@ -55,6 +55,9 @@ static int df_mlflg;
 static int df_unsupported_sig;
 /** Pointer on unsupported signature string (do not free it) */
 static char *df_unsupported_sig_str;
+/** Exceptions counter; if MAX_EXCEPTIONS is reached testing continues
+	with a next method */
+static char df_except_counter = 0;
 
 
 /* Module static functions */
@@ -661,6 +664,10 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 			g_variant_unref(value);
 			value = NULL;
 		}
+		if (df_except_counter == MAX_EXCEPTIONS) {
+			df_except_counter = 0;
+			break;
+		}
 	}
 
 
@@ -1009,6 +1016,7 @@ static int df_fuzz_call_method(const GVariant *value, const int void_method)
 		df_debug("\r  EXCE %s - D-Bus exception thrown: "
 			"%.60s\n", df_list.df_method_name, error->message);
 		g_error_free(error);
+		df_except_counter++;
 		return 0;
 	} else {
 		if (void_method) {

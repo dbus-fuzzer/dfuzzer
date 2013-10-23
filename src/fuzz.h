@@ -30,6 +30,10 @@
 /** Maximum length read from file */
 #define MAXLINE 1024
 
+/** Maximum amount of unimportant exceptions for one method; if reached
+	testing continues with a next method */
+#define MAX_EXCEPTIONS 10
+
 
 /** Structure contains a D-Bus signature of the argument and pointer to a next
 	argument (arguments belongs to the method df_method_name
