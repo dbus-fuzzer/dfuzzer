@@ -50,7 +50,9 @@ static char *df_test_method;
 /** Tested process PID */
 static int df_pid = -1;
 /** NULL terminated array of method names which will be skipped from testing */
-static char **df_suppression;
+static char *df_suppression[MAXLEN];
+/** NULL terminated array of suppressed method descriptions */
+static char *df_supp_description[MAXLEN];
 /** If -s option is passed 1, otherwise 0 */
 static int df_supflg;
 /** Suppression file #1 */
@@ -79,6 +81,7 @@ int main(int argc, char **argv)
 	int rses = 0;				// return value from session bus testing
 	int rsys = 0;				// return value from system bus testing
 	int bus_skip = 0;			// if skipping one of buses or both, set to 1
+	int i;
 
 
 	df_parse_parameters(argc, argv);
@@ -88,10 +91,12 @@ int main(int argc, char **argv)
 		if (df_load_suppressions() == -1) {
 			// free all memory
 			if (df_suppression != NULL) {
-				int i;
 				for (i = 0; df_suppression[i] != NULL; i++)
 					free(df_suppression[i]);
-				free(df_suppression);
+			}
+			if (df_supp_description != NULL) {
+				for (i = 0; df_supp_description[i] != NULL; i++)
+					free(df_supp_description[i]);
 			}
 			printf("\e[1mExit status: 1\e[0m\n");
 			return 1;
@@ -206,6 +211,16 @@ skip_session:
 
 skip_system:
 
+
+	// free all suppressions and their descriptions
+	if (df_suppression != NULL) {
+		for (i = 0; df_suppression[i] != NULL; i++)
+			free(df_suppression[i]);
+	}
+	if (df_supp_description != NULL) {
+		for (i = 0; df_supp_description[i] != NULL; i++)
+			free(df_supp_description[i]);
+	}
 
 	// both tests ended with error
 	if (rses == 1 && rsys == 1) {
@@ -634,8 +649,13 @@ int df_fuzz(const GDBusConnection *dcon, const char *name,
 				}
 			}
 			if (skipflg) {
-				df_verbose("\r  \e[34mSKIP\e[0m %s - suppressed method\n",
-						m->name);
+				if (strlen(df_supp_description[i]) == 0) {
+					df_verbose("\r  \e[34mSKIP\e[0m %s - suppressed method\n",
+							df_suppression[i]);
+				} else {
+					df_verbose("\r  \e[34mSKIP\e[0m %s - %s\n",
+							df_suppression[i], df_supp_description[i]);
+				}
 				continue;
 			}
 		}
@@ -1018,15 +1038,16 @@ void df_parse_parameters(int argc, char **argv)
 /**
  * @function Searches target_proc.name in suppression file SF1, SF2 and SF3
  * (the file which is opened first is parsed). If it is found, df_suppression
- * array is seeded with names of methods for this bus name (df_suppression
- * array is used to skip methods which it contains when testing
- * target_proc.name). Suppression file is in format:
+ * array is seeded with names of methods and df_supp_description is seeded
+ * with descriptions why methods are skipped (df_suppression array is used
+ * to skip methods which it contains when testing target_proc.name).
+ * Suppression file is in format:
  * [bus_name]
- * method1
- * method2
+ * method1 description
+ * method2 description
  * [bus_name2]
- * method1
- * method2
+ * method1 description
+ * method2 description
  * ...
  * @return 0 on success, -1 on error
  */
@@ -1035,10 +1056,11 @@ int df_load_suppressions(void)
 	FILE *f;
 	char *sup_file;
 	char *env = NULL;
-	char buf[MAXLEN+2];
+	// buf = method (max. 255) + description (max. 255) + '[' + ']' + '\0'
+	char buf[(MAXLEN*2)+2];
 	char *ptr;
 	int name_found = 0;
-	int i;
+	int i, j;
 
 
 	// the same dir
@@ -1100,15 +1122,8 @@ file_open:
 		df_verbose("Found suppressions for bus name '%s'\n", target_proc.name);
 
 
-	if ((df_suppression = malloc(sizeof(char*) * MAXLEN)) == NULL) {
-		df_fail("Error: Could not allocate memory for suppressions\n");
-		fclose(f);
-		if (env != NULL)
-			free(sup_file);
-		return -1;
-	}
 	// seeds method names into df_suppression array
-	for (i = 0; (fgets(buf, MAXLEN, f) != NULL) && (i < MAXLEN); i++) {
+	for (i = 0; (fgets(buf, MAXLEN*2, f) != NULL) && (i < MAXLEN); i++) {
 		if (buf[0] == '[')
 			break;
 		ptr = buf;
@@ -1119,16 +1134,39 @@ file_open:
 			continue;
 		}
 
-		df_suppression[i] = malloc((strlen(ptr) + 1) * sizeof(char));
+		df_suppression[i] = malloc(MAXLEN * sizeof(char));
 		if (df_suppression[i] == NULL) {
-			df_fail("Error: Could not allocate memory for suppressions\n");
+			df_fail("Error: Could not allocate memory for suppression\n");
 			fclose(f);
 			if (env != NULL)
 				free(sup_file);
 			return -1;
 		}
-		// copy method name except new line character
-		strncpy(df_suppression[i], ptr, strlen(ptr)-1);
+		df_supp_description[i] = malloc(MAXLEN * sizeof(char));
+		if (df_supp_description[i] == NULL) {
+			df_fail("Error: Could not allocate memory for suppression"
+					" description\n");
+			fclose(f);
+			if (env != NULL)
+				free(sup_file);
+			return -1;
+		}
+
+
+		ptr = buf;
+		j = 0;
+		while ((*ptr != ' ') && (*ptr != '\n') && j < (MAXLEN-1)) {
+			df_suppression[i][j++] = *ptr;
+			ptr++;
+		}
+		j = 0;
+		if (*ptr != '\n') {
+			ptr++;	// skips the space
+			while ((*ptr != '\n') && j < (MAXLEN-1)) {
+				df_supp_description[i][j++] = *ptr;
+				ptr++;
+			}
+		}
 	}
 	df_suppression[i] = NULL;
 	if (ferror(f)) {

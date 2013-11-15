@@ -144,15 +144,16 @@ void df_parse_parameters(int argc, char **argv);
 /**
  * @function Searches target_proc.name in suppression file SF1, SF2 and SF3
  * (the file which is opened first is parsed). If it is found, df_suppression
- * array is seeded with names of methods for this bus name (df_suppression
- * array is used to skip methods which it contains when testing
- * target_proc.name). Suppression file is in format:
+ * array is seeded with names of methods and df_supp_description is seeded
+ * with descriptions why methods are skipped (df_suppression array is used
+ * to skip methods which it contains when testing target_proc.name).
+ * Suppression file is in format:
  * [bus_name]
- * method1
- * method2
+ * method1 description
+ * method2 description
  * [bus_name2]
- * method1
- * method2
+ * method1 description
+ * method2 description
  * ...
  * @return 0 on success, -1 on error
  */
