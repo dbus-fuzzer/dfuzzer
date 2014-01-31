@@ -278,8 +278,12 @@ static long df_fuzz_get_proc_mem_size(const int statfd)
 				}
 				nl++;
 			}
-		} else
+		} else {
+			// if no VmRSS in buffer, we can flush it
+			ptr = buf;
+			count = 0;
 			ret = 0;
+		}
 	}
 
 	if (ret == 0)
