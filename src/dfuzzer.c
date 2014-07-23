@@ -72,6 +72,7 @@ static char *df_execute_cmd;
  * @param argc Number of program arguments
  * @param argv Pointer on string with program arguments
  * @return 0 on success, 1 on error, 2 when testing detected any failures
+ * and/or warnings, 3 when testing detected only warnings
  */
 int main(int argc, char **argv)
 {
