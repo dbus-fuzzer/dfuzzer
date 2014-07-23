@@ -408,11 +408,16 @@ static int df_fuzz_write_log(void)
 				GVariant *var = NULL;
 				gchar *tmp12 = NULL;
 				g_variant_get(s->var, s->sig, var);
-				g_variant_get(var, "s", &tmp12);
-				str_len = strlen(tmp12);
-				if (tmp12 != NULL)
-					df_fail(" [length: %d B]-- '%s'\n", str_len, tmp12);
-				free(tmp12);
+				if (var != NULL &&
+					g_variant_check_format_string(var, "s", FALSE)) {
+					g_variant_get(&var, "s", &tmp12);
+					str_len = strlen(tmp12);
+					if (tmp12 != NULL)
+						df_fail(" [length: %d B]-- '%s'\n", str_len, tmp12);
+					free(tmp12);
+				} else {
+					df_fail("-- 'unable to deconstruct GVariant instance'\n");
+				}
 				break;
 			case 'h':
 				;
