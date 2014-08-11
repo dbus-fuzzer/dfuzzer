@@ -126,6 +126,7 @@ int main(int argc, char **argv)
 		// gets pid of tested process
 		df_pid = df_get_pid(dcon);
 		if (df_pid > 0) {
+			df_print_process_info(df_pid);
 			fprintf(stderr, "\r\e[36m[CONNECTED TO PID: %d]\e[0m\n", df_pid);
 			if (strlen(target_proc.interface) != 0) {
 				fprintf(stderr, "Object: \e[1m%s\e[0m\n", target_proc.obj_path);
@@ -179,6 +180,7 @@ skip_session:
 		// gets pid of tested process
 		df_pid = df_get_pid(dcon);
 		if (df_pid > 0) {
+			df_print_process_info(df_pid);
 			fprintf(stderr, "\r\e[36m[CONNECTED TO PID: %d]\e[0m\n", df_pid);
 			if (strlen(target_proc.interface) != 0) {
 				fprintf(stderr, "Object: \e[1m%s\e[0m\n", target_proc.obj_path);
@@ -885,10 +887,71 @@ int df_get_pid(const GDBusConnection *dcon)
 }
 
 /**
+ * @function Prints process name and package to which process belongs.
+ * @param pid PID of process
+ * Note: Any error in this function is suppressed. On error, process name
+ *       and package is just not printed.
+ */
+void df_print_process_info(int pid)
+{
+	char proc_path[20];            // "/proc/(max5chars)/[exe|cmdline]"
+	char name[PATH_MAX];           // for storing process and package name
+	char buf[PATH_MAX + MAXLEN];   // buffer for rpm/dpkg request
+	FILE *fp;
+	char c;
+	int fd, ret;
+
+	sprintf(proc_path, "/proc/%d/exe", pid);
+	if (readlink(proc_path, name, sizeof(name)) == -1) {
+		// if readlink failed, try to read cmdline
+		sprintf(proc_path, "/proc/%d/cmdline", pid);
+		fd = open(proc_path, O_RDONLY);
+		if (fd == -1)
+			return;
+
+		ret = 1;
+		fprintf(stderr, "\r\e[36m[PROCESS: ");
+		while (ret > 0) {
+			ret = read(fd, &c, 1);
+			if (ret > 0)
+				fprintf(stderr, "%c", c);
+			if (ret == -1) {
+				fprintf(stderr, "]\e[0m\n");
+				close(fd);
+				return;
+			}
+		}
+		fprintf(stderr, "]\e[0m\n");
+		close(fd);
+	} else
+		fprintf(stderr, "\r\e[36m[PROCESS: %s]\e[0m\n", name);
+
+
+	// Determines which package manager should be used
+	if (system("which rpm &>/dev/null") == 0)
+		sprintf(buf, "rpm -qf %s 2>/dev/null", name);
+	else if (system("which dpkg &>/dev/null") == 0)
+		sprintf(buf, "dpkg -S %s 2>/dev/null", name);
+	else {	// only rpm/dpkg are supported
+		fprintf(stderr, "\r\e[36m[PACKAGE: ]\e[0m\n");
+		return;
+	}
+
+	fp = popen(buf, "r");
+	if (fp == NULL)
+		return;
+	df_read_file(fp, "%s", name);
+	fprintf(stderr, "\r\e[36m[PACKAGE: %s]\e[0m\n", name);
+	pclose(fp);
+
+	return 0;
+}
+
+/**
  * @function Parses program options and stores them into global
  * variables:
  *  - df_buf_size -
- * 	   Maximum buffer size for generated strings by rand
+ *     Maximum buffer size for generated strings by rand
  *     module (in Bytes)
  *  - df_mem_limit -
  *     Memory limit for tested process in kB
@@ -900,7 +963,7 @@ int df_get_pid(const GDBusConnection *dcon)
  *     to store bus name, object path and interface
  *  - df_verbose_flag -
  *     Be verbose
- *  - df_debug_flag	-
+ *  - df_debug_flag -
  *     Include debug output
  *  - df_supflg -
  *     If -s option is passed 1, otherwise 0
@@ -1259,6 +1322,19 @@ void df_print_help(const char *name)
 	" file:\n"
 	" # %s -v -s -n org.freedesktop.Avahi\n",
 	SF1, SF2, SF3, name, name, name, name);
+}
+
+/**
+ * @function Reads from FILE stream
+ * @param stream FILE stream to read from
+ * @param format format string (as for printf)
+ */
+void df_read_file(FILE *stream, const char *format, ...)
+{
+	va_list args;
+	va_start(args, format);
+	vfscanf(stream, format, args);
+	va_end(args);
 }
 
 /**

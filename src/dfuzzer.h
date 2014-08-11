@@ -114,6 +114,14 @@ int df_open_proc_status_file(const int pid);
 int df_get_pid(const GDBusConnection *dcon);
 
 /**
+ * @function Prints process name and package to which process belongs.
+ * @param pid PID of process
+ * Note: Any error in this function is suppressed. On error, process name
+ *       and package is just not printed.
+ */
+void df_print_process_info(int pid);
+
+/**
  * @function Parses program options and stores them into global
  * variables:
  *  - df_buf_size -
@@ -164,6 +172,13 @@ int df_load_suppressions(void);
  * @param name Name of program
  */
 void df_print_help(const char *name);
+
+/**
+ * @function Reads from FILE stream.
+ * @param stream FILE stream to read from
+ * @param format format string (as for printf)
+ */
+void df_read_file(FILE *stream, const char *format, ...);
 
 /**
  * @function Displays an error message.
