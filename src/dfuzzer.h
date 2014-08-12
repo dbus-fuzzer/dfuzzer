@@ -174,13 +174,6 @@ int df_load_suppressions(void);
 void df_print_help(const char *name);
 
 /**
- * @function Reads from FILE stream.
- * @param stream FILE stream to read from
- * @param format format string (as for printf)
- */
-void df_read_file(FILE *stream, const char *format, ...);
-
-/**
  * @function Displays an error message.
  * @param message Error message which will be printed
  * @param error Pointer on GError structure containing error specification

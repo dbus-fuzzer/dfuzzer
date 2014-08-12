@@ -127,7 +127,7 @@ int main(int argc, char **argv)
 		df_pid = df_get_pid(dcon);
 		if (df_pid > 0) {
 			df_print_process_info(df_pid);
-			fprintf(stderr, "\r\e[36m[CONNECTED TO PID: %d]\e[0m\n", df_pid);
+			fprintf(stderr, "\r\e[36m[CONNECTED TO PID: %d\e[0m\n", df_pid);
 			if (strlen(target_proc.interface) != 0) {
 				fprintf(stderr, "Object: \e[1m%s\e[0m\n", target_proc.obj_path);
 				fprintf(stderr, " Interface: \e[1m%s\e[0m\n",
@@ -181,7 +181,7 @@ skip_session:
 		df_pid = df_get_pid(dcon);
 		if (df_pid > 0) {
 			df_print_process_info(df_pid);
-			fprintf(stderr, "\r\e[36m[CONNECTED TO PID: %d]\e[0m\n", df_pid);
+			fprintf(stderr, "\r\e[36m[CONNECTED TO PID: %d\e[0m\n", df_pid);
 			if (strlen(target_proc.interface) != 0) {
 				fprintf(stderr, "Object: \e[1m%s\e[0m\n", target_proc.obj_path);
 				fprintf(stderr, " Interface: \e[1m%s\e[0m\n",
@@ -740,7 +740,7 @@ int df_fuzz(const GDBusConnection *dcon, const char *name,
 				df_debug("Error in df_get_pid() on getting pid of process\n");
 				return 1;
 			}
-			fprintf(stderr, "\r\e[36m[RE-CONNECTED TO PID: %d]\e[0m\n", df_pid);
+			fprintf(stderr, "\r\e[36m[RE-CONNECTED TO PID: %d\e[0m\n", df_pid);
 
 			// opens process status file
 			close(statfd);
@@ -899,7 +899,8 @@ void df_print_process_info(int pid)
 	char buf[PATH_MAX + MAXLEN];   // buffer for rpm/dpkg request
 	FILE *fp;
 	char c;
-	int fd, ret;
+	int fd, stdoutcpy, stderrcpy, ret;
+
 
 	sprintf(proc_path, "/proc/%d/exe", pid);
 	if (readlink(proc_path, name, sizeof(name)) == -1) {
@@ -916,32 +917,67 @@ void df_print_process_info(int pid)
 			if (ret > 0)
 				fprintf(stderr, "%c", c);
 			if (ret == -1) {
-				fprintf(stderr, "]\e[0m\n");
+				fprintf(stderr, "\e[0m\n");
 				close(fd);
 				return;
 			}
 		}
-		fprintf(stderr, "]\e[0m\n");
+		fprintf(stderr, "\e[0m\n");
 		close(fd);
 	} else
-		fprintf(stderr, "\r\e[36m[PROCESS: %s]\e[0m\n", name);
+		fprintf(stderr, "\r\e[36m[PROCESS: %s\e[0m\n", name);
 
 
-	// Determines which package manager should be used
-	if (WEXITSTATUS(system("which rpm &>/dev/null")) == 0)
-		sprintf(buf, "rpm -qf %s 2>/dev/null", name);
-	else if (WEXITSTATUS(system("which dpkg &>/dev/null")) == 0)
-		sprintf(buf, "dpkg -S %s 2>/dev/null", name);
-	else {	// only rpm/dpkg are supported
-		fprintf(stderr, "\r\e[36m[PACKAGE: ]\e[0m\n");
+	fd = open("/dev/null", O_RDWR, S_IRUSR | S_IWUSR);
+	if (fd == -1) {
+		fprintf(stderr, "\r\e[36m[PACKAGE: \e[0m\n");
 		return;
 	}
+
+	// backup std descriptors
+	stdoutcpy = dup(1);
+	stderrcpy = dup(2);
+
+	// make stdout and stderr go to fd
+	if (dup2(fd, 1) == -1) {
+		fprintf(stderr, "\r\e[36m[PACKAGE: \e[0m\n");
+		return;
+	}
+	if (dup2(fd, 2) == -1) {
+		fprintf(stderr, "\r\e[36m[PACKAGE: \e[0m\n");
+		dup2(stdoutcpy, 1);
+		close(stdoutcpy);
+		return;
+	}
+	close(fd);		// fd no longer needed
+
+	// Determines which package manager should be used
+	ret = 0;
+	if (WEXITSTATUS(system("which rpm")) == 0)
+		sprintf(buf, "rpm -qf %s 2>/dev/null", name);
+	else if (WEXITSTATUS(system("which dpkg")) == 0)
+		sprintf(buf, "aptitude versions $(dpkg -S /usr/sbin/avahi-daemon "
+			"| sed 's/:.*//') -F %%p %%V | sed 's/Package //' "
+			"| sed 's/:/-/g' | tr -d '\n' | tr -d ' '", name);
+	else {	// only rpm/dpkg are supported
+		fprintf(stderr, "\r\e[36m[PACKAGE: \e[0m\n");
+		ret++;
+	}
+
+	// restore std descriptors
+	dup2(stdoutcpy, 1);
+	close(stdoutcpy);
+	dup2(stderrcpy, 2);
+	close(stderrcpy);
+
+	if (ret)
+		return;
 
 	fp = popen(buf, "r");
 	if (fp == NULL)
 		return;
-	df_read_file(fp, "%s", name);
-	fprintf(stderr, "\r\e[36m[PACKAGE: %s]\e[0m\n", name);
+	fgets(name, PATH_MAX, fp);
+	fprintf(stderr, "\r\e[36m[PACKAGE: %s\e[0m", name);
 	pclose(fp);
 
 	return 0;
@@ -1322,19 +1358,6 @@ void df_print_help(const char *name)
 	" file:\n"
 	" # %s -v -s -n org.freedesktop.Avahi\n",
 	SF1, SF2, SF3, name, name, name, name);
-}
-
-/**
- * @function Reads from FILE stream
- * @param stream FILE stream to read from
- * @param format format string (as for printf)
- */
-void df_read_file(FILE *stream, const char *format, ...)
-{
-	va_list args;
-	va_start(args, format);
-	vfscanf(stream, format, args);
-	va_end(args);
 }
 
 /**
