@@ -14,13 +14,17 @@ Clone by:
 Requirements:
 --------------
 
-    glib2-devel-2.26 or higher
-    libffi-devel-3.0 or higher
-	doxygen (optional)
+    glib2-devel  (2.34 or higher)
+    libffi-devel (3.0 or higher)
+	doxygen      (optional)
 
 Fedora:
 
-    $ sudo yum install glib2-devel libffi-devel
+    $ yum install glib2-devel libffi-devel
+
+Debian:
+
+    $ apt-get install libglib2.0-dev libffi-dev
 
 
 Using valgrind with _GLib_:
