@@ -928,9 +928,9 @@ void df_print_process_info(int pid)
 
 
 	// Determines which package manager should be used
-	if (system("which rpm &>/dev/null") == 0)
+	if (WEXITSTATUS(system("which rpm &>/dev/null")) == 0)
 		sprintf(buf, "rpm -qf %s 2>/dev/null", name);
-	else if (system("which dpkg &>/dev/null") == 0)
+	else if (WEXITSTATUS(system("which dpkg &>/dev/null")) == 0)
 		sprintf(buf, "dpkg -S %s 2>/dev/null", name);
 	else {	// only rpm/dpkg are supported
 		fprintf(stderr, "\r\e[36m[PACKAGE: ]\e[0m\n");
