@@ -898,34 +898,44 @@ void df_print_process_info(int pid)
 	char name[PATH_MAX];           // for storing process and package name
 	char buf[PATH_MAX + MAXLEN];   // buffer for rpm/dpkg request
 	FILE *fp;
-	char c;
+	char *c;
 	int fd, stdoutcpy, stderrcpy, ret;
 
 
 	sprintf(proc_path, "/proc/%d/exe", pid);
-	if (readlink(proc_path, name, sizeof(name)) == -1) {
-		// if readlink failed, try to read cmdline
+	ret = readlink(proc_path, name, sizeof(name));
+	// excludes interprets
+	if (ret != -1 && strstr(name, "python") == NULL && strstr(name, "perl") == NULL)
+		fprintf(stderr, "\r\e[36m[PROCESS: %s\e[0m\n", name);
+	else {
+		// if readlink failed or executable was interpret (and our target is
+		// interpreted script), try to read cmdline
 		sprintf(proc_path, "/proc/%d/cmdline", pid);
 		fd = open(proc_path, O_RDONLY);
 		if (fd == -1)
 			return;
 
 		ret = 1;
+		c = name;
 		fprintf(stderr, "\r\e[36m[PROCESS: ");
 		while (ret > 0) {
-			ret = read(fd, &c, 1);
-			if (ret > 0)
-				fprintf(stderr, "%c", c);
+			ret = read(fd, c, 1);
+			if (ret > 0) {
+				if (*c == '\0')
+					*c = ' ';
+				fprintf(stderr, "%c", *c);
+			}
 			if (ret == -1) {
 				fprintf(stderr, "\e[0m\n");
 				close(fd);
 				return;
 			}
+			c++;
 		}
+		c = '\0';
 		fprintf(stderr, "\e[0m\n");
 		close(fd);
-	} else
-		fprintf(stderr, "\r\e[36m[PROCESS: %s\e[0m\n", name);
+	}
 
 
 	fd = open("/dev/null", O_RDWR, S_IRUSR | S_IWUSR);
@@ -951,10 +961,10 @@ void df_print_process_info(int pid)
 	}
 	close(fd);		// fd no longer needed
 
+
 	// Determines which package manager should be used
-	ret = 0;
 	if (WEXITSTATUS(system("which rpm")) == 0)
-		sprintf(buf, "rpm -qf %s 2>/dev/null", name);
+		sprintf(buf, "rpm -qf %s", name);
 	else if (WEXITSTATUS(system("which dpkg")) == 0)
 		sprintf(buf, "aptitude versions $(dpkg -S %s "
 			"| sed 's/:.*//') -F %%p %%V | sed 's/Package //' "
@@ -962,26 +972,32 @@ void df_print_process_info(int pid)
 			"| tr '\n' ' ' | sed 's/$/\\n$/'" , name);
 	else {	// only rpm/dpkg are supported
 		fprintf(stderr, "\r\e[36m[PACKAGE: \e[0m\n");
-		ret++;
+		// restore std descriptors
+		dup2(stdoutcpy, 1);
+		close(stdoutcpy);
+		dup2(stderrcpy, 2);
+		close(stderrcpy);
+		return;
 	}
 
+	fp = popen(buf, "r");
 	// restore std descriptors
 	dup2(stdoutcpy, 1);
 	close(stdoutcpy);
 	dup2(stderrcpy, 2);
 	close(stderrcpy);
-
-	if (ret)
+	if (fp == NULL) {
+		fprintf(stderr, "\r\e[36m[PACKAGE: \e[0m\n");
 		return;
-
-	fp = popen(buf, "r");
-	if (fp == NULL)
-		return;
+	}
 	fgets(name, PATH_MAX, fp);
-	fprintf(stderr, "\r\e[36m[PACKAGE: %s\e[0m", name);
-	pclose(fp);
+	ret = pclose(fp);
 
-	return 0;
+
+	if (WEXITSTATUS(ret) == 0)
+		fprintf(stderr, "\r\e[36m[PACKAGE: %s\e[0m", name);
+	else
+		fprintf(stderr, "\r\e[36m[PACKAGE: \e[0m\n");
 }
 
 /**
