@@ -956,7 +956,7 @@ void df_print_process_info(int pid)
 	if (WEXITSTATUS(system("which rpm")) == 0)
 		sprintf(buf, "rpm -qf %s 2>/dev/null", name);
 	else if (WEXITSTATUS(system("which dpkg")) == 0)
-		sprintf(buf, "aptitude versions $(dpkg -S /usr/sbin/avahi-daemon "
+		sprintf(buf, "aptitude versions $(dpkg -S %s "
 			"| sed 's/:.*//') -F %%p %%V | sed 's/Package //' "
 			"| sed 's/:/-/g' | sed ':a;$!N;s/\\n//;ta' | tr -d ' '", name);
 	else {	// only rpm/dpkg are supported
