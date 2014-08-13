@@ -932,9 +932,20 @@ void df_print_process_info(int pid)
 			}
 			c++;
 		}
-		c = '\0';
+		*c = '\0';
 		fprintf(stderr, "\e[0m\n");
 		close(fd);
+
+		// excludes interprets
+		if (strstr(name, "python") != NULL || strstr(name, "perl") != NULL) {
+			fprintf(stderr, "\r\e[36m[PACKAGE: \e[0m\n");
+			return;
+		} else {	// removes cmdline arguments
+			c = name;
+			while (*c != ' ' && *c != '\0')
+				c++;
+			*c = '\0';
+		}
 	}
 
 
