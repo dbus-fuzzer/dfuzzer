@@ -1,7 +1,8 @@
 .\" **************************************************************************
 .\" *
 .\" * dfuzzer
-.\" * Copyright(C) 2014, Red Hat, Inc., Matus Marhefka <mmarhefk@redhat.com>
+.\" * Copyright(C) 2014,2015, Red Hat, Inc.
+.\" *     Matus Marhefka <mmarhefk@redhat.com>
 .\" *
 .\" * This program is free software: you can redistribute it and/or modify
 .\" * it under the terms of the GNU General Public License as published by
@@ -17,7 +18,7 @@
 .\" * along with this program. If not, see <http://www.gnu.org/licenses/>.
 .\" *
 .\" **************************************************************************
-.TH man 1 "9 May 2014" "dfuzzer 1.3" "dfuzzer"
+.TH man 1 "12 Mar 2015" "dfuzzer 1.4" "dfuzzer"
 .SH NAME
 dfuzzer \- Tool for fuzz testing processes communicating through D-Bus
 .SH SYNOPSIS
@@ -29,9 +30,12 @@ dfuzzer \- Tool for fuzz testing processes communicating through D-Bus
 
 
 .SH DESCRIPTION
-\fBdfuzzer\fR is D-Bus fuzzer, a tool for fuzz testing processes communicating
-through D-Bus. The fuzzer traverses through all the methods on the given bus name.
-By default only failures and warnings are printed. Use \fB-v\fR for verbose mode.
+\fBdfuzzer\fR is the D-Bus fuzzer, the tool for fuzz testing processes communicating
+through D-Bus. It can be used to test processes connected to both, the session
+bus and the system bus daemon. The fuzzer works as a client, it first connects
+to the bus daemon and then it traverses and fuzz tests all the methods provided
+by a D-Bus service (specified by the -n option - bus name). By default only
+failures and warnings are printed. Use -v for verbose mode.
 
 Fuzz tests are performed on methods of a chosen interface(s) and an object(s)
 for the given bus name. Fuzzer generates random arguments for each method
@@ -113,7 +117,7 @@ suppressions - this way user can define his own file):
     ...
 .RE
 .RS 4
-tells that for example methods \fImethod1\fR and \fImethod2\fR will be
+which tells that for example methods \fImethod1\fR and \fImethod2\fR will be
 skipped when testing bus name \fIbus_name_2\fR.
 .RE
 .PP
@@ -145,7 +149,7 @@ the longer the testing).
 \fB\-t\fR \fIMETHOD_NAME\fR
 .RS 4
 When this parameter is provided, only method \fIMETHOD_NAME\fR is tested.
-All other methods of an interface are skipped.
+All other methods of an interface are skipped. Requires also -o and -i options.
 .RE
 .PP
 \fB\-e\fR \fI'COMMAND'\fR
@@ -170,10 +174,10 @@ Test only method of the given bus name, object path and interface:
 .RE
 \fB# dfuzzer -n org.freedesktop.Avahi -o / -i org.freedesktop.Avahi.Server -t GetAlternativeServiceName\fR
 
-Test all methods of Avahi and be verbose. Redirect all failures and warnings
-into avahi.log:
+Test all methods of Avahi and be verbose. Redirect all log messages including
+failures and warnings into avahi.log:
 .RE
-\fB# dfuzzer -v -n org.freedesktop.Avahi 3>&1 1>&2 2>&3 | tee avahi.log\fR
+\fB# dfuzzer -v -n org.freedesktop.Avahi 2>&1 | tee avahi.log\fR
 
 Test name org.freedesktop.Avahi, be verbose and do not use suppression file:
 .RE
@@ -214,4 +218,4 @@ Additional changes by Miroslav Vadkerti (mvadkert@redhat.com)
 
 
 .SH COPYRIGHT
-2014, Red Hat, Inc.
+2014,2015 Red Hat, Inc.

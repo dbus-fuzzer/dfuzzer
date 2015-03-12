@@ -2,8 +2,9 @@
 /*
  * dfuzzer - tool for fuzz testing processes communicating through D-Bus.
  *
- * Copyright(C) 2013, Red Hat, Inc., Matus Marhefka <mmarhefk@redhat.com>
- *                                   Miroslav Vadkerti <mvadkert@redhat.com>
+ * Copyright(C) 2013,2014,2015, Red Hat, Inc.
+ *     Matus Marhefka <mmarhefk@redhat.com>
+ *     Miroslav Vadkerti <mvadkert@redhat.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,9 +23,10 @@
 #define DFUZZER_H
 
 /** Version of dfuzzer */
-#define DF_VERSION "dfuzzer 1.3\n" \
-	"Copyright(C) 2013, Red Hat, Inc., Matus Marhefka <mmarhefk@redhat.com>\n" \
-	"Additional changes by Miroslav Vadkerti <mvadkert@redhat.com>\n" \
+#define DF_VERSION "dfuzzer 1.4\n" \
+	"Copyright(C) 2013,2014,2015, Red Hat, Inc.\n" \
+	"Author: Matus Marhefka <mmarhefk@redhat.com>\n" \
+	"Additional changes: Miroslav Vadkerti <mvadkert@redhat.com>\n" \
 	"License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>.\n"
 
 /** Minimal buffer size for generated strings */

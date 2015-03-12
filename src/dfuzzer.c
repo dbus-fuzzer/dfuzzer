@@ -2,8 +2,9 @@
 /*
  * dfuzzer - tool for fuzz testing processes communicating through D-Bus.
  *
- * Copyright(C) 2013, Red Hat, Inc., Matus Marhefka <mmarhefk@redhat.com>
- *                                   Miroslav Vadkerti <mvadkert@redhat.com>
+ * Copyright(C) 2013,2014,2015, Red Hat, Inc.
+ *     Matus Marhefka <mmarhefk@redhat.com>
+ *     Miroslav Vadkerti <mvadkert@redhat.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -1350,7 +1351,7 @@ void df_print_help(const char *name)
 	"   method1\n"
 	"   method2\n"
 	"   ...\n"
-	"   tells that for example methods 'method1' and 'method2' will be\n"
+	"   which tells that for example methods 'method1' and 'method2' will be\n"
 	"   skipped when testing bus name 'bus_name_2'.\n"
 	"-o OBJECT_PATH\n"
 	"   Optional object path to test. All children objects are traversed.\n"
@@ -1369,6 +1370,7 @@ void df_print_help(const char *name)
 	"-t METHOD_NAME\n"
 	"   When this parameter is provided, only method METHOD_NAME is tested.\n"
 	"   All other methods of an interface are skipped.\n"
+	"   Requires also -o and -i options.\n"
 	"-e 'COMMAND'\n"
 	"   Command/Script to execute after each method call. If command/script\n"
 	"   finishes unsuccessfuly, fail message is printed with its return\n"
@@ -1379,9 +1381,9 @@ void df_print_help(const char *name)
 	" Test only method of the given bus name, object path and interface.\n"
 	" # %s -n org.freedesktop.Avahi -o / -i org.freedesktop.Avahi.Server -t"
 	" GetAlternativeServiceName\n\n"
-	" Test all methods of Avahi and be verbose. Redirect all failures\n"
-	" and warnings into avahi.log:\n"
-	" # %s -v -n org.freedesktop.Avahi 3>&1 1>&2 2>&3 | tee avahi.log\n\n"
+	" Test all methods of Avahi and be verbose. Redirect all log messages\n"
+	" including failures and warnings into avahi.log:\n"
+	" # %s -v -n org.freedesktop.Avahi 2>&1 | tee avahi.log\n\n"
 	" Test name org.freedesktop.Avahi, be verbose and do not use suppression\n"
 	" file:\n"
 	" # %s -v -s -n org.freedesktop.Avahi\n",

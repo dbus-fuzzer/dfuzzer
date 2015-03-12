@@ -2,7 +2,7 @@
 #
 # Script removes escape sequences from ascii text files.
 # Useful when creating log files with dfuzzer like this:
-# $ ./dfuzzer -v -n bus_name 3>&1 1>&2 2>&3 | tee bus_name.log
+# $ ./dfuzzer -v -n bus_name 2>&1 | tee bus_name.log
 #
 # This file is part of dfuzzer.
 # Copyright(C) 2013, Red Hat, Inc., Matus Marhefka <mmarhefk@redhat.com>

@@ -1,3 +1,12 @@
+2015-03-12  Matus Marhefka  <mmarhefk@redhat.com>
+
+	version 1.4
+	* minor fixes
+	* man page update
+	* fuzzer now prints also:
+		* the tested process name
+		* the package which tested process belongs to (only for rpm/dpkg)
+
 2014-05-09  Matus Marhefka  <mmarhefk@redhat.com>
 
 	version 1.3
@@ -11,7 +20,7 @@
 	* return values of dfuzzer changed (for automatic scripts):
 		* 0 - testing ended successfuly
 		* 1 - error occured, either internal dfuzzer error
-     	*     or D-Bus related error (-d option to debug)
+		*     or D-Bus related error (-d option to debug)
 		* 2 - testing detected failures (including warnings)
 		* 3 - testing detected only warnings
 	* man page and help actualized
