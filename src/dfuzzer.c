@@ -109,7 +109,7 @@ int main(int argc, char **argv)
 	g_type_init();
 
 	// Synchronously connects to the session bus daemon.
-	fprintf(stderr, "\r\e[36m[SESSION BUS]\e[0m\n", target_proc.name);
+	fprintf(stderr, "\r\e[36m[SESSION BUS]\e[0m\n");
 	if ((dcon = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, &error)) == NULL) {
 		df_fail("Session bus not found.\n");
 		df_error("Error in g_bus_get_sync()", error);
@@ -163,7 +163,7 @@ skip_session:
 
 
 	// Synchronously connects to the system bus daemon.
-	fprintf(stderr, "\r\e[36m[SYSTEM  BUS]\e[0m\n", target_proc.name);
+	fprintf(stderr, "\r\e[36m[SYSTEM  BUS]\e[0m\n");
 	if ((dcon = g_bus_get_sync(G_BUS_TYPE_SYSTEM, NULL, &error)) == NULL) {
 		df_fail("System bus not found.\n");
 		df_error("Error in g_bus_get_sync()", error);

@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-Wall `pkg-config --cflags --libs gio-2.0`
+CFLAGS=-w -Wall `pkg-config --cflags --libs gio-2.0`
 
 all: server
 
