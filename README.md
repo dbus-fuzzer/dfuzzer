@@ -7,18 +7,21 @@ bus and the system bus daemon. The fuzzer works as a client, it first connects
 to the bus daemon and then it traverses and fuzz tests all the methods provided
 by a D-Bus service.
 
+Automatic installation (only Fedora 20 and 21):
+--------------
 
-Clone by:
+    sudo yum install dfuzzer
+
+Manual installation:
 --------------
     $ git clone https://github.com/matusmarhefka/dfuzzer.git
 
 
 Requirements:
---------------
 
     glib2-devel  (2.34 or higher)
     libffi-devel (3.0 or higher)
-	doxygen      (optional)
+    doxygen      (optional)
 
 Fedora:
 
