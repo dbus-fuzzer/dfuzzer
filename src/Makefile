@@ -14,7 +14,7 @@ all: dfuzzer
 makefile.dep:
 	$(CC) -MM *.c >makefile.dep
 $(TARGET): $(OBJ)
-	$(CC) $(CFLAGS) $(OBJ) -o $(TARGET)
+	$(CC) $(OBJ) $(CFLAGS) -o $(TARGET)
 
 doc:
 	doxygen doxyfile
