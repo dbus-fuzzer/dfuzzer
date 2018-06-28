@@ -66,7 +66,9 @@ static int df_supflg;
 	If command/script returns >0, dfuzzer prints fail message,
 	if 0 it continues */
 static char *df_execute_cmd;
-
+/** If -l is passed, full log of method calls and their return values will be
+    written to a [BUS_NAME.log] file */
+static int df_full_log_flag;
 
 /**
  * @function Main function controls fuzzing.
@@ -1043,7 +1045,7 @@ void df_parse_parameters(int argc, char **argv)
 	int c = 0;
 	int nflg = 0, oflg = 0, iflg = 0, mflg = 0, bflg = 0, tflg = 0, eflg = 0;
 
-	while ((c = getopt(argc, argv, "n:o:i:m:b:t:e:sdvlhV")) != -1) {
+	while ((c = getopt(argc, argv, "n:o:i:m:b:t:e:sdvlhVL")) != -1) {
 		switch (c) {
 		case 'n':
 			if (nflg != 0) {
@@ -1145,6 +1147,8 @@ void df_parse_parameters(int argc, char **argv)
 			df_print_help(argv[0]);
 			exit(0);
 			break;
+		case 'L':
+			df_full_log_flag = 1;
 		default:	// '?'
 			exit(1);
 			break;
@@ -1337,6 +1341,8 @@ void df_print_help(const char *name)
 	"-d\n"
 	"   Enable debug messages. Implies -v. This option should not be normally\n"
 	"   used during testing.\n"
+	"-L\n"
+	"   Write full, parseable log to a BUS_NAME.log file.\n"
 	"-s\n"
 	"   Do not use suppression file. Default behaviour is to use suppression\n"
 	"   files in this order (if one doesn't exist next in order is taken\n"
