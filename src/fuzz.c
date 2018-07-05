@@ -311,15 +311,19 @@ static int df_fuzz_write_log(void)
 	struct df_signature *s = df_list.list;	// pointer on first signature
 	int len = 0;
 	int str_len = 0;
+	
+	FULL_LOG("%s;", df_list.df_method_name);
 
 	while (s != NULL) {
 		len = strlen(s->sig);
 		if (len <= 0) {
 			df_fail("No argument signature\n");
+			FULL_LOG("\n");
 			return -1;
 		} else if (len == 1) {	// one character argument
 			df_fail("    --");
 			df_fail("%s", s->sig);
+			FULL_LOG("%s;", s->sig);
 
 			switch (s->sig[0]) {
 			case 'y':
@@ -327,94 +331,123 @@ static int df_fuzz_write_log(void)
 				guint8 tmp;
 				g_variant_get(s->var, s->sig, &tmp);
 				df_fail("-- '%u'\n", tmp);
+				FULL_LOG("%u;", tmp);
 				break;
 			case 'b':
 				;
 				gboolean tmp1;
 				g_variant_get(s->var, s->sig, &tmp1);
 				df_fail("-- '%s'\n", ((tmp1 == 1) ? "true" : "false"));
+				FULL_LOG("%s", tmp1 ? "true" : "false");
 				break;
 			case 'n':
 				;
 				gint16 tmp2;
 				g_variant_get(s->var, s->sig, &tmp2);
 				df_fail("-- '%d'\n", tmp2);
+				FULL_LOG("%d;", tmp2);
 				break;
 			case 'q':
 				;
 				guint16 tmp3;
 				g_variant_get(s->var, s->sig, &tmp3);
 				df_fail("-- '%u'\n", tmp3);
+				FULL_LOG("%u;", tmp3);
 				break;
 			case 'i':
 				;
 				gint32 tmp4;
 				g_variant_get(s->var, s->sig, &tmp4);
 				df_fail("-- '%d'\n", tmp4);
+				FULL_LOG("%d;", tmp4);
 				break;
 			case 'u':
 				;
 				guint32 tmp5;
 				g_variant_get(s->var, s->sig, &tmp5);
 				df_fail("-- '%u'\n", tmp5);
+				FULL_LOG("%u;", tmp5);
 				break;
 			case 'x':
 				;
 				gint64 tmp6;
 				g_variant_get(s->var, s->sig, &tmp6);
 				df_fail("-- '%ld'\n", tmp6);
+				FULL_LOG("%ld;", tmp6);
 				break;
 			case 't':
 				;
 				guint64 tmp7;
 				g_variant_get(s->var, s->sig, &tmp7);
 				df_fail("-- '%lu'\n", tmp7);
+				FULL_LOG("%lu;", tmp7);
 				break;
 			case 'd':
 				;
 				gdouble tmp8;
 				g_variant_get(s->var, s->sig, &tmp8);
 				df_fail("-- '%lg'\n", tmp8);
+				FULL_LOG("%lg;", tmp8);
 				break;
 			case 's':
 				;
-				gchar *tmp9 = NULL;
+				gchar *tmp9 = NULL, *tmp9cpy = NULL;
 				g_variant_get(s->var, s->sig, &tmp9);
 				str_len = strlen(tmp9);
+				tmp9cpy = tmp9;
 				if (tmp9 != NULL)
 					df_fail(" [length: %d B]-- '%s'\n", str_len, tmp9);
-				free(tmp9);
+				while((tmp9 != NULL) & (*tmp9)){
+					FULL_LOG("%x", *tmp9++ & 0xff);
+				}
+				FULL_LOG(";");
+				free(tmp9cpy);
 				break;
 			case 'o':
 				;
-				gchar *tmp10 = NULL;
+				gchar *tmp10 = NULL, *tmp10cpy = NULL;
 				g_variant_get(s->var, s->sig, &tmp10);
 				str_len = strlen(tmp10);
+				tmp10cpy = tmp10;
 				if (tmp10 != NULL)
 					df_fail(" [length: %d B]-- '%s'\n", str_len, tmp10);
-				free(tmp10);
+				while((tmp10 != NULL) & (*tmp10)){
+					FULL_LOG("%x", *tmp10++ & 0xff);
+				}
+				FULL_LOG(";");
+				free(tmp10cpy);
 				break;
 			case 'g':
 				;
-				gchar *tmp11 = NULL;
+				gchar *tmp11 = NULL, *tmp11cpy;
 				g_variant_get(s->var, s->sig, &tmp11);
 				str_len = strlen(tmp11);
+				tmp11cpy = tmp11;
 				if (tmp11 != NULL)
 					df_fail(" [length: %d B]-- '%s'\n", str_len, tmp11);
-				free(tmp11);
+				while((tmp11 != NULL) & (*tmp11)){
+					FULL_LOG("%x", *tmp11++ & 0xff);
+				}
+				FULL_LOG(";");
+				free(tmp11cpy);
 				break;
 			case 'v':
 				;
 				GVariant *var = NULL;
-				gchar *tmp12 = NULL;
+				gchar *tmp12 = NULL, *tmp12cpy = NULL;
 				g_variant_get(s->var, s->sig, var);
 				if (var != NULL &&
 					g_variant_check_format_string(var, "s", FALSE)) {
 					g_variant_get(&var, "s", &tmp12);
 					str_len = strlen(tmp12);
+					tmp12cpy = tmp12;
 					if (tmp12 != NULL)
 						df_fail(" [length: %d B]-- '%s'\n", str_len, tmp12);
-					free(tmp12);
+					while((tmp12 != NULL) && (*tmp12)){
+						FULL_LOG("%x", *tmp12++ & 0xff);
+					}
+					FULL_LOG("\n");
+					free(tmp12cpy);
 				} else {
 					df_fail("-- 'unable to deconstruct GVariant instance'\n");
 				}
@@ -423,19 +456,23 @@ static int df_fuzz_write_log(void)
 				;
 				gint32 tmp13;
 				g_variant_get(s->var, s->sig, &tmp13);
+				FULL_LOG("%d;", tmp13);
 				df_fail("-- '%d'\n", tmp13);
 				break;
 			default:
 				df_fail("Unknown argument signature '%s'\n", s->sig);
+				FULL_LOG("\n");
 				return -1;
 			}
 		} else {	// advanced argument (array of something, dictionary, ...)
 			df_debug("Not yet implemented in df_fuzz_write_log()\n");
+			FULL_LOG("\n");
 			return 0;
 		}
 
 		s = s->next;
 	}
+	FULL_LOG("\n");
 
 	return 0;
 }
@@ -673,6 +710,7 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 			g_variant_unref(value);
 			value = NULL;
 		}
+		if(logfile) df_fuzz_write_log();
 		if (df_except_counter == MAX_EXCEPTIONS) {
 			df_except_counter = 0;
 			break;
@@ -691,13 +729,13 @@ fail_label:
 	df_mem_limit = -1;		// set to -1 to reload memory limit
 	if (ret != 1) {
 		df_fail("   on input:\n");
-		df_fuzz_write_log();
 	}
 	if (value != NULL)
 		g_variant_unref(value);
 
 	df_fail("   reproducer: \e[33mdfuzzer -v -n %s -o %s -i %s"
 			" -t %s", name, obj, intf, df_list.df_method_name);
+	df_fuzz_write_log();
 	if (df_mlflg)
 		df_fail(" -m %ld", df_mem_limit);
 	if (buf_size_flg)

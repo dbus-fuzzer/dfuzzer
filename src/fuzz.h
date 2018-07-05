@@ -135,4 +135,8 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
  */
 void df_fuzz_clean_method(void);
 
+extern FILE* logfile;
+
+#define FULL_LOG(fmt, ...) if(logfile) fprintf(logfile, fmt, ##__VA_ARGS__)
+
 #endif

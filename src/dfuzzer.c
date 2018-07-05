@@ -69,6 +69,9 @@ static char *df_execute_cmd;
 /** If -l is passed, full log of method calls and their return values will be
     written to a [BUS_NAME.log] file */
 static int df_full_log_flag;
+/** Pointer to a file for full logging  */
+FILE* logfile;
+
 
 /**
  * @function Main function controls fuzzing.
@@ -86,11 +89,22 @@ int main(int argc, char **argv)
 	int rsys = 0;				// return value from system bus testing
 	int bus_skip = 0;			// if skipping one of buses or both, set to 1
 	int i;
+	char log_file_name[MAXLEN];
 
 
 	df_parse_parameters(argc, argv);
 
 
+	if (df_full_log_flag) {
+		strcpy(log_file_name, "logs/");
+		strncat(log_file_name, target_proc.name, MAXLEN-6);
+		logfile = fopen(log_file_name, "a+");
+		if(!logfile) {
+			printf("Error opening file %s; detailed logs will not be written\n", log_file_name);
+			df_full_log_flag = 0;
+		}
+
+	}
 	if (!df_supflg) {		// if -s option was not passed
 		if (df_load_suppressions() == -1) {
 			// free all memory
@@ -1149,6 +1163,7 @@ void df_parse_parameters(int argc, char **argv)
 			break;
 		case 'L':
 			df_full_log_flag = 1;
+			break;
 		default:	// '?'
 			exit(1);
 			break;
@@ -1342,7 +1357,7 @@ void df_print_help(const char *name)
 	"   Enable debug messages. Implies -v. This option should not be normally\n"
 	"   used during testing.\n"
 	"-L\n"
-	"   Write full, parseable log to a BUS_NAME.log file.\n"
+	"   Write full, parseable log to a logs/BUS_NAME file.\n"
 	"-s\n"
 	"   Do not use suppression file. Default behaviour is to use suppression\n"
 	"   files in this order (if one doesn't exist next in order is taken\n"
