@@ -706,11 +706,11 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 		prev_memory = used_memory;
 
 
+		if(logfile) df_fuzz_write_log();
 		if (value != NULL) {
 			g_variant_unref(value);
 			value = NULL;
 		}
-		if(logfile) df_fuzz_write_log();
 		if (df_except_counter == MAX_EXCEPTIONS) {
 			df_except_counter = 0;
 			break;
