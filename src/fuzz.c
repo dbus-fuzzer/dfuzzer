@@ -398,7 +398,7 @@ static int df_fuzz_write_log(void)
 				if (tmp9 != NULL)
 					df_fail(" [length: %d B]-- '%s'\n", str_len, tmp9);
 				while((tmp9 != NULL) & (*tmp9)){
-					FULL_LOG("%x", *tmp9++ & 0xff);
+					FULL_LOG("%x ", *tmp9++ & 0xff);
 				}
 				FULL_LOG(";");
 				free(tmp9cpy);
