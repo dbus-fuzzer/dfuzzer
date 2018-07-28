@@ -446,7 +446,6 @@ static int df_fuzz_write_log(void)
 					while((tmp12 != NULL) && (*tmp12)){
 						FULL_LOG("%x", *tmp12++ & 0xff);
 					}
-					FULL_LOG("\n");
 					free(tmp12cpy);
 				} else {
 					df_fail("-- 'unable to deconstruct GVariant instance'\n");
@@ -461,18 +460,15 @@ static int df_fuzz_write_log(void)
 				break;
 			default:
 				df_fail("Unknown argument signature '%s'\n", s->sig);
-				FULL_LOG("\n");
 				return -1;
 			}
 		} else {	// advanced argument (array of something, dictionary, ...)
 			df_debug("Not yet implemented in df_fuzz_write_log()\n");
-			FULL_LOG("\n");
 			return 0;
 		}
 
 		s = s->next;
 	}
-	FULL_LOG("\n");
 
 	return 0;
 }
@@ -722,6 +718,7 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 	if (leaking_mem_flg)	// warning
 		return 3;
 	df_verbose("\r  \e[32mPASS\e[0m %s\n", df_list.df_method_name);
+	FULL_LOG("Success\n");
 	return 0;
 
 
@@ -744,10 +741,15 @@ fail_label:
 		df_fail(" -e '%s'", execute_cmd);
 	df_fail("\e[0m\n");
 
-	if (ret == 1)		// method returning void is returning illegal value
+	if (ret == 1){	// method returning void is returning illegal value
+		FULL_LOG("Illegal retval\n");
 		return 2;
-	if (execr > 0)		// command/script execution ended with error
+	}
+	if (execr > 0){	// command/script execution ended with error
+		FULL_LOG("Command execution error\n");
 		return 4;
+	}
+	FULL_LOG("Crash\n");
 	return 1;
 
 
