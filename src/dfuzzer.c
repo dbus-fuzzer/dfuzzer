@@ -66,7 +66,7 @@ static int df_supflg;
 	If command/script returns >0, dfuzzer prints fail message,
 	if 0 it continues */
 static char *df_execute_cmd;
-/** If -l is passed, full log of method calls and their return values will be
+/** If -L is passed, full log of method calls and their return values will be
     written to a [BUS_NAME.log] file */
 static int df_full_log_flag;
 /** Pointer to a file for full logging  */
