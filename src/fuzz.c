@@ -703,6 +703,7 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 
 
 		if(logfile) df_fuzz_write_log();
+		FULL_LOG("Success\n");
 		if (value != NULL) {
 			g_variant_unref(value);
 			value = NULL;
@@ -718,7 +719,6 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 	if (leaking_mem_flg)	// warning
 		return 3;
 	df_verbose("\r  \e[32mPASS\e[0m %s\n", df_list.df_method_name);
-	FULL_LOG("Success\n");
 	return 0;
 
 
