@@ -137,6 +137,9 @@ void df_fuzz_clean_method(void);
 
 extern FILE* logfile;
 
+/** Writes a message to a logfile if it is opened (i.e. if -L flag was passed
+ * when running dfuzzer.
+ */
 #define FULL_LOG(fmt, ...) if(logfile) fprintf(logfile, fmt, ##__VA_ARGS__)
 
 #endif
