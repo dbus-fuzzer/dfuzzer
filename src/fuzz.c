@@ -727,12 +727,12 @@ fail_label:
 	if (ret != 1) {
 		df_fail("   on input:\n");
 	}
+	df_fuzz_write_log();
 	if (value != NULL)
 		g_variant_unref(value);
 
 	df_fail("   reproducer: \e[33mdfuzzer -v -n %s -o %s -i %s"
 			" -t %s", name, obj, intf, df_list.df_method_name);
-	df_fuzz_write_log();
 	if (df_mlflg)
 		df_fail(" -m %ld", df_mem_limit);
 	if (buf_size_flg)
