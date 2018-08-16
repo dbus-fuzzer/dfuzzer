@@ -69,6 +69,8 @@ static char *df_execute_cmd;
 /** If -L is passed, full log of method calls and their return values will be
     written to a [BUS_NAME.log] file */
 static int df_full_log_flag;
+/** Path to directory containing output logs */
+static char log_dir_name[MAXLEN];
 /** Pointer to a file for full logging  */
 FILE* logfile;
 
@@ -96,8 +98,11 @@ int main(int argc, char **argv)
 
 
 	if (df_full_log_flag) {
-		strcpy(log_file_name, "logs/");
-		strncat(log_file_name, target_proc.name, MAXLEN-6);
+		size_t len = strlen(log_dir_name);
+		strcpy(log_file_name, log_dir_name);
+		log_file_name[len++] = '/';
+		log_file_name[len]   = 0;
+		strncat(log_file_name, target_proc.name, MAXLEN-len);
 		logfile = fopen(log_file_name, "a+");
 		if(!logfile) {
 			printf("Error opening file %s; detailed logs will not be written\n", log_file_name);
@@ -1057,9 +1062,9 @@ void df_print_process_info(int pid)
 void df_parse_parameters(int argc, char **argv)
 {
 	int c = 0;
-	int nflg = 0, oflg = 0, iflg = 0, mflg = 0, bflg = 0, tflg = 0, eflg = 0;
+	int nflg = 0, oflg = 0, iflg = 0, mflg = 0, bflg = 0, tflg = 0, eflg = 0, Lflg = 0;
 
-	while ((c = getopt(argc, argv, "n:o:i:m:b:t:e:sdvlhVL")) != -1) {
+	while ((c = getopt(argc, argv, "n:o:i:m:b:t:e:L:sdvlhV")) != -1) {
 		switch (c) {
 		case 'n':
 			if (nflg != 0) {
@@ -1162,6 +1167,19 @@ void df_parse_parameters(int argc, char **argv)
 			exit(0);
 			break;
 		case 'L':
+			if (Lflg != 0) {
+				df_fail("%s: no duplicate options -- 'L'\n", argv[0]);
+				exit(1);
+			}
+			Lflg++;
+
+			//we need at least 1 more char than usual for directory separator
+			if (strlen(optarg) >= MAXLEN -1) {
+				df_fail("%s: maximum %d characters for option --"
+						" 'L'\n", argv[0], MAXLEN - 1);
+				exit(1);
+			}
+			strncpy(log_dir_name, optarg, MAXLEN);
 			df_full_log_flag = 1;
 			break;
 		default:	// '?'
@@ -1356,8 +1374,8 @@ void df_print_help(const char *name)
 	"-d\n"
 	"   Enable debug messages. Implies -v. This option should not be normally\n"
 	"   used during testing.\n"
-	"-L\n"
-	"   Write full, parseable log to a logs/BUS_NAME file.\n"
+	"-L DIRNAME\n"
+	"   Write full, parseable log to a DIRNAME/BUS_NAME file.\n"
 	"-s\n"
 	"   Do not use suppression file. Default behaviour is to use suppression\n"
 	"   files in this order (if one doesn't exist next in order is taken\n"
