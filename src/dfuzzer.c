@@ -1378,7 +1378,7 @@ void df_print_help(const char *name)
 	"   Enable debug messages. Implies -v. This option should not be normally\n"
 	"   used during testing.\n"
 	"-L DIRNAME\n"
-	"   Write full, parseable log to a DIRNAME/BUS_NAME file.\n"
+	"   Write full, parseable log to a DIRNAME/BUS_NAME file. The directory must exist.\n"
 	"-s\n"
 	"   Do not use suppression file. Default behaviour is to use suppression\n"
 	"   files in this order (if one doesn't exist next in order is taken\n"
