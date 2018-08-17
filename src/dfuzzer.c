@@ -92,6 +92,7 @@ int main(int argc, char **argv)
 	int bus_skip = 0;			// if skipping one of buses or both, set to 1
 	int i;
 	char log_file_name[MAXLEN];
+	char log_file_err[MAXLEN];
 
 
 	df_parse_parameters(argc, argv);
@@ -105,7 +106,9 @@ int main(int argc, char **argv)
 		strncat(log_file_name, target_proc.name, MAXLEN-len);
 		logfile = fopen(log_file_name, "a+");
 		if(!logfile) {
-			printf("Error opening file %s; detailed logs will not be written\n", log_file_name);
+			snprintf(log_file_err, NAXLEN, "Error opening file %s; detailed logs will not be written\n",
+				 log_file_name);
+			df_error(log_file_err, NULL);
 			df_full_log_flag = 0;
 		}
 
