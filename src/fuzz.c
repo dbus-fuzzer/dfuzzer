@@ -398,7 +398,7 @@ static int df_fuzz_write_log(void)
 				if (tmp9 != NULL)
 					df_fail(" [length: %d B]-- '%s'\n", str_len, tmp9);
 				while((tmp9 != NULL) && (*tmp9)){
-					FULL_LOG("%x ", *tmp9++ & 0xff);
+					FULL_LOG("%02x", *tmp9++ & 0xff);
 				}
 				FULL_LOG(";");
 				free(tmp9cpy);
@@ -412,7 +412,7 @@ static int df_fuzz_write_log(void)
 				if (tmp10 != NULL)
 					df_fail(" [length: %d B]-- '%s'\n", str_len, tmp10);
 				while((tmp10 != NULL) && (*tmp10)){
-					FULL_LOG("%x", *tmp10++ & 0xff);
+					FULL_LOG("%02x", *tmp10++ & 0xff);
 				}
 				FULL_LOG(";");
 				free(tmp10cpy);
@@ -426,7 +426,7 @@ static int df_fuzz_write_log(void)
 				if (tmp11 != NULL)
 					df_fail(" [length: %d B]-- '%s'\n", str_len, tmp11);
 				while((tmp11 != NULL) && (*tmp11)){
-					FULL_LOG("%x", *tmp11++ & 0xff);
+					FULL_LOG("%02x", *tmp11++ & 0xff);
 				}
 				FULL_LOG(";");
 				free(tmp11cpy);
@@ -444,7 +444,7 @@ static int df_fuzz_write_log(void)
 					if (tmp12 != NULL)
 						df_fail(" [length: %d B]-- '%s'\n", str_len, tmp12);
 					while((tmp12 != NULL) && (*tmp12)){
-						FULL_LOG("%x", *tmp12++ & 0xff);
+						FULL_LOG("%02x", *tmp12++ & 0xff);
 					}
 					free(tmp12cpy);
 				} else {
