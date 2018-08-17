@@ -726,8 +726,8 @@ fail_label:
 	df_mem_limit = -1;		// set to -1 to reload memory limit
 	if (ret != 1) {
 		df_fail("   on input:\n");
+		df_fuzz_write_log();
 	}
-	df_fuzz_write_log();
 	if (value != NULL)
 		g_variant_unref(value);
 
@@ -742,7 +742,6 @@ fail_label:
 	df_fail("\e[0m\n");
 
 	if (ret == 1){	// method returning void is returning illegal value
-		FULL_LOG("Illegal retval\n");
 		return 2;
 	}
 	if (execr > 0){	// command/script execution ended with error
