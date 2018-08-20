@@ -66,6 +66,13 @@ static int df_supflg;
 	If command/script returns >0, dfuzzer prints fail message,
 	if 0 it continues */
 static char *df_execute_cmd;
+/** If -L is passed, full log of method calls and their return values will be
+    written to a [BUS_NAME.log] file */
+static int df_full_log_flag;
+/** Path to directory containing output logs */
+static char log_dir_name[MAXLEN];
+/** Pointer to a file for full logging  */
+FILE* logfile;
 
 
 /**
@@ -84,11 +91,27 @@ int main(int argc, char **argv)
 	int rsys = 0;				// return value from system bus testing
 	int bus_skip = 0;			// if skipping one of buses or both, set to 1
 	int i;
+	char log_file_name[MAXLEN];
 
 
 	df_parse_parameters(argc, argv);
 
 
+	if (df_full_log_flag) {
+		size_t len = strlen(log_dir_name);
+		strcpy(log_file_name, log_dir_name);
+		if (len <= MAXLEN-2) {
+			log_file_name[len++] = '/';
+			log_file_name[len]   = 0;
+			strncat(log_file_name, target_proc.name, MAXLEN-len-1);
+			logfile = fopen(log_file_name, "a+");
+		}
+		if(!logfile) {
+			df_fail("Error opening file %s; detailed logs will not be written\n",
+				log_file_name);
+			df_full_log_flag = 0;
+		}
+	}
 	if (!df_supflg) {		// if -s option was not passed
 		if (df_load_suppressions() == -1) {
 			// free all memory
@@ -1041,9 +1064,9 @@ void df_print_process_info(int pid)
 void df_parse_parameters(int argc, char **argv)
 {
 	int c = 0;
-	int nflg = 0, oflg = 0, iflg = 0, mflg = 0, bflg = 0, tflg = 0, eflg = 0;
+	int nflg = 0, oflg = 0, iflg = 0, mflg = 0, bflg = 0, tflg = 0, eflg = 0, Lflg = 0;
 
-	while ((c = getopt(argc, argv, "n:o:i:m:b:t:e:sdvlhV")) != -1) {
+	while ((c = getopt(argc, argv, "n:o:i:m:b:t:e:L:sdvlhV")) != -1) {
 		switch (c) {
 		case 'n':
 			if (nflg != 0) {
@@ -1144,6 +1167,22 @@ void df_parse_parameters(int argc, char **argv)
 		case 'h':
 			df_print_help(argv[0]);
 			exit(0);
+			break;
+		case 'L':
+			if (Lflg != 0) {
+				df_fail("%s: no duplicate options -- 'L'\n", argv[0]);
+				exit(1);
+			}
+			Lflg++;
+
+			//we need at least 1 more char than usual for directory separator
+			if (strlen(optarg) >= MAXLEN -1) {
+				df_fail("%s: maximum %d characters for option --"
+						" 'L'\n", argv[0], MAXLEN - 1);
+				exit(1);
+			}
+			strncpy(log_dir_name, optarg, MAXLEN);
+			df_full_log_flag = 1;
 			break;
 		default:	// '?'
 			exit(1);
@@ -1337,6 +1376,8 @@ void df_print_help(const char *name)
 	"-d\n"
 	"   Enable debug messages. Implies -v. This option should not be normally\n"
 	"   used during testing.\n"
+	"-L DIRNAME\n"
+	"   Write full, parseable log to a DIRNAME/BUS_NAME file. The directory must exist.\n"
 	"-s\n"
 	"   Do not use suppression file. Default behaviour is to use suppression\n"
 	"   files in this order (if one doesn't exist next in order is taken\n"
