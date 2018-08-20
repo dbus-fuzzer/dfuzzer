@@ -92,7 +92,6 @@ int main(int argc, char **argv)
 	int bus_skip = 0;			// if skipping one of buses or both, set to 1
 	int i;
 	char log_file_name[MAXLEN];
-	char log_file_err[MAXLEN];
 
 
 	df_parse_parameters(argc, argv);
@@ -101,17 +100,17 @@ int main(int argc, char **argv)
 	if (df_full_log_flag) {
 		size_t len = strlen(log_dir_name);
 		strcpy(log_file_name, log_dir_name);
-		log_file_name[len++] = '/';
-		log_file_name[len]   = 0;
-		strncat(log_file_name, target_proc.name, MAXLEN-len);
-		logfile = fopen(log_file_name, "a+");
+		if (len <= MAXLEN-2) {
+			log_file_name[len++] = '/';
+			log_file_name[len]   = 0;
+			strncat(log_file_name, target_proc.name, MAXLEN-len-1);
+			logfile = fopen(log_file_name, "a+");
+		}
 		if(!logfile) {
-			snprintf(log_file_err, MAXLEN, "Error opening file %s; detailed logs will not be written\n",
-				 log_file_name);
-			df_error(log_file_err, NULL);
+			df_fail("Error opening file %s; detailed logs will not be written\n",
+				log_file_name);
 			df_full_log_flag = 0;
 		}
-
 	}
 	if (!df_supflg) {		// if -s option was not passed
 		if (df_load_suppressions() == -1) {
