@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 
 import argparse
+import fileinput
 import sys
 
-def main(bus, target, name_for_stdin, files):
+def main(bus, target, name_for_stdin, results_filter, files):
     if name_for_stdin is None and '-' in files:
         return False
+    for line in fileinput.input(files):
+        print(line)
     return True
 
 if __name__ == '__main__':
@@ -18,11 +21,14 @@ if __name__ == '__main__':
             default='dbus-send', help='Target language/library')
     p.add_argument('-n', '--name', type=str, default=None,
             help='Name of the bus to use when taking input from stdin')
+    p.add_argument('-f', '--filter', type=str, choices=['Crash','Success',
+        'Command execution error'], default='[Crash]', nargs='+',help=
+        'List of result types for which reproduction code will be generated')
     p.add_argument('files', type=str, nargs='+',
             help='Paths to log files ("-" for stdin)')
     args = p.parse_args()
     if not main('system' if args.system else 'session', args.target, args.name,
-            args.files):
+            args.filter, args.files):
         p.print_usage(file=sys.stderr)
         print('{}: When taking input from stdin, you must specify bus name'
                 .format(sys.argv[0]))
