@@ -3,15 +3,25 @@
 import argparse
 import fileinput
 import sys
+import os
 
-def main(bus, target, name_for_stdin, results_filter, files):
+def dbus_send(bus, name, method, calls):
+    print(calls)
+
+def main(bus, process, name_for_stdin, results_filter, files):
     if name_for_stdin is None and '-' in files:
         return False
     for line in fileinput.input(files):
-        print(line)
+        parsed_line = line.strip().split(';');
+        if parsed_line[-1] not in results_filter:
+            continue
+        process(bus, name_for_stdin if fileinput.isstdin()
+                else os.path.basename(fileinput.filename()), parsed_line[0],
+                [parsed_line[i:i+1] for i in range(1, len(parsed_line),2)])
     return True
 
 if __name__ == '__main__':
+    functions = {'dbus-send': dbus_send}
     p = argparse.ArgumentParser(
             description='Generate reproduction code from dfuzzer logs')
     g = p.add_mutually_exclusive_group(required=True)
@@ -27,8 +37,8 @@ if __name__ == '__main__':
     p.add_argument('files', type=str, nargs='+',
             help='Paths to log files ("-" for stdin)')
     args = p.parse_args()
-    if not main('system' if args.system else 'session', args.target, args.name,
-            args.filter, args.files):
+    if not main('system' if args.system else 'session', functions[args.target],
+            args.name, args.filter, args.files):
         p.print_usage(file=sys.stderr)
         print('{}: When taking input from stdin, you must specify bus name'
                 .format(sys.argv[0]))
