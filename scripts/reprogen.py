@@ -5,8 +5,38 @@ import fileinput
 import sys
 import os
 
-def dbus_send(bus, name, method, calls):
-    print(calls)
+DBUS_SEND_DICT = {'n': 'int16',
+                  'q': 'unit16',
+                  'i': 'int32',
+                  'u': 'uint32',
+                  'x': 'int64',
+                  't': 'uint64',
+                  'd': 'double',
+                  'y': 'byte',
+                  'b': 'boolean'}
+
+DBUS_SEND_STRINGS_DICT = {'s': 'string',
+                          'o': 'objpath'}
+
+def dbus_send_format(args):
+    ret = ""
+    for arg in args:
+        if arg[0] == '/':
+            continue
+        if arg[0] in DBUS_SEND_DICT:
+            ret += "{}:{} ".format(DBUS_SEND_DICT[arg[0]], arg[1])
+        elif arg[0] in DBUS_SEND_STRINGS_DICT:
+            ret += "{}:`echo {} | xxd -r -p` ".format(
+                    DBUS_SEND_STRINGS_DICT[arg[0]], arg[1])
+        else:
+            print("Argument type {} unsupported for dbus_send".format(arg[0]),
+                    file=sys.stderr)
+            return []
+    return ret
+
+def dbus_send(bus, name, iface, obj, method, args):
+    print("dbus-send --{} --dest={} --print-reply {} {}.{} {}"
+            .format(bus, name, obj, iface, method, dbus_send_format(args)))
 
 def main(bus, process, name_for_stdin, results_filter, files):
     if name_for_stdin is None and '-' in files:
@@ -17,7 +47,8 @@ def main(bus, process, name_for_stdin, results_filter, files):
             continue
         process(bus, name_for_stdin if fileinput.isstdin()
                 else os.path.basename(fileinput.filename()), parsed_line[0],
-                [parsed_line[i:i+2] for i in range(1, len(parsed_line)-1,2)])
+                parsed_line[1], parsed_line[2], [parsed_line[i:i+2]
+                    for i in range(1, len(parsed_line)-1,2)])
     return True
 
 if __name__ == '__main__':
