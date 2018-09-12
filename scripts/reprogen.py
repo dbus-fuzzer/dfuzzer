@@ -18,15 +18,15 @@ DBUS_SEND_DICT = {'n': 'int16',
 DBUS_SEND_STRINGS_DICT = {'s': 'string',
                           'o': 'objpath'}
 
-def dbus_send_format(args):
+def _dbus_send_format(args):
     ret = ""
     for arg in args:
-        if arg[0] == '/':
+        if arg[0] == '/':  # hack for malformed logs
             continue
-        if arg[0] in DBUS_SEND_DICT:
+        if arg[0] in DBUS_SEND_DICT:  # type:value format
             ret += "{}:{} ".format(DBUS_SEND_DICT[arg[0]], arg[1])
         elif arg[0] in DBUS_SEND_STRINGS_DICT:
-            ret += '{}:"`echo {} | xxd -r -p`" '.format(
+            ret += '{}:"`echo {} | xxd -r -p`" '.format(  # decode hex string
                     DBUS_SEND_STRINGS_DICT[arg[0]], arg[1])
         else:
             print("Argument type {} unsupported for dbus_send".format(arg[0]),
@@ -34,26 +34,39 @@ def dbus_send_format(args):
             return []
     return ret
 
+"""Generate reproduction shell command using dbus-send syntax; echo and xxd are
+   required for decoding string arguments."""
 def dbus_send(bus, name, iface, obj, method, args):
     print("dbus-send --{} --dest={} --print-reply {} {}.{} {}"
-            .format(bus, name, obj, iface, method, dbus_send_format(args)))
+            .format(bus, name, obj, iface, method, _dbus_send_format(args)))
 
-def gdbus_format(args):
+def _gdbus_format(args):
     ret = ""
-    print(args, file=sys.stderr)
     for arg in args:
-        if arg[0] == '/':
+        if arg[0] == '/':  # hack for malformed logs
             continue
-        if arg[0] in 'sogv':
+        if arg[0] in 'sogv':  # hex string that must be turned to bytes
             ret += '"`echo {} | xxd -r -p`" '.format(arg[1])
         else:
-            ret += "{} ".format(arg[1])
+            ret += "{} ".format(arg[1])  # primitive types must be put verbatim
     return ret
 
+"""Generate reproduction shell command using gdbus syntax; echo and xxd are
+   required for decoding string arguments."""
 def gdbus(bus, name, iface, obj, method, args):
     print("gdbus call --{} --dest {} --object-path {} --method {}.{} {}"
-            .format(bus, name, obj, iface, method, gdbus_format(args)))
+            .format(bus, name, obj, iface, method, _gdbus_format(args)))
 
+"""Logs are in format that looks like this:
+   interface;object_path;method_name;arg1_type;arg1_value;...;argN_type;
+   argN_value\n
+   
+   Filename of a log file is its bus name, so we need to provide it if reading
+   from standard input. We also have to specify whether we want session or
+   system bus.
+   
+   Filter will be applied to logs so that we'll generate reproducers only for
+   the calls with results that interest us - e.g. only crashes."""
 def main(bus, process, name_for_stdin, results_filter, files):
     if name_for_stdin is None and '-' in files:
         return False
