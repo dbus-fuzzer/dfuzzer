@@ -710,6 +710,7 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 		// else continue, we managed to get process memory size
 		prev_memory = used_memory;
 
+		FULL_LOG("%s;%s;", intf, obj);
 
 		if(logfile) df_fuzz_write_log();
 		FULL_LOG("Success\n");
@@ -735,6 +736,7 @@ fail_label:
 	df_mem_limit = -1;		// set to -1 to reload memory limit
 	if (ret != 1) {
 		df_fail("   on input:\n");
+		FULL_LOG("%s;%s;", intf, obj);
 		df_fuzz_write_log();
 	}
 	if (value != NULL)
