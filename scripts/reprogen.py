@@ -26,7 +26,7 @@ def dbus_send_format(args):
         if arg[0] in DBUS_SEND_DICT:
             ret += "{}:{} ".format(DBUS_SEND_DICT[arg[0]], arg[1])
         elif arg[0] in DBUS_SEND_STRINGS_DICT:
-            ret += "{}:`echo {} | xxd -r -p` ".format(
+            ret += '{}:"`echo {} | xxd -r -p`" '.format(
                     DBUS_SEND_STRINGS_DICT[arg[0]], arg[1])
         else:
             print("Argument type {} unsupported for dbus_send".format(arg[0]),
