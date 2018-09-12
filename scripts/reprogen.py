@@ -39,11 +39,17 @@ def dbus_send(bus, name, iface, obj, method, args):
             .format(bus, name, obj, iface, method, dbus_send_format(args)))
 
 def gdbus_format(args):
-    return ""
+    ret = ""
+    for arg in args:
+        if arg[0] in 'sogv':
+            ret += '"`echo {} | xxd -r -p`" '.format(arg[1])
+        else:
+            ret += "{} ".format(arg[1])
+    return ret
 
 def gdbus(bus, name, iface, obj, method, args):
     print("gdbus call --{} --dest {} --object-path {} --method {}.{} {}"
-            .format(bus, name, obj, iface, method, gdbu_format(args)))
+            .format(bus, name, obj, iface, method, gdbus_format(args)))
 
 def main(bus, process, name_for_stdin, results_filter, files):
     if name_for_stdin is None and '-' in files:
@@ -59,13 +65,13 @@ def main(bus, process, name_for_stdin, results_filter, files):
     return True
 
 if __name__ == '__main__':
-    functions = {'dbus-send': dbus_send}
+    functions = {'dbus-send': dbus_send, 'gdbus': gdbus}
     p = argparse.ArgumentParser(
             description='Generate reproduction code from dfuzzer logs')
     g = p.add_mutually_exclusive_group(required=True)
     g.add_argument('--system',  action='store_true', help='Use system bus')
     g.add_argument('--session', action='store_true', help='Use session bus')
-    p.add_argument('-t', '--target', choices=['dbus-send'],
+    p.add_argument('-t', '--target', choices=['dbus-send', 'gdbus'],
             default='dbus-send', help='Target language/library')
     p.add_argument('-n', '--name', type=str, default=None,
             help='Name of the bus to use when taking input from stdin')
