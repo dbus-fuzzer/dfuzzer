@@ -38,6 +38,13 @@ def dbus_send(bus, name, iface, obj, method, args):
     print("dbus-send --{} --dest={} --print-reply {} {}.{} {}"
             .format(bus, name, obj, iface, method, dbus_send_format(args)))
 
+def gdbus_format(args):
+    return ""
+
+def gdbus(bus, name, iface, obj, method, args):
+    print("gdbus call --{} --dest {} --object-path {} --method {}.{} {}"
+            .format(bus, name, obj, iface, method, gdbu_format(args)))
+
 def main(bus, process, name_for_stdin, results_filter, files):
     if name_for_stdin is None and '-' in files:
         return False
