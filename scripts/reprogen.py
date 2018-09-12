@@ -40,7 +40,10 @@ def dbus_send(bus, name, iface, obj, method, args):
 
 def gdbus_format(args):
     ret = ""
+    print(args, file=sys.stderr)
     for arg in args:
+        if arg[0] == '/':
+            continue
         if arg[0] in 'sogv':
             ret += '"`echo {} | xxd -r -p`" '.format(arg[1])
         else:
