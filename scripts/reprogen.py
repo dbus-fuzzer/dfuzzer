@@ -77,7 +77,7 @@ def main(bus, process, name_for_stdin, results_filter, files):
         process(bus, name_for_stdin if fileinput.isstdin()
                 else os.path.basename(fileinput.filename()), parsed_line[0],
                 parsed_line[1], parsed_line[2], [parsed_line[i:i+2]
-                    for i in range(1, len(parsed_line)-1,2)])
+                    for i in range(3, len(parsed_line)-1,2)])
     return True
 
 if __name__ == '__main__':
