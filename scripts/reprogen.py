@@ -87,7 +87,9 @@ if __name__ == '__main__':
     g = p.add_mutually_exclusive_group(required=True)
     g.add_argument('--system',  action='store_true', help='Use system bus')
     g.add_argument('--session', action='store_true', help='Use session bus')
-    p.add_argument('-t', '--target', choices=['dbus-send', 'gdbus'],
+    # gdbus is temporarily disabled due to bugs (it seems to treat arguments
+    # as XML instead of raw string, and throws errors when it's not valid)
+    p.add_argument('-t', '--target', choices=['dbus-send'],
             default='dbus-send', help='Target language/library')
     p.add_argument('-n', '--name', type=str, default=None,
             help='Name of the bus to use when taking input from stdin')
