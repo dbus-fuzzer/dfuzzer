@@ -27,6 +27,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <getopt.h>
 
 #include "dfuzzer.h"
 #include "introspection.h"
@@ -1078,7 +1079,24 @@ void df_parse_parameters(int argc, char **argv)
 	int c = 0;
 	int nflg = 0, oflg = 0, iflg = 0, mflg = 0, bflg = 0, tflg = 0, eflg = 0, Lflg = 0;
 
-	while ((c = getopt(argc, argv, "n:o:i:m:b:t:e:L:sdvlhV")) != -1) {
+	static const struct option options[] = {
+		{ "buffer-limit",		required_argument,	NULL,	'b' },
+		{ "debug",				no_argument,		NULL,	'd' },
+		{ "command",			required_argument,	NULL,	'e' },
+		{ "help",				no_argument,		NULL,	'h' },
+		{ "interface",			required_argument,	NULL,	'i' },
+		{ "list",				no_argument,		NULL,	'l' },
+		{ "mem-limit",			required_argument,	NULL,	'm' },
+		{ "bus",				required_argument,	NULL,	'n' },
+		{ "object",				required_argument,	NULL,	'o' },
+		{ "no-suppressions",	no_argument,		NULL,	's' },
+		{ "method",				required_argument,	NULL,	't' },
+		{ "verbose",			no_argument,		NULL,	'v' },
+		{ "log-dir",			required_argument,	NULL,	'L' },
+		{ "version",			no_argument,		NULL,	'V' },
+	};
+
+	while ((c = getopt_long(argc, argv, "n:o:i:m:b:t:e:L:sdvlhV", options, NULL)) >= 0) {
 		switch (c) {
 		case 'n':
 			if (nflg != 0) {
@@ -1374,78 +1392,79 @@ file_open:
  */
 void df_print_help(const char *name)
 {
-	printf("Usage: dfuzzer -n BUS_NAME [OTHER_OPTIONS]\n\n"
-	"Tool for fuzz testing processes communicating through D-Bus.\n"
-	"The fuzzer traverses through all the methods on the given bus name.\n"
-	"By default only failures and warnings are printed."
-	" Use -v for verbose mode.\n\n"
-	"REQUIRED OPTIONS:\n"
-	"-n BUS_NAME\n\n"
-	"OTHER OPTIONS:\n"
-	"-V\n"
-	"   Print dfuzzer version and exit.\n"
-	"-h\n"
-	"   Print dfuzzer help and exit.\n"
-	"-l\n"
-	"   List all available connection names on both buses.\n"
-	"-v\n"
-	"   Enable verbose messages.\n"
-	"-d\n"
-	"   Enable debug messages. Implies -v. This option should not be normally\n"
-	"   used during testing.\n"
-	"-L DIRNAME\n"
-	"   Write full, parseable log to a DIRNAME/BUS_NAME file. The directory must exist.\n"
-	"-s\n"
-	"   Do not use suppression file. Default behaviour is to use suppression\n"
-	"   files in this order (if one doesn't exist next in order is taken\n"
-	"   for loading suppressions - this way user can define his own file):\n"
-	"   1. '%s'\n"
-	"   2. '~/%s'\n"
-	"   3. '%s'\n"
-	"   Suppression files must be defined in this format:\n"
-	"   [bus_name_1]\n"
-	"   method0\n"
-	"   [bus_name_2]\n"
-	"   method1\n"
-	"   method2\n"
-	"   ...\n"
-	"   which tells that for example methods 'method1' and 'method2' will be\n"
-	"   skipped when testing bus name 'bus_name_2'.\n"
-	"-o OBJECT_PATH\n"
-	"   Optional object path to test. All children objects are traversed.\n"
-	"-i INTERFACE\n"
-	"   Interface to test. Requires also -o option.\n"
-	"-m MEM_LIMIT [in kB]\n"
-	"   When tested process exceeds this limit, warning is printed\n"
-	"   on the output. Default value for this limit is 3x process intial\n"
-	"   memory size. If set memory limit value is less than or\n"
-	"   equal to process initial memory size, it will be adjusted\n"
-	"   to default value (3x process intial memory size).\n"
-	"-b MAX_BUF_SIZE [in B]\n"
-	"   Maximum buffer size for generated strings, minimal value for this\n"
-	"   option is 256 B. Default maximum size is 50000 B ~= 50 kB (the greater\n"
-	"   the limit, the longer the testing).\n"
-	"-t METHOD_NAME\n"
-	"   When this parameter is provided, only method METHOD_NAME is tested.\n"
-	"   All other methods of an interface are skipped.\n"
-	"   Requires also -o and -i options.\n"
-	"-e 'COMMAND'\n"
-	"   Command/Script to execute after each method call. If command/script\n"
-	"   finishes unsuccessfuly, fail message is printed with its return\n"
-	"   value.\n"
-	"\nExamples:\n\n"
-	" Test all methods of GNOME Shell. Be verbose.\n"
-	" # %s -v -n org.gnome.Shell\n\n"
-	" Test only method of the given bus name, object path and interface.\n"
-	" # %s -n org.freedesktop.Avahi -o / -i org.freedesktop.Avahi.Server -t"
-	" GetAlternativeServiceName\n\n"
-	" Test all methods of Avahi and be verbose. Redirect all log messages\n"
-	" including failures and warnings into avahi.log:\n"
-	" # %s -v -n org.freedesktop.Avahi 2>&1 | tee avahi.log\n\n"
-	" Test name org.freedesktop.Avahi, be verbose and do not use suppression\n"
-	" file:\n"
-	" # %s -v -s -n org.freedesktop.Avahi\n",
-	SF1, SF2, SF3, name, name, name, name);
+	printf(
+		"Usage: dfuzzer -n BUS_NAME [OTHER_OPTIONS]\n\n"
+		"Tool for fuzz testing processes communicating through D-Bus.\n"
+		"The fuzzer traverses through all the methods on the given bus name.\n"
+		"By default only failures and warnings are printed."
+		" Use -v for verbose mode.\n\n"
+		"REQUIRED OPTIONS:\n"
+		"-n --bus=BUS_NAME\n\n"
+		"OTHER OPTIONS:\n"
+		"-V --version\n"
+		"   Print dfuzzer version and exit.\n"
+		"-h --help\n"
+		"   Print dfuzzer help and exit.\n"
+		"-l --list\n"
+		"   List all available connection names on both buses.\n"
+		"-v --verbose\n"
+		"   Enable verbose messages.\n"
+		"-d --debug\n"
+		"   Enable debug messages. Implies -v. This option should not be normally\n"
+		"   used during testing.\n"
+		"-L --log-dir=DIRNAME\n"
+		"   Write full, parseable log to a DIRNAME/BUS_NAME file. The directory must exist.\n"
+		"-s --no-suppressions\n"
+		"   Do not use suppression file. Default behaviour is to use suppression\n"
+		"   files in this order (if one doesn't exist next in order is taken\n"
+		"   for loading suppressions - this way user can define his own file):\n"
+		"   1. '%s'\n"
+		"   2. '~/%s'\n"
+		"   3. '%s'\n"
+		"   Suppression files must be defined in this format:\n"
+		"   [bus_name_1]\n"
+		"   method0\n"
+		"   [bus_name_2]\n"
+		"   method1\n"
+		"   method2\n"
+		"   ...\n"
+		"   which tells that for example methods 'method1' and 'method2' will be\n"
+		"   skipped when testing bus name 'bus_name_2'.\n"
+		"-o --object=OBJECT_PATH\n"
+		"   Optional object path to test. All children objects are traversed.\n"
+		"-i --interface=INTERFACE\n"
+		"   Interface to test. Requires also -o option.\n"
+		"-m --mem-limit=MEM_LIMIT [in kB]\n"
+		"   When tested process exceeds this limit, warning is printed\n"
+		"   on the output. Default value for this limit is 3x process intial\n"
+		"   memory size. If set memory limit value is less than or\n"
+		"   equal to process initial memory size, it will be adjusted\n"
+		"   to default value (3x process intial memory size).\n"
+		"-b --buffer-limit=MAX_BUF_SIZE [in B]\n"
+		"   Maximum buffer size for generated strings, minimal value for this\n"
+		"   option is 256 B. Default maximum size is 50000 B ~= 50 kB (the greater\n"
+		"   the limit, the longer the testing).\n"
+		"-t --method=METHOD_NAME\n"
+		"   When this parameter is provided, only method METHOD_NAME is tested.\n"
+		"   All other methods of an interface are skipped.\n"
+		"   Requires also -o and -i options.\n"
+		"-e --command=COMMAND\n"
+		"   Command/Script to execute after each method call. If command/script\n"
+		"   finishes unsuccessfuly, fail message is printed with its return\n"
+		"   value.\n"
+		"\nExamples:\n\n"
+		" Test all methods of GNOME Shell. Be verbose.\n"
+		" # %s -v -n org.gnome.Shell\n\n"
+		" Test only method of the given bus name, object path and interface.\n"
+		" # %s -n org.freedesktop.Avahi -o / -i org.freedesktop.Avahi.Server -t"
+		" GetAlternativeServiceName\n\n"
+		" Test all methods of Avahi and be verbose. Redirect all log messages\n"
+		" including failures and warnings into avahi.log:\n"
+		" # %s -v -n org.freedesktop.Avahi 2>&1 | tee avahi.log\n\n"
+		" Test name org.freedesktop.Avahi, be verbose and do not use suppression\n"
+		" file:\n"
+		" # %s -v -s -n org.freedesktop.Avahi\n",
+		SF1, SF2, SF3, name, name, name, name);
 }
 
 /**
