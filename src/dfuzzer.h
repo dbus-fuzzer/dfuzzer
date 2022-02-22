@@ -37,6 +37,10 @@
 /** Maximum length of strings containing D-Bus name, interface and object path */
 #define MAXLEN 256
 
+static inline int isempty(const char *s) {
+	return !s || s[0] == '\0';
+}
+
 /* Returns the number of chars needed to format variables of the
  * specified type as a decimal string. Adds in extra space for a
  * negative '-' prefix (hence works correctly on signed
@@ -51,11 +55,11 @@
 struct fuzzing_target {
 	/* names on D-Bus have the most MAXLEN characters */
 	/** Bus name */
-	char name[MAXLEN];
+	char *name;
 	/** Object path */
-	char obj_path[MAXLEN];
+	char *obj_path;
 	/** Interface */
-	char interface[MAXLEN];
+	char *interface;
 };
 
 #define ANSI_RED        "\x1B[0;31m"

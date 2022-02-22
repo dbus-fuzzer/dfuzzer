@@ -71,7 +71,7 @@ static char *df_execute_cmd;
     written to a [BUS_NAME.log] file */
 static int df_full_log_flag;
 /** Path to directory containing output logs */
-static char log_dir_name[MAXLEN];
+static char *log_dir_name;
 /** Pointer to a file for full logging  */
 FILE* logfile;
 
@@ -1077,7 +1077,6 @@ void df_print_process_info(int pid)
 void df_parse_parameters(int argc, char **argv)
 {
 	int c = 0;
-	int nflg = 0, oflg = 0, iflg = 0, mflg = 0, bflg = 0, tflg = 0, eflg = 0, Lflg = 0;
 
 	static const struct option options[] = {
 		{ "buffer-limit",		required_argument,	NULL,	'b' },
@@ -1099,50 +1098,30 @@ void df_parse_parameters(int argc, char **argv)
 	while ((c = getopt_long(argc, argv, "n:o:i:m:b:t:e:L:sdvlhV", options, NULL)) >= 0) {
 		switch (c) {
 		case 'n':
-			if (nflg != 0) {
-				df_fail("%s: no duplicate options -- 'n'\n", argv[0]);
-				exit(1);
-			}
-			nflg++;
 			if (strlen(optarg) >= MAXLEN) {
 				df_fail("%s: maximum %d characters for option --"
 						" 'n'\n", argv[0], MAXLEN - 1);
 				exit(1);
 			}
-			strncpy(target_proc.name, optarg, MAXLEN);
+			target_proc.name = optarg;
 			break;
 		case 'o':
-			if (oflg != 0) {
-				df_fail("%s: no duplicate options -- 'o'\n", argv[0]);
-				exit(1);
-			}
-			oflg++;
 			if (strlen(optarg) >= MAXLEN) {
 				df_fail("%s: maximum %d characters for option --"
 						" 'o'\n", argv[0], MAXLEN - 1);
 				exit(1);
 			}
-			strncpy(target_proc.obj_path, optarg, MAXLEN);
+			target_proc.obj_path = optarg;
 			break;
 		case 'i':
-			if (iflg != 0) {
-				df_fail("%s: no duplicate options -- 'i'\n", argv[0]);
-				exit(1);
-			}
-			iflg++;
 			if (strlen(optarg) >= MAXLEN) {
 				df_fail("%s: maximum %d characters for option --"
 						" 'i'\n", argv[0], MAXLEN - 1);
 				exit(1);
 			}
-			strncpy(target_proc.interface, optarg, MAXLEN);
+			target_proc.interface = optarg;
 			break;
 		case 'm':
-			if (mflg != 0) {
-				df_fail("%s: no duplicate options -- 'm'\n", argv[0]);
-				exit(1);
-			}
-			mflg++;
 			df_mem_limit = strtol(optarg, NULL, 10);
 			if (df_mem_limit <= 0 || errno == ERANGE || errno == EINVAL) {
 				df_fail("%s: invalid value for option -- 'm'\n", argv[0]);
@@ -1150,11 +1129,6 @@ void df_parse_parameters(int argc, char **argv)
 			}
 			break;
 		case 'b':
-			if (bflg != 0) {
-				df_fail("%s: no duplicate options -- 'b'\n", argv[0]);
-				exit(1);
-			}
-			bflg++;
 			df_buf_size = strtol(optarg, NULL, 10);
 			if (df_buf_size < MINLEN || errno == ERANGE || errno == EINVAL) {
 				df_fail("%s: invalid value for option -- 'b'\n"
@@ -1163,19 +1137,9 @@ void df_parse_parameters(int argc, char **argv)
 			}
 			break;
 		case 't':
-			if (tflg != 0) {
-				df_fail("%s: no duplicate options -- 't'\n", argv[0]);
-				exit(1);
-			}
-			tflg++;
 			df_test_method = optarg;
 			break;
 		case 'e':
-			if (eflg != 0) {
-				df_fail("%s: no duplicate options -- 'e'\n", argv[0]);
-				exit(1);
-			}
-			eflg++;
 			df_execute_cmd = optarg;
 			break;
 		case 's':
@@ -1199,19 +1163,13 @@ void df_parse_parameters(int argc, char **argv)
 			exit(0);
 			break;
 		case 'L':
-			if (Lflg != 0) {
-				df_fail("%s: no duplicate options -- 'L'\n", argv[0]);
-				exit(1);
-			}
-			Lflg++;
-
 			//we need at least 1 more char than usual for directory separator
 			if (strlen(optarg) >= MAXLEN -1) {
 				df_fail("%s: maximum %d characters for option --"
 						" 'L'\n", argv[0], MAXLEN - 1);
 				exit(1);
 			}
-			strncpy(log_dir_name, optarg, MAXLEN);
+			log_dir_name = optarg;
 			df_full_log_flag = 1;
 			break;
 		default:	// '?'
@@ -1220,13 +1178,13 @@ void df_parse_parameters(int argc, char **argv)
 		}
 	}
 
-	if (!nflg && !df_list_names) {
+	if (isempty(target_proc.name) && !df_list_names) {
 		df_fail("Error: Connection name is required!\n"
 				"See -h for help.\n");
 		exit(1);
 	}
 
-	if (iflg && !oflg) {
+	if (!isempty(target_proc.interface) && isempty(target_proc.obj_path)) {
 		df_fail("Error: Object path is required if interface specified!\n"
 				"See -h for help.\n");
 		exit(1);
