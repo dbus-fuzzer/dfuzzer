@@ -1087,6 +1087,7 @@ void df_parse_parameters(int argc, char **argv)
                 { "verbose",            no_argument,        NULL,   'v' },
                 { "log-dir",            required_argument,  NULL,   'L' },
                 { "version",            no_argument,        NULL,   'V' },
+                {}
         };
 
         while ((c = getopt_long(argc, argv, "n:o:i:m:b:t:e:L:sdvlhV", options, NULL)) >= 0) {
