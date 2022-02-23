@@ -1,3 +1,3 @@
-set noet
-set tabstop=4
-set shiftwidth=4
+set et
+set tabstop=8
+set shiftwidth=8

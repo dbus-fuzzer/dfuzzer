@@ -31,33 +31,33 @@
 #define MAXLINE 1024
 
 /** Maximum amount of unimportant exceptions for one method; if reached
-	testing continues with a next method */
+  * testing continues with a next method */
 #define MAX_EXCEPTIONS 10
 
 
 /** Structure contains a D-Bus signature of the argument and pointer to a next
-	argument (arguments belongs to the method df_method_name
-	in structure df_sig_list).
-*/
+  * argument (arguments belongs to the method df_method_name
+  * in structure df_sig_list).
+  */
 struct df_signature {
-	/** D-Bus signature of the argument */
-	char *sig;
-	/** Storage for randomly generated data for the argument */
-	GVariant *var;
-	/** Pointer on next argument */
-	struct df_signature *next;
+        /** D-Bus signature of the argument */
+        char *sig;
+        /** Storage for randomly generated data for the argument */
+        GVariant *var;
+        /** Pointer on next argument */
+        struct df_signature *next;
 };
 
 /** Linked list of the method arguments and theirs signatures. */
 struct df_sig_list {
-	/** name of the current fuzzed method */
-	char *df_method_name;
-	/** number of arguments for method */
-	int args;
-	/** if 1, fuzzing will be controlled by generated random strings lengths */
-	int fuzz_on_str_len;
-	/** if no arguments - NULL, otherwise NULL terminated linked list */
-	struct df_signature *list;
+        /** name of the current fuzzed method */
+        char *df_method_name;
+        /** number of arguments for method */
+        int args;
+        /** if 1, fuzzing will be controlled by generated random strings lengths */
+        int fuzz_on_str_len;
+        /** if no arguments - NULL, otherwise NULL terminated linked list */
+        struct df_signature *list;
 };
 
 
@@ -84,7 +84,7 @@ inline int df_ewrite(int fd, const void *buf, size_t count);
  * @return 0 on success, -1 on error
  */
 int df_fuzz_init(GDBusProxy *dproxy, const int statfd,
-				const int pid, const long mem_limit);
+                const int pid, const long mem_limit);
 
 /**
  * @function Initializes the global variable df_list (struct df_sig_list)
@@ -125,8 +125,8 @@ int df_list_args_count(void);
  * command finished unsuccessfuly
  */
 int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
-						const char *obj, const char *intf, const int pid,
-						const int void_method, const char *execute_cmd);
+                const char *obj, const char *intf, const int pid,
+                const int void_method, const char *execute_cmd);
 
 /**
  * @function Releases memory used by this module. This function must be called

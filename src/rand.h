@@ -33,7 +33,7 @@
 #define MAXSIG 255
 
 /** Maximum number of generations of non-string values (for functions
-	without string arguments) */
+  * without string arguments) */
 #define MAX_FUZZ_COUNTER 1000
 
 
