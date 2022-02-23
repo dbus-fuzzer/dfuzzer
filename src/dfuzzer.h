@@ -37,6 +37,16 @@
 /** Maximum length of strings containing D-Bus name, interface and object path */
 #define MAXLEN 256
 
+static inline void closep(int *fd) {
+        if (*fd < 0)
+                return;
+
+        close(*fd);
+}
+
+#define _cleanup_(x) __attribute__((__cleanup__(x)))
+#define _cleanup_close_ _cleanup_(closep)
+
 static inline int isempty(const char *s) {
         return !s || s[0] == '\0';
 }

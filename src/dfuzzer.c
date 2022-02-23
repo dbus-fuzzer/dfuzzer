@@ -925,58 +925,60 @@ int df_get_pid(const GDBusConnection *dcon)
 void df_print_process_info(int pid)
 {
         char proc_path[15+DECIMAL_STR_MAX(int)]; // "/proc/(int)/[exe|cmdline]"
-        char name[PATH_MAX];           // for storing process and package name
+        char name[PATH_MAX + 1];       // for storing process and package name
         char buf[PATH_MAX + MAXLEN];   // buffer for rpm/dpkg request
         FILE *fp;
-        char *c;
-        int fd, stdoutcpy, stderrcpy, ret;
-
+        _cleanup_close_ int fd = -1;
+        int stdoutcpy, stderrcpy, ret;
 
         sprintf(proc_path, "/proc/%d/exe", pid);
-        ret = readlink(proc_path, name, sizeof(name));
+        ret = readlink(proc_path, name, PATH_MAX);
+        if (ret > 0) {
+                name[ret] = '\0';
+
+                if (ret == PATH_MAX)
+                        df_verbose("The process name was truncated\n");
+
+                if (!strstr(name, "python") && !strstr(name, "perl")) {
+                        fprintf(stderr, "%s%s[PROCESS: %s%s\n",
+                                ansi_cr(), ansi_cyan(), name, ansi_normal());
+                        return;
+                }
+        }
+
+        // if readlink failed or executable was interpret (and our target is
+        // interpreted script), try to read cmdline
+        sprintf(proc_path, "/proc/%d/cmdline", pid);
+        fd = open(proc_path, O_RDONLY);
+        if (fd <= 0) {
+                perror("open");
+                return;
+        }
+
+        for (int i = 0;; i++) {
+                if (i >= PATH_MAX) {
+                        df_verbose("The process name was truncated\n");
+                        name[PATH_MAX] = '\0';
+                        break;
+                }
+
+                ret = read(fd, (name + i), 1);
+                if (ret < 0) {
+                        perror("read");
+                        return;
+                }
+
+                if (name[i] == '\0')
+                        break;
+        }
+
+        fprintf(stderr, "%s%s[PROCESS: %s%s\n",
+                ansi_cr(), ansi_cyan(), name, ansi_normal());
+
         // excludes interprets
-        if (ret != -1 && strstr(name, "python") == NULL && strstr(name, "perl") == NULL)
-                fprintf(stderr, "%s%s[PROCESS: %s%s\n",
-                        ansi_cr(), ansi_cyan(), name, ansi_normal());
-        else {
-                // if readlink failed or executable was interpret (and our target is
-                // interpreted script), try to read cmdline
-                sprintf(proc_path, "/proc/%d/cmdline", pid);
-                fd = open(proc_path, O_RDONLY);
-                if (fd == -1)
-                        return;
-
-                ret = 1;
-                c = name;
-                fprintf(stderr, "%s%s[PROCESS: ", ansi_cr(), ansi_cyan());
-                while (ret > 0) {
-                        ret = read(fd, c, 1);
-                        if (ret > 0) {
-                                if (*c == '\0')
-                                        *c = ' ';
-                                fprintf(stderr, "%c", *c);
-                        }
-                        if (ret == -1) {
-                                fprintf(stderr, "%s\n", ansi_normal());
-                                close(fd);
-                                return;
-                        }
-                        c++;
-                }
-                *c = '\0';
-                fprintf(stderr, "%s\n", ansi_normal());
-                close(fd);
-
-                // excludes interprets
-                if (strstr(name, "python") != NULL || strstr(name, "perl") != NULL) {
-                        fprintf(stderr, "%s%s[PACKAGE: %s\n", ansi_cr(), ansi_cyan(), ansi_normal());
-                        return;
-                } else {    // removes cmdline arguments
-                        c = name;
-                        while (*c != ' ' && *c != '\0')
-                                c++;
-                        *c = '\0';
-                }
+        if (strstr(name, "python") || strstr(name, "perl")) {
+                fprintf(stderr, "%s%s[PACKAGE: %s\n", ansi_cr(), ansi_cyan(), ansi_normal());
+                return;
         }
 
 
