@@ -672,7 +672,7 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
                 }
 
                 if (execr > 0) {
-                        df_fail("%s  %SFAIL%s %s - '%s' returned %s%d%s\n",
+                        df_fail("%s  %sFAIL%s %s - '%s' returned %s%d%s\n",
                                 ansi_cr(), ansi_red(), ansi_normal(), df_list.df_method_name,
                                 execute_cmd, ansi_red(), execr, ansi_normal());
                         goto fail_label;
