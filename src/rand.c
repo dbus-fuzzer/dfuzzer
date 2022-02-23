@@ -55,18 +55,13 @@ static long df_str_len;
   */
 static const char *df_str_def[] = {
         "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-        /*
-           "%s%s%s%s%s%s%s%s%s%n%s%n%n%n%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s",
-           "%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n"
-           "%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n",
-           "bomb(){ bomb|bomb & }; bomb",
-           ":1.285",
-           "org.freedesktop.foo",
-           "/org/freedesktop/foo",
-           "rm -rf /",
-           "rm -f *",
-           "rm -rf ~/",
-           */
+        "%s%s%s%s%s%s%s%s%s%n%s%n%n%n%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s",
+        "%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n"
+        "%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n",
+        "bomb(){ bomb|bomb & }; bomb",
+        ":1.285",
+        "org.freedesktop.foo",
+        "/org/freedesktop/foo",
         NULL
 };
 
