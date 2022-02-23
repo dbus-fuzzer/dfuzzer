@@ -329,6 +329,8 @@ int df_list_bus_names(const GDBusConnection *dcon)
         }
         g_variant_iter_free(iter);
         g_variant_unref(response);
+
+        return 0;
 }
 
 /**
