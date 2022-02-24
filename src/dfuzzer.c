@@ -152,7 +152,7 @@ int main(int argc, char **argv)
                 df_pid = df_get_pid(dcon);
                 if (df_pid > 0) {
                         df_print_process_info(df_pid);
-                        fprintf(stderr, "%s%s[CONNECTED TO PID: %d%s\n",
+                        fprintf(stderr, "%s%s[CONNECTED TO PID: %d]%s\n",
                                 ansi_cr(), ansi_cyan(), df_pid, ansi_normal());
                         if (strlen(target_proc.interface) != 0) {
                                 fprintf(stderr, "Object: %s%s%s\n",
@@ -209,7 +209,7 @@ skip_session:
                 df_pid = df_get_pid(dcon);
                 if (df_pid > 0) {
                         df_print_process_info(df_pid);
-                        fprintf(stderr, "%s%s[CONNECTED TO PID: %d%s\n",
+                        fprintf(stderr, "%s%s[CONNECTED TO PID: %d]%s\n",
                                 ansi_cr(), ansi_cyan(), df_pid, ansi_normal());
                         if (strlen(target_proc.interface) != 0) {
                                 fprintf(stderr, "Object: %s%s%s\n",
@@ -769,7 +769,7 @@ int df_fuzz(const GDBusConnection *dcon, const char *name, const char *obj, cons
                                 df_debug("Error in df_get_pid() on getting pid of process\n");
                                 return 1;
                         }
-                        fprintf(stderr, "%s%s[RE-CONNECTED TO PID: %d%s\n",
+                        fprintf(stderr, "%s%s[RE-CONNECTED TO PID: %d]%s\n",
                                         ansi_cr(), ansi_cyan(), df_pid, ansi_blue());
 
                         // opens process status file
@@ -940,7 +940,7 @@ void df_print_process_info(int pid)
                         df_verbose("The process name was truncated\n");
 
                 if (!strstr(name, "python") && !strstr(name, "perl")) {
-                        fprintf(stderr, "%s%s[PROCESS: %s%s\n",
+                        fprintf(stderr, "%s%s[PROCESS: %s]%s\n",
                                 ansi_cr(), ansi_cyan(), name, ansi_normal());
                         return;
                 }
@@ -972,7 +972,7 @@ void df_print_process_info(int pid)
                         break;
         }
 
-        fprintf(stderr, "%s%s[PROCESS: %s%s\n",
+        fprintf(stderr, "%s%s[PROCESS: %s]%s\n",
                 ansi_cr(), ansi_cyan(), name, ansi_normal());
 
         // excludes interprets
