@@ -33,6 +33,7 @@
 #include "fuzz.h"
 #include "dfuzzer.h"
 #include "rand.h"
+#include "util.h"
 
 
 /** Pointer on D-Bus interface proxy for calling methods. */

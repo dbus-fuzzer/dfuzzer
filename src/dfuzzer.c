@@ -32,6 +32,7 @@
 #include "dfuzzer.h"
 #include "introspection.h"
 #include "fuzz.h"
+#include "util.h"
 
 
 /** Structure containing D-Bus name, object path and interface of process */
