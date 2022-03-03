@@ -49,7 +49,7 @@ static GDBusArgInfo **df_out_args;
  */
 int df_init_introspection(const GDBusProxy *dproxy, const char *name, const char *interface)
 {
-        if (dproxy == NULL || interface == NULL) {
+        if (!dproxy || !interface) {
                 df_debug("Passing NULL argument to function.\n");
                 return -1;
         }
@@ -64,7 +64,7 @@ int df_init_introspection(const GDBusProxy *dproxy, const char *name, const char
                         "org.freedesktop.DBus.Introspectable.Introspect",
                         NULL, G_DBUS_CALL_FLAGS_NONE, -1,
                         NULL, &error);
-        if (response == NULL) {
+        if (!response) {
                 g_dbus_error_strip_remote_error(error);
                 df_fail("Error: %s.\n", error->message);
                 df_error("Error in g_dbus_proxy_call_sync()", error);
@@ -73,7 +73,7 @@ int df_init_introspection(const GDBusProxy *dproxy, const char *name, const char
 
         g_variant_get(response, "(s)", &introspection_xml);
         g_variant_unref(response);
-        if (introspection_xml == NULL) {
+        if (!introspection_xml) {
                 df_fail("Error: Unable to get introspection data from GVariant.\n");
                 return -1;
         }
@@ -82,7 +82,7 @@ int df_init_introspection(const GDBusProxy *dproxy, const char *name, const char
         // the data.
         df_introspection_data = g_dbus_node_info_new_for_xml(introspection_xml, &error);
         g_free(introspection_xml);
-        if (df_introspection_data == NULL) {
+        if (!df_introspection_data) {
                 df_fail("Error: Unable to get introspection data.\n");
                 df_error("Error in g_dbus_node_info_new_for_xml()", error);
                 return -1;
@@ -90,7 +90,7 @@ int df_init_introspection(const GDBusProxy *dproxy, const char *name, const char
 
         // Looks up information about an interface (methods, their arguments, etc).
         df_interface_data = g_dbus_node_info_lookup_interface(df_introspection_data, interface);
-        if (df_interface_data == NULL) {
+        if (!df_interface_data) {
                 df_fail("Error: Unable to get interface '%s' data.\n", interface);
                 df_debug("Error in g_dbus_node_info_lookup_interface()\n");
                 return -1;
@@ -99,7 +99,7 @@ int df_init_introspection(const GDBusProxy *dproxy, const char *name, const char
         // *df_methods is a pointer on the GDBusMethodInfo structure (first method)
         // of interface.
         df_methods = df_interface_data->methods;
-        if (*df_methods == NULL) {
+        if (!*df_methods) {
                 df_debug("Interface '%s' has no methods to test - skipping\n", interface);
                 return 0;
         }
@@ -125,7 +125,7 @@ GDBusMethodInfo *df_get_method(void)
 void df_next_method(void)
 {
         df_methods++;
-        if (*df_methods != NULL) {
+        if (*df_methods) {
                 // sets pointer on args of current method
                 df_in_args = (*df_methods)->in_args;
                 df_out_args = (*df_methods)->out_args;
@@ -155,7 +155,7 @@ void df_next_method_arg(void)
  */
 int df_method_has_out_args(void)
 {
-        if (*df_out_args != NULL)
+        if (*df_out_args)
                 return 1;
         return 0;
 }

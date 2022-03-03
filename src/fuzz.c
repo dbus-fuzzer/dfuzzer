@@ -150,17 +150,16 @@ int df_fuzz_init(GDBusProxy *dproxy, const int statfd,
  */
 int df_fuzz_add_method(const char *name)
 {
-        if (name == NULL) {
+        if (!name) {
                 df_debug("Passing NULL argument to function.\n");
                 return -1;
         }
 
-        df_list.df_method_name = malloc(sizeof(char) * strlen(name) + 1);
-        if (df_list.df_method_name == NULL) {
+        df_list.df_method_name = strdup(name);
+        if (!df_list.df_method_name) {
                 df_fail("Error: Could not allocate memory for method name.\n");
                 return -1;
         }
-        strcpy(df_list.df_method_name, name);
 
         // must be initialized because after df_fuzz_clean_method() memory
         // of df_list contains junk
@@ -180,11 +179,13 @@ int df_fuzz_add_method(const char *name)
  */
 int df_fuzz_add_method_arg(const char *signature)
 {
-        if (signature == NULL)
+        struct df_signature *s;
+
+        if (!signature)
                 return 0;
 
-        struct df_signature *s;
-        if ((s = malloc(sizeof(struct df_signature))) == NULL) {
+        s = malloc(sizeof(*s));
+        if (!s) {
                 df_fail("Error: Could not allocate memory for struct df_signature.\n");
                 return -1;
         }
@@ -192,20 +193,17 @@ int df_fuzz_add_method_arg(const char *signature)
         df_list.args++;
         s->next = NULL;
         s->var = NULL;
-        s->sig = malloc(sizeof(char) * strlen(signature) + 1);
-        if (s->sig == NULL) {
+        s->sig = strdup(signature);
+        if (!s->sig) {
                 df_fail("Error: Could not allocate memory for argument signature.\n");
                 return -1;
         }
-        strcpy(s->sig, signature);
 
         // fuzzing controlled by generated random strings lengths
-        if (strstr(s->sig, "s") != NULL)
-                df_list.fuzz_on_str_len = 1;
-        if (strstr(s->sig, "v") != NULL)
+        if (strstr(s->sig, "s") || strstr(s->sig, "v"))
                 df_list.fuzz_on_str_len = 1;
 
-        if (df_list.list == NULL) {
+        if (!df_list.list) {
                 df_list.list = s;
                 df_last = s;
         } else {
@@ -598,7 +596,8 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 
 
                 // creates variant containing all (fuzzed) method arguments
-                if ((value = df_fuzz_create_variant()) == NULL) {
+                value = df_fuzz_create_variant();
+                if (!value) {
                         if (df_unsupported_sig) {
                                 df_unsupported_sig = 0;
                                 df_debug("  unsupported argument by dfuzzer: ");
@@ -792,9 +791,17 @@ err_label:
 static GVariant *df_fuzz_create_variant(void)
 {
         struct df_signature *s = df_list.list;  // pointer on first signature
+        // libffi part, to construct dynamic call of g_variant_new() on runtime
+        GVariant *val = NULL;
+        ffi_cif cif;
+        // MAXSIG = max. amount of D-Bus signatures + 1 (format string)
+        ffi_type *args[MAXSIG + 1];
+        void *values[MAXSIG + 1];
+        char *fmt;      // format string
+        int ret;
 
         // creates GVariant for every item signature in linked list
-        int ret = df_fuzz_create_list_variants();
+        ret = df_fuzz_create_list_variants();
         if (ret == -1) {
                 df_debug("Error in df_fuzz_create_list_variants()\n");
                 return NULL;
@@ -803,17 +810,8 @@ static GVariant *df_fuzz_create_variant(void)
                 return NULL;
         }
 
-        // libffi part, to construct dynamic call of g_variant_new() on runtime
-        GVariant *val = NULL;
-        ffi_cif cif;
-
-        // MAXSIG = max. amount of D-Bus signatures + 1 (format string)
-        ffi_type *args[MAXSIG + 1];
-        void *values[MAXSIG + 1];
-        char *fmt;      // format string
-        int i;
-
-        if ((fmt = malloc(MAXFMT + 1)) == NULL) {
+        fmt = malloc(MAXFMT + 1);
+        if (!fmt) {
                 df_fail("Error: Could not allocate memory for format string.\n");
                 return NULL;
         }
@@ -825,11 +823,10 @@ static GVariant *df_fuzz_create_variant(void)
                 return NULL;
         }
 
-
         // Initialize the argument info vectors
         args[0] = &ffi_type_pointer;
         values[0] = &fmt;
-        for (i = 1; i <= df_list.args && s != NULL; i++) {
+        for (int i = 1; i <= df_list.args && s; i++) {
                 args[i] = &ffi_type_pointer;
                 values[i] = &(s->var);
                 s = s->next;
@@ -1042,9 +1039,10 @@ static int df_fuzz_call_method(const GVariant *value, const int void_method)
                         df_list.df_method_name,
                         value, G_DBUS_CALL_FLAGS_NONE, -1,
                         NULL, &error);
-        if (response == NULL) {
+        if (!response) {
                 // D-Bus exceptions are accepted
-                if ((dbus_error = g_dbus_error_get_remote_error(error)) != NULL) {
+                dbus_error = g_dbus_error_get_remote_error(error);
+                if (dbus_error) {
                         // if process does not respond
                         if (strcmp(dbus_error, "org.freedesktop.DBus.Error.NoReply") == 0) {
                                 g_free(dbus_error);
@@ -1068,7 +1066,7 @@ static int df_fuzz_call_method(const GVariant *value, const int void_method)
                 }
 
                 g_dbus_error_strip_remote_error(error);
-                if (strstr(error->message, "Timeout") != NULL) {
+                if (strstr(error->message, "Timeout")) {
                         df_verbose("%s  %sSKIP%s %s - timeout reached\n",
                                    ansi_cr(), ansi_blue(), ansi_normal(), df_list.df_method_name);
                         g_error_free(error);
