@@ -112,28 +112,23 @@ int main(int argc, char **argv)
         rsys = df_process_bus(G_BUS_TYPE_SYSTEM);
 
         // both tests ended with error
-        if (rses == DF_BUS_ERROR || rsys == DF_BUS_ERROR) {
-                fprintf(stderr, "%sExit status: 1%s\n", ansi_bold(), ansi_normal());
+        if (rses == DF_BUS_ERROR || rsys == DF_BUS_ERROR)
                 ret = 1;
-        } else if (rses == DF_BUS_FAIL || rsys == DF_BUS_FAIL) {
+        else if (rses == DF_BUS_FAIL || rsys == DF_BUS_FAIL)
                 // at least one test found failures
-                fprintf(stderr, "%sExit status: 2%s\n", ansi_bold(), ansi_normal());
                 ret = 2;
-        } else if (rses == DF_BUS_WARNING || rsys == DF_BUS_WARNING) {
+        else if (rses == DF_BUS_WARNING || rsys == DF_BUS_WARNING)
                 // at least one test found warnings
-                fprintf(stderr, "%sExit status: 3%s\n", ansi_bold(), ansi_normal());
                 ret = 3;
-        } else if (rses == DF_BUS_NO_PID && rsys == DF_BUS_NO_PID) {
-                // we couldn't get the process ID on neither of the buses
-                fprintf(stderr, "%sExit status: 4%s\n", ansi_bold(), ansi_normal());
-                ret = 4;
-        } else {
-                // cases where rses=1,rsys=0 or rses=0,rsys=1 are ok,
-                // because tests on one of the bus daemons finished
-                // successfuly
-                fprintf(stderr, "%sExit status: 0%s\n", ansi_bold(), ansi_normal());
+        else if (rses == DF_BUS_OK || rsys == DF_BUS_OK)
+                // at least one of the tests passed (and the other one is not in
+                // a fail state)
                 ret = 0;
-        }
+        else
+                // all remaining combinations, like both results missing
+                ret = 4;
+
+        fprintf(stderr, "%sExit status: %d%s\n", ansi_bold(), ret, ansi_normal());
 
 cleanup:
         // free all suppressions and their descriptions
