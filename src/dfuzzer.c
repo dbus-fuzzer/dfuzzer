@@ -858,10 +858,12 @@ int df_is_valid_dbus(const char *name, const char *obj, const char *intf)
  */
 int df_open_proc_status_file(const int pid)
 {
-        char file_path[25];     // "/proc/(max10chars)/status"
+        char file_path[14 + DECIMAL_STR_MAX(pid)]; // "/proc/PID/status"
+        int statfd;
+
         sprintf(file_path, "/proc/%d/status", pid);
 
-        int statfd = open(file_path, O_RDONLY);
+        statfd = open(file_path, O_RDONLY);
         if (statfd == -1) {
                 df_fail("Error: Unable to open file '%s'.\n", file_path);
                 return -1;
