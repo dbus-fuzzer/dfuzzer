@@ -1,21 +1,34 @@
 /** @file util.h */
 #pragma once
 
-static inline void g_object_unrefp(gpointer *gobj) {
-        if (!*gobj)
-                return;
+/* When func() returns the void value (NULL, -1, …) of the appropriate type */
+#define DEFINE_TRIVIAL_CLEANUP_FUNC(type, func)                 \
+        static inline void func##p(type *p) {                   \
+                if (*p)                                         \
+                        *p = func(*p);                          \
+        }
 
-        g_object_unref(*gobj);
-}
+/* When func() doesn't return the appropriate type, set variable to empty afterwards */
+#define DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(type, func, empty)     \
+        static inline void func##p(type *p) {                   \
+                if (*p != (empty)) {                            \
+                        func(*p);                               \
+                        *p = (empty);                           \
+                }                                               \
+        }
 
-static inline void closep(int *fd) {
-        if (*fd < 0)
-                return;
+DEFINE_TRIVIAL_CLEANUP_FUNC(int, close);
 
-        close(*fd);
-}
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(char*, free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(gpointer, g_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(gpointer, g_object_unref, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(GVariantIter*, g_variant_iter_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(GError*, g_error_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(GVariant*, g_variant_unref, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(GDBusNodeInfo*, g_dbus_node_info_unref, NULL);
 
 #define _cleanup_(x) __attribute__((__cleanup__(x)))
+#define _cleanup_free_ _cleanup_(freep)
 #define _cleanup_close_ _cleanup_(closep)
 
 static inline int isempty(const char *s) {
@@ -37,6 +50,9 @@ static inline int isempty(const char *s) {
                 !__builtin_types_compatible_p(typeof(x), typeof(&*(x))), \
                 sizeof(x)/sizeof((x)[0]),                               \
                 (void*)0))
+
+char *strjoin_real(const char *x, ...) __attribute__((__sentinel__));
+#define strjoin(a, ...) strjoin_real((a), __VA_ARGS__, NULL)
 
 #define strjoina(a, ...)                                                \
         ({                                                              \
@@ -83,5 +99,3 @@ DEFINE_ANSI_FUNC(cyan,       CYAN);
 DEFINE_ANSI_FUNC(normal,     NORMAL);
 DEFINE_ANSI_FUNC(bold,       BOLD);
 DEFINE_ANSI_FUNC(cr,         CR);
-
-
