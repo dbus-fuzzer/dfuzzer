@@ -37,6 +37,24 @@
 /** Maximum length of strings containing D-Bus name, interface and object path */
 #define MAXLEN 256
 
+#define DF_BUS_ROOT_NODE "/"
+
+enum {
+        DF_BUS_OK = 0,
+        DF_BUS_SKIP,
+        DF_BUS_NO_PID,
+        DF_BUS_WARNING,
+        DF_BUS_FAIL,
+        DF_BUS_ERROR
+};
+
+static inline void g_object_unrefp(gpointer *gobj) {
+        if (!*gobj)
+                return;
+
+        g_object_unref(*gobj);
+}
+
 static inline void closep(int *fd) {
         if (*fd < 0)
                 return;
@@ -102,6 +120,8 @@ DEFINE_ANSI_FUNC(cyan,       CYAN);
 DEFINE_ANSI_FUNC(normal,     NORMAL);
 DEFINE_ANSI_FUNC(bold,       BOLD);
 DEFINE_ANSI_FUNC(cr,         CR);
+
+int df_process_bus(GBusType bus_type);
 
 /**
  * @function Calls method ListNames to get all available connection names
