@@ -1240,20 +1240,22 @@ int df_load_suppressions(void)
 		goto file_open;
 	// home dir
 	env = getenv("HOME");
-	sup_file = malloc(sizeof(char) * (strlen(env) + strlen(SF2) + 2));
-	if (sup_file == NULL) {
-		df_fail("Error: Could not allocate memory for suppression file name\n");
-		return -1;
+	if (env) {
+		sup_file = malloc(sizeof(char) * (strlen(env) + strlen(SF2) + 2));
+		if (sup_file == NULL) {
+			df_fail("Error: Could not allocate memory for suppression file name\n");
+			return -1;
+		}
+		sprintf(sup_file, "%s/%s", env, SF2);
+		f = fopen(sup_file, "r");
+		if (f == NULL) {
+			df_verbose("'%s' file not found.\n", sup_file);
+			free(sup_file);
+			env = NULL;
+		}
+		else
+			goto file_open;
 	}
-	sprintf(sup_file, "%s/%s", env, SF2);
-	f = fopen(sup_file, "r");
-	if (f == NULL) {
-		df_verbose("'%s' file not found.\n", sup_file);
-		free(sup_file);
-		env = NULL;
-	}
-	else
-		goto file_open;
 	// dir /etc
 	sup_file = SF3;		// mandatory (must exist)
 	f = fopen(sup_file, "r");
