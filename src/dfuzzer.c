@@ -1329,6 +1329,8 @@ file_open:
 			df_suppression[i][j++] = *ptr;
 			ptr++;
 		}
+		df_suppression[i][j] = '\0';
+
 		j = 0;
 		if (*ptr != '\n') {
 			ptr++;	// skips the space
@@ -1337,6 +1339,7 @@ file_open:
 				ptr++;
 			}
 		}
+		df_supp_description[i][j] = '\0';
 	}
 	df_suppression[i] = NULL;
 	if (ferror(f)) {
