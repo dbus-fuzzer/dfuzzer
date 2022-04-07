@@ -22,6 +22,8 @@
 #ifndef DFUZZER_H
 #define DFUZZER_H
 
+#include <unistd.h>
+
 /** Version of dfuzzer */
 #define DF_VERSION "dfuzzer 1.4\n" \
 	"Copyright(C) 2013,2014,2015, Red Hat, Inc.\n" \
@@ -46,6 +48,36 @@ struct fuzzing_target {
 	char interface[MAXLEN];
 };
 
+#define ANSI_RED        "\x1B[0;31m"
+#define ANSI_GREEN      "\x1B[0;32m"
+#define ANSI_YELLOW     "\x1B[0;33m"
+#define ANSI_BLUE       "\x1B[0;34m"
+#define ANSI_MAGENTA    "\x1B[0;35m"
+#define ANSI_CYAN       "\x1B[0;36m"
+
+#define ANSI_NORMAL     "\x1B[0m"
+#define ANSI_BOLD       "\x1B[1m"
+
+#define ANSI_CR         "\r"
+
+static inline int df_isatty(void) {
+	return isatty(STDOUT_FILENO) && isatty(STDERR_FILENO);
+}
+
+#define DEFINE_ANSI_FUNC(name, NAME)					\
+	static inline const char *ansi_##name(void) {		\
+		return df_isatty() ? ANSI_##NAME : "";		 	\
+	}
+
+DEFINE_ANSI_FUNC(red,        RED);
+DEFINE_ANSI_FUNC(green,      GREEN);
+DEFINE_ANSI_FUNC(yellow,     YELLOW);
+DEFINE_ANSI_FUNC(blue,       BLUE);
+DEFINE_ANSI_FUNC(magenta,    MAGENTA);
+DEFINE_ANSI_FUNC(cyan,       CYAN);
+DEFINE_ANSI_FUNC(normal,     NORMAL);
+DEFINE_ANSI_FUNC(bold,       BOLD);
+DEFINE_ANSI_FUNC(cr,         CR);
 
 /**
  * @function Calls method ListNames to get all available connection names

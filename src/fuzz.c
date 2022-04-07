@@ -501,7 +501,7 @@ static int df_exec_cmd_check(const char *cmd)
 
 	fd = open(fn, O_RDWR, S_IRUSR | S_IWUSR);
 	if (fd == -1) {
-		perror("\ropen");
+		perror("open");
 		return -1;
 	}
 
@@ -569,11 +569,11 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 
 	// DEBUG:
 	int j = 0;
-	df_debug("  Method: \e[1m%s", df_list.df_method_name);
+	df_debug("  Method: %s%s", ansi_bold(), df_list.df_method_name);
 	df_debug("(");
 	for (; j < df_list.args; j++, s = s->next)
 		df_debug(((j < df_list.args - 1) ? "%s, " : "%s"), s->sig);
-	df_debug(")\e[0m\n");
+	df_debug(")%s\n", ansi_normal());
 
 
 	if (buf_size != 0)
@@ -604,8 +604,8 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 				df_debug("  unsupported argument by dfuzzer: ");
 				df_debug("%s\n", df_unsupported_sig_str);
 				df_unsupported_sig_str = NULL;
-				df_verbose("\r  \e[34mSKIP\e[0m %s - advanced signatures"
-						" not yet implemented\n", df_list.df_method_name);
+				df_verbose("%s  %sSKIP%s %s - advanced signatures not yet implemented\n",
+						   ansi_cr(), ansi_blue(), ansi_normal(), df_list.df_method_name);
 				goto skip_label;
 			}
 			df_debug("Call of df_fuzz_create_variant() returned"
@@ -625,19 +625,20 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 			// didn't respond so we continue.
 			used_memory = df_fuzz_get_proc_mem_size(statfd);
 			if (used_memory == 0) {			// process exited
-				df_fail("\r  \e[31mFAIL\e[0m %s - process exited\n"
+				df_fail("%s  %sFAIL%s %s - process exited\n"
 						"   [PID: %d], [MEM: %ld kB]\n",
+						ansi_cr(), ansi_red(), ansi_normal(),
 						df_list.df_method_name, pid, prev_memory);
 				if (execr > 0)
-					df_fail("\r   '%s' returned \e[31m%d\e[0m\n",
-							execute_cmd, execr);
+					df_fail("%s   '%s' returned %s%d%s\n",
+							ansi_cr(), execute_cmd, ansi_red(), execr, ansi_normal());
 				goto fail_label;
 			} else if (used_memory == -1) {	// error on reading process status
 				df_fail("Error: Unable to get memory size of [PID:%d].\n", pid);
 				df_debug("Error in df_fuzz_get_proc_mem_size()\n");
 				if (execr > 0)
-					df_fail("\r   '%s' returned \e[31m%d\e[0m\n",
-							execute_cmd, execr);
+					df_fail("%s   '%s' returned %s%d%s\n",
+							ansi_cr(), execute_cmd, ansi_red(), execr, ansi_normal());
 				goto err_label;
 			}
 			// else continue, we managed to get process memory size
@@ -645,34 +646,36 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 		} else if (ret == 1) {
 			// method returning void is returning illegal value
 			if (execr > 0)
-				df_fail("\r   '%s' returned \e[31m%d\e[0m\n",
-						execute_cmd, execr);
+				df_fail("%s   '%s' returned %s%d%s\n",
+						ansi_cr(), execute_cmd, ansi_red(), execr, ansi_normal());
 			goto fail_label;
 		} else if (ret == 2) {
 			// tested method returned exception
 			used_memory = df_fuzz_get_proc_mem_size(statfd);
 			if (used_memory == 0) {			// process exited
-				df_fail("\r  \e[31mFAIL\e[0m %s - process exited\n"
+				df_fail("%s  %sFAIL%s %s - process exited\n"
 						"   [PID: %d], [MEM: %ld kB]\n",
+						ansi_cr(), ansi_red(), ansi_normal(),
 						df_list.df_method_name, pid, prev_memory);
 				goto fail_label;
 			} else if (used_memory == -1) {	// error on reading process status
 				df_fail("Error: Unable to get memory size of [PID:%d].\n", pid);
 				df_debug("Error in df_fuzz_get_proc_mem_size()\n");
 				if (execr > 0)
-					df_fail("\r   '%s' returned \e[31m%d\e[0m\n",
-							execute_cmd, execr);
+					df_fail("%s   '%s' returned %s%d%s\n",
+							ansi_cr(), execute_cmd, ansi_red(), execr, ansi_normal());
 				goto err_label;
 			}
 			if (execr > 0)
-				df_fail("\r   '%s' returned \e[31m%d\e[0m\n",
-						execute_cmd, execr);
+				df_fail("%s   '%s' returned %s%d%s\n",
+						ansi_cr(), execute_cmd, ansi_red(), execr, ansi_normal());
 			goto skip_label;
 		}
 
 		if (execr > 0) {
-			df_fail("\r  \e[31mFAIL\e[0m %s - '%s' returned \e[31m%d\e[0m\n",
-					df_list.df_method_name, execute_cmd, execr);
+			df_fail("%s  %SFAIL%s %s - '%s' returned %s%d%s\n",
+					ansi_cr(), ansi_red(), ansi_normal(), df_list.df_method_name,
+					execute_cmd, ansi_red(), execr, ansi_normal());
 			goto fail_label;
 		}
 
@@ -680,8 +683,9 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 		// process memory size exceeded maximum normal memory size
 		// (this is just a warning message)
 		if (used_memory >= df_mem_limit) {
-			df_fail("\r  \e[35mWARN\e[0m %s - memory usage %.1fx more "
+			df_fail("%s  %sWARN%s %s - memory usage %.1fx more "
 					"than initial memory\n   (%ld -> %ld [kB])\n",
+					ansi_cr(), ansi_magenta(), ansi_normal(),
 					df_list.df_method_name,	(((float) used_memory)/df_initial_mem),
 					df_initial_mem, used_memory);
 			df_mem_limit = used_memory * 2;
@@ -692,19 +696,20 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 		// Here we look at process status file to find out status of process.
 		used_memory = df_fuzz_get_proc_mem_size(statfd);
 		if (used_memory == 0) {			// process exited
-			df_fail("\r  \e[31mFAIL\e[0m %s - process exited\n"
+			df_fail("%s  %sFAIL%s %s - process exited\n"
 					"   [PID: %d], [MEM: %ld kB]\n",
+					ansi_cr(), ansi_red(), ansi_normal(),
 					df_list.df_method_name, pid, prev_memory);
 			if (execr > 0)
-				df_fail("\r   '%s' returned \e[31m%d\e[0m\n",
-						execute_cmd, execr);
+				df_fail("%s   '%s' returned %s%d%s\n",
+						ansi_cr(), execute_cmd, ansi_red(), execr, ansi_normal());
 			goto fail_label;
 		} else if (used_memory == -1) {	// error on reading process status
 			df_fail("Error: Unable to get memory size of [PID:%d].\n", pid);
 			df_debug("Error in df_fuzz_get_proc_mem_size()\n");
 			if (execr > 0)
-				df_fail("\r   '%s' returned \e[31m%d\e[0m\n",
-						execute_cmd, execr);
+				df_fail("%s   '%s' returned %s%d%s\n",
+						ansi_cr(), execute_cmd, ansi_red(), execr, ansi_normal());
 			goto err_label;
 		}
 		// else continue, we managed to get process memory size
@@ -728,7 +733,8 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 	// test passed
 	if (leaking_mem_flg)	// warning
 		return 3;
-	df_verbose("\r  \e[32mPASS\e[0m %s\n", df_list.df_method_name);
+	df_verbose("%s  %sPASS%s %s\n",
+			   ansi_cr(), ansi_green(), ansi_normal(), df_list.df_method_name);
 	return 0;
 
 
@@ -742,15 +748,15 @@ fail_label:
 	if (value != NULL)
 		g_variant_unref(value);
 
-	df_fail("   reproducer: \e[33mdfuzzer -v -n %s -o %s -i %s"
-			" -t %s", name, obj, intf, df_list.df_method_name);
+	df_fail("   reproducer: %sdfuzzer -v -n %s -o %s -i %s -t %s",
+			ansi_yellow(), name, obj, intf, df_list.df_method_name);
 	if (df_mlflg)
 		df_fail(" -m %ld", df_mem_limit);
 	if (buf_size_flg)
 		df_fail(" -b %ld", buf_size);
 	if (execute_cmd != NULL)
 		df_fail(" -e '%s'", execute_cmd);
-	df_fail("\e[0m\n");
+	df_fail("%s\n", ansi_normal());
 
 	if (ret == 1){	// method returning void is returning illegal value
 		return 2;
@@ -1056,8 +1062,9 @@ static int df_fuzz_call_method(const GVariant *value, const int void_method)
 							"org.freedesktop.DBus.Error.AccessDenied") == 0) ||
 					   (strcmp(dbus_error,
 							"org.freedesktop.DBus.Error.AuthFailed") == 0)) {
-				df_verbose("\r  \e[34mSKIP\e[0m %s - raised exception "
-					"'%s'\n", df_list.df_method_name, dbus_error);
+				df_verbose("%s  %sSKIP%s %s - raised exception '%s'\n",
+						   ansi_cr(), ansi_blue(), ansi_normal(),
+						   df_list.df_method_name, dbus_error);
 				g_free(dbus_error);
 				return 2;
 			}
@@ -1066,14 +1073,14 @@ static int df_fuzz_call_method(const GVariant *value, const int void_method)
 
 		g_dbus_error_strip_remote_error(error);
 		if (strstr(error->message, "Timeout") != NULL) {
-			df_verbose("\r  \e[34mSKIP\e[0m %s - timeout reached\n",
-						df_list.df_method_name);
+			df_verbose("%s  %sSKIP%s %s - timeout reached\n",
+					   ansi_cr(), ansi_blue(), ansi_normal(), df_list.df_method_name);
 			g_error_free(error);
 			return 2;
 		}
 
-		df_debug("\r  EXCE %s - D-Bus exception thrown: "
-			"%.60s\n", df_list.df_method_name, error->message);
+		df_debug("%s  EXCE %s - D-Bus exception thrown: %.60s\n",
+				 ansi_cr(), df_list.df_method_name, error->message);
 		g_error_free(error);
 		df_except_counter++;
 		return 0;
@@ -1083,8 +1090,8 @@ static int df_fuzz_call_method(const GVariant *value, const int void_method)
 			fmt = g_variant_get_type_string(response);
 			// void function can only return empty tuple
 			if (strcmp(fmt, "()") != 0) {
-				df_fail("\r  \e[31mFAIL\e[0m %s - void method returns"
-						" '%s' instead of '()'\n", df_list.df_method_name, fmt);
+				df_fail("%s  %sFAIL%s %s - void method returns '%s' instead of '()'\n",
+						ansi_cr(), ansi_red(), ansi_normal(), df_list.df_method_name, fmt);
 				g_variant_unref(response);
 				return 1;
 			}

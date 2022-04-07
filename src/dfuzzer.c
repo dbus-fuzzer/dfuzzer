@@ -123,7 +123,7 @@ int main(int argc, char **argv)
 				for (i = 0; df_supp_description[i] != NULL; i++)
 					free(df_supp_description[i]);
 			}
-			printf("\e[1mExit status: 1\e[0m\n");
+			printf("%sExit status: 1%s\n", ansi_bold(), ansi_normal());
 			return 1;
 		}
 	}
@@ -132,7 +132,7 @@ int main(int argc, char **argv)
 	g_type_init();
 
 	// Synchronously connects to the session bus daemon.
-	fprintf(stderr, "\r\e[36m[SESSION BUS]\e[0m\n");
+	fprintf(stderr, "%s%s[SESSION BUS]%s\n", ansi_cr(), ansi_cyan(), ansi_normal());
 	if ((dcon = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, &error)) == NULL) {
 		df_fail("Session bus not found.\n");
 		df_error("Error in g_bus_get_sync()", error);
@@ -151,11 +151,13 @@ int main(int argc, char **argv)
 		df_pid = df_get_pid(dcon);
 		if (df_pid > 0) {
 			df_print_process_info(df_pid);
-			fprintf(stderr, "\r\e[36m[CONNECTED TO PID: %d\e[0m\n", df_pid);
+			fprintf(stderr, "%s%s[CONNECTED TO PID: %d%s\n",
+					ansi_cr(), ansi_cyan(), df_pid, ansi_normal());
 			if (strlen(target_proc.interface) != 0) {
-				fprintf(stderr, "Object: \e[1m%s\e[0m\n", target_proc.obj_path);
-				fprintf(stderr, " Interface: \e[1m%s\e[0m\n",
-						target_proc.interface);
+				fprintf(stderr, "Object: %s%s%s\n",
+						ansi_bold(), target_proc.obj_path, ansi_normal());
+				fprintf(stderr, " Interface: %s%s%s\n",
+						ansi_bold(), target_proc.interface, ansi_normal());
 				if (!df_is_object_on_bus(dcon, root_node)) {
 					df_fail("Error: Unknown object path '%s'.\n",
 							target_proc.obj_path);
@@ -165,7 +167,8 @@ int main(int argc, char **argv)
 								target_proc.interface);
 				}
 			} else if (strlen(target_proc.obj_path) != 0) {
-				fprintf(stderr, "Object: \e[1m%s\e[0m\n", target_proc.obj_path);
+				fprintf(stderr, "Object: %s%s%s\n",
+						ansi_bold(), target_proc.obj_path, ansi_normal());
 				if (!df_is_object_on_bus(dcon, root_node)) {
 					df_fail("Error: Unknown object path '%s'.\n",
 							target_proc.obj_path);
@@ -173,7 +176,7 @@ int main(int argc, char **argv)
 				} else
 					rses = df_traverse_node(dcon, target_proc.obj_path);
 			} else {
-				fprintf(stderr, "Object: \e[1m/\e[0m\n");
+				fprintf(stderr, "Object: %s/%s\n", ansi_bold(), ansi_normal());
 				rses = df_traverse_node(dcon, root_node);
 			}
 		} else
@@ -186,7 +189,7 @@ skip_session:
 
 
 	// Synchronously connects to the system bus daemon.
-	fprintf(stderr, "\r\e[36m[SYSTEM  BUS]\e[0m\n");
+	fprintf(stderr, "%s%s[SYSTEM  BUS]%s\n", ansi_cr(), ansi_cyan(), ansi_normal());
 	if ((dcon = g_bus_get_sync(G_BUS_TYPE_SYSTEM, NULL, &error)) == NULL) {
 		df_fail("System bus not found.\n");
 		df_error("Error in g_bus_get_sync()", error);
@@ -205,11 +208,13 @@ skip_session:
 		df_pid = df_get_pid(dcon);
 		if (df_pid > 0) {
 			df_print_process_info(df_pid);
-			fprintf(stderr, "\r\e[36m[CONNECTED TO PID: %d\e[0m\n", df_pid);
+			fprintf(stderr, "%s%s[CONNECTED TO PID: %d%s\n",
+					ansi_cr(), ansi_cyan(), df_pid, ansi_normal());
 			if (strlen(target_proc.interface) != 0) {
-				fprintf(stderr, "Object: \e[1m%s\e[0m\n", target_proc.obj_path);
-				fprintf(stderr, " Interface: \e[1m%s\e[0m\n",
-						target_proc.interface);
+				fprintf(stderr, "Object: %s%s%s\n",
+						ansi_bold(), target_proc.obj_path, ansi_normal());
+				fprintf(stderr, " Interface: %s%s%s\n",
+						ansi_bold(), target_proc.interface, ansi_normal());
 				if (!df_is_object_on_bus(dcon, root_node)) {
 					df_fail("Error: Unknown object path '%s'.\n",
 							target_proc.obj_path);
@@ -219,7 +224,8 @@ skip_session:
 								target_proc.interface);
 				}
 			} else if (strlen(target_proc.obj_path) != 0) {
-				fprintf(stderr, "Object: \e[1m%s\e[0m\n", target_proc.obj_path);
+				fprintf(stderr, "Object: %s%s%s\n",
+						ansi_bold(), target_proc.obj_path, ansi_normal());
 				if (!df_is_object_on_bus(dcon, root_node)) {
 					df_fail("Error: Unknown object path '%s'.\n",
 							target_proc.obj_path);
@@ -227,7 +233,7 @@ skip_session:
 				} else
 					rsys = df_traverse_node(dcon, target_proc.obj_path);
 			} else {
-				fprintf(stderr, "Object: \e[1m/\e[0m\n");
+				fprintf(stderr, "Object: %s/%s\n", ansi_bold(), ansi_normal());
 				rsys = df_traverse_node(dcon, root_node);
 			}
 		} else
@@ -251,24 +257,24 @@ skip_system:
 
 	// both tests ended with error
 	if (rses == 1 && rsys == 1) {
-		fprintf(stderr, "\e[1mExit status: 1\e[0m\n");
+		fprintf(stderr, "%sExit status: 1%s\n", ansi_bold(), ansi_normal());
 		return 1;
 	} else if (bus_skip == 1 && (rses == 1 || rsys == 1)) {
-		fprintf(stderr, "\e[1mExit status: 1\e[0m\n");
+		fprintf(stderr, "%sExit status: 1%s\n", ansi_bold(), ansi_normal());
 		return 1;
 	} else if (rses == 2 || rsys == 2) {
 		// at least one test found failures
-		fprintf(stderr, "\e[1mExit status: 2\e[0m\n");
+		fprintf(stderr, "%sExit status: 2%s\n", ansi_bold(), ansi_normal());
 		return 2;
 	} else if (rses == 3 || rsys == 3) {
 		// at least one test found warnings
-		fprintf(stderr, "\e[1mExit status: 3\e[0m\n");
+		fprintf(stderr, "%sExit status: 3%s\n", ansi_bold(), ansi_normal());
 		return 3;
 	} else {
 		// cases where rses=1,rsys=0 or rses=0,rsys=1 are ok,
 		// because tests on one of the bus daemons finished
 		// successfuly
-		fprintf(stderr, "\e[1mExit status: 0\e[0m\n");
+		fprintf(stderr, "%sExit status: 0%s\n", ansi_bold(), ansi_normal());
 		return 0;
 	}
 }
@@ -526,7 +532,8 @@ int df_traverse_node(const GDBusConnection *dcon, const char *root_node)
 	i = 0;
 	interface = node_data->interfaces[i++];
 	while (interface != NULL) {
-		fprintf(stderr, " Interface: \e[1m%s\e[0m\n", interface->name);
+		fprintf(stderr, " Interface: %s%s%s\n",
+				ansi_bold(), interface->name, ansi_normal());
 		// start fuzzing on the target_proc.name
 		rd = df_fuzz(dcon, target_proc.name, root_node, interface->name);
 		if (rd == 1) {
@@ -562,7 +569,7 @@ int df_traverse_node(const GDBusConnection *dcon, const char *root_node)
 			sprintf(object, "%s%s", root_node, node->path);
 		else
 			sprintf(object, "%s/%s", root_node, node->path);
-		fprintf(stderr, "Object: \e[1m%s\e[0m\n", object);
+		fprintf(stderr, "Object: %s%s%s\n", ansi_bold(), object, ansi_normal());
 		rt = df_traverse_node(dcon, object);
 		if (rt == 1) {
 			free(object);
@@ -677,11 +684,12 @@ int df_fuzz(const GDBusConnection *dcon, const char *name,
 			}
 			if (skipflg) {
 				if (strlen(df_supp_description[i]) == 0) {
-					df_verbose("\r  \e[34mSKIP\e[0m %s - suppressed method\n",
-							df_suppression[i]);
+					df_verbose("%s  %sSKIP%s %s - suppressed method\n",
+							   ansi_cr(), ansi_blue(), ansi_normal(), df_suppression[i]);
 				} else {
-					df_verbose("\r  \e[34mSKIP\e[0m %s - %s\n",
-							df_suppression[i], df_supp_description[i]);
+					df_verbose("%s  %sSKIP%s %s - %s\n",
+							   ansi_cr(), ansi_blue(), ansi_normal(),
+							   df_suppression[i], df_supp_description[i]);
 				}
 				continue;
 			}
@@ -709,7 +717,8 @@ int df_fuzz(const GDBusConnection *dcon, const char *name,
 
 		// methods with no arguments are not tested
 		if (df_list_args_count() == 0) {
-			df_verbose("\r  \e[34mSKIP\e[0m %s - void method\n", m->name);
+			df_verbose("%s  %sSKIP%s %s - void method\n",
+					   ansi_cr(), ansi_blue(), ansi_normal(), m->name);
 			df_fuzz_clean_method();
 			continue;
 		}
@@ -764,7 +773,8 @@ int df_fuzz(const GDBusConnection *dcon, const char *name,
 				df_debug("Error in df_get_pid() on getting pid of process\n");
 				return 1;
 			}
-			fprintf(stderr, "\r\e[36m[RE-CONNECTED TO PID: %d\e[0m\n", df_pid);
+			fprintf(stderr, "%s%s[RE-CONNECTED TO PID: %d%s\n",
+					ansi_cr(), ansi_cyan(), df_pid, ansi_blue());
 
 			// opens process status file
 			close(statfd);
@@ -930,7 +940,8 @@ void df_print_process_info(int pid)
 	ret = readlink(proc_path, name, sizeof(name));
 	// excludes interprets
 	if (ret != -1 && strstr(name, "python") == NULL && strstr(name, "perl") == NULL)
-		fprintf(stderr, "\r\e[36m[PROCESS: %s\e[0m\n", name);
+		fprintf(stderr, "%s%s[PROCESS: %s%s\n",
+				ansi_cr(), ansi_cyan(), name, ansi_normal());
 	else {
 		// if readlink failed or executable was interpret (and our target is
 		// interpreted script), try to read cmdline
@@ -941,7 +952,7 @@ void df_print_process_info(int pid)
 
 		ret = 1;
 		c = name;
-		fprintf(stderr, "\r\e[36m[PROCESS: ");
+		fprintf(stderr, "%s%s[PROCESS: ", ansi_cr(), ansi_cyan());
 		while (ret > 0) {
 			ret = read(fd, c, 1);
 			if (ret > 0) {
@@ -950,19 +961,19 @@ void df_print_process_info(int pid)
 				fprintf(stderr, "%c", *c);
 			}
 			if (ret == -1) {
-				fprintf(stderr, "\e[0m\n");
+				fprintf(stderr, "%s\n", ansi_normal());
 				close(fd);
 				return;
 			}
 			c++;
 		}
 		*c = '\0';
-		fprintf(stderr, "\e[0m\n");
+		fprintf(stderr, "%s\n", ansi_normal());
 		close(fd);
 
 		// excludes interprets
 		if (strstr(name, "python") != NULL || strstr(name, "perl") != NULL) {
-			fprintf(stderr, "\r\e[36m[PACKAGE: \e[0m\n");
+			fprintf(stderr, "%s%s[PACKAGE: %s\n", ansi_cr(), ansi_cyan(), ansi_normal());
 			return;
 		} else {	// removes cmdline arguments
 			c = name;
@@ -975,7 +986,7 @@ void df_print_process_info(int pid)
 
 	fd = open("/dev/null", O_RDWR, S_IRUSR | S_IWUSR);
 	if (fd == -1) {
-		fprintf(stderr, "\r\e[36m[PACKAGE: \e[0m\n");
+		fprintf(stderr, "%s%s[PACKAGE: %s\n", ansi_cr(), ansi_cyan(), ansi_normal());
 		return;
 	}
 
@@ -985,11 +996,11 @@ void df_print_process_info(int pid)
 
 	// make stdout and stderr go to fd
 	if (dup2(fd, 1) == -1) {
-		fprintf(stderr, "\r\e[36m[PACKAGE: \e[0m\n");
+		fprintf(stderr, "%s%s[PACKAGE: %s\n", ansi_cr(), ansi_cyan(), ansi_normal());
 		return;
 	}
 	if (dup2(fd, 2) == -1) {
-		fprintf(stderr, "\r\e[36m[PACKAGE: \e[0m\n");
+		fprintf(stderr, "%s%s[PACKAGE: %s\n", ansi_cr(), ansi_cyan(), ansi_normal());
 		dup2(stdoutcpy, 1);
 		close(stdoutcpy);
 		return;
@@ -1006,7 +1017,7 @@ void df_print_process_info(int pid)
 			"| sed ':a;$!N;s/:\\n/-/;ta' | tr -d ' ' | sed '/^$/d' "
 			"| tr '\n' ' ' | sed 's/$/\\n$/'" , name);
 	else {	// only rpm/dpkg are supported
-		fprintf(stderr, "\r\e[36m[PACKAGE: \e[0m\n");
+		fprintf(stderr, "%s%s[PACKAGE: %s\n", ansi_cr(), ansi_cyan(), ansi_normal());
 		// restore std descriptors
 		dup2(stdoutcpy, 1);
 		close(stdoutcpy);
@@ -1022,7 +1033,7 @@ void df_print_process_info(int pid)
 	dup2(stderrcpy, 2);
 	close(stderrcpy);
 	if (fp == NULL) {
-		fprintf(stderr, "\r\e[36m[PACKAGE: \e[0m\n");
+		fprintf(stderr, "%s%s[PACKAGE: %s\n", ansi_cr(), ansi_cyan(), ansi_normal());
 		return;
 	}
 	fgets(name, PATH_MAX, fp);
@@ -1030,9 +1041,10 @@ void df_print_process_info(int pid)
 
 
 	if (WEXITSTATUS(ret) == 0)
-		fprintf(stderr, "\r\e[36m[PACKAGE: %s\e[0m", name);
+		fprintf(stderr, "%s%s[PACKAGE: %s%s\n",
+				ansi_cr(), ansi_cyan(), name, ansi_normal());
 	else
-		fprintf(stderr, "\r\e[36m[PACKAGE: \e[0m\n");
+		fprintf(stderr, "%s%s[PACKAGE: %s\n", ansi_cr(), ansi_cyan(), ansi_normal());
 }
 
 /**
