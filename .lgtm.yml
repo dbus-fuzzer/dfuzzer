@@ -1,0 +1,12 @@
+---
+extraction:
+  cpp:
+    prepare:
+      packages:
+        - gcc
+        - libglib2.0-dev
+        - libffi-dev
+        - make
+    index:
+      build_command:
+        - make -C src
