@@ -1,0 +1,5 @@
+*.sw*
+*.o
+tags
+src/dfuzzer
+src/makefile.dep

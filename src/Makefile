@@ -3,18 +3,23 @@
 # Copyright(C) 2014, 2015, Red Hat, Inc., Matus Marhefka <mmarhefk@redhat.com>
 #==============================================================================
 
-CC=gcc
-CFLAGS=-Wall -w -O2 -D_FORTIFY_SOURCE=2 -fstack-protector --param=ssp-buffer-size=4 `pkg-config --cflags --libs gio-2.0 libffi` -g
-OBJ=dfuzzer.o introspection.o fuzz.o rand.o
-TARGET=dfuzzer
+CC ?= gcc
+CFLAGS += -Wall -w -O2 -D_FORTIFY_SOURCE=2 -fstack-protector --param=ssp-buffer-size=4 `pkg-config --cflags --libs gio-2.0 libffi` -g
+OBJ = dfuzzer.o introspection.o fuzz.o rand.o
+TARGET = dfuzzer
 all: dfuzzer
-.PHONY: doc man clean
+.PHONY: doc man clean install
 
 
 makefile.dep:
 	$(CC) -MM *.c >makefile.dep
 $(TARGET): $(OBJ)
 	$(CC) $(OBJ) $(CFLAGS) -o $(TARGET)
+
+install: $(TARGET) man
+	install -pm 0755 $(TARGET) /usr/bin/$(TARGET)
+	install -pm 0644 dfuzzer.conf /etc/dfuzzer.conf
+	install -pm 0644 ../man/dfuzzer.1.gz /usr/share/man/man1/dfuzzer.1.gz
 
 doc:
 	doxygen doxyfile

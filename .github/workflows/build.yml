@@ -1,0 +1,53 @@
+---
+# vi: ts=2 sw=2 et:
+
+name: Build test
+on: [pull_request]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    concurrency:
+      group: ${{ github.workflow }}-${{ toJSON(matrix.env) }}-${{ github.ref }}
+      cancel-in-progress: true
+    strategy:
+      fail-fast: false
+      matrix:
+        env:
+          - {
+              TYPE: "default",
+              CFLAGS: "-Werror -Wextra"
+            }
+          - {
+              TYPE: "asan+ubsan",
+              CFLAGS: "-Werror -Wextra -fsanitize=address,undefined",
+              ASAN_OPTIONS: "strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1:abort_on_error=1",
+              UBSAN_OPTIONS: "print_stacktrace=1:print_summary=1:halt_on_error=1"
+            }
+    env: ${{ matrix.env }}
+    name: ${{ matrix.env.TYPE }}
+    steps:
+      - name: Repository checkout
+        uses: actions/checkout@v2
+
+      - name: Install dependencies
+        run: |
+          sudo apt -y update
+          sudo apt -y install gcc libglib2.0-dev libffi-dev make
+
+      - name: Build
+        run: |
+          make -C src
+          ./src/dfuzzer -V
+          ./src/dfuzzer -s -l
+          sudo make -C src install
+
+      - name: Test
+        run: |
+          # Test as an unprivileged user
+          dfuzzer -v -n org.freedesktop.systemd1
+          # Test as root
+          sudo dfuzzer -v -n org.freedesktop.systemd1
