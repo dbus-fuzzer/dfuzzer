@@ -928,7 +928,7 @@ int df_get_pid(const GDBusConnection *dcon)
  */
 void df_print_process_info(int pid)
 {
-	char proc_path[20];            // "/proc/(max5chars)/[exe|cmdline]"
+	char proc_path[15+DECIMAL_STR_MAX(int)]; // "/proc/(int)/[exe|cmdline]"
 	char name[PATH_MAX];           // for storing process and package name
 	char buf[PATH_MAX + MAXLEN];   // buffer for rpm/dpkg request
 	FILE *fp;

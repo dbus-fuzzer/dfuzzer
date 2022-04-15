@@ -37,6 +37,16 @@
 /** Maximum length of strings containing D-Bus name, interface and object path */
 #define MAXLEN 256
 
+/* Returns the number of chars needed to format variables of the
+ * specified type as a decimal string. Adds in extra space for a
+ * negative '-' prefix (hence works correctly on signed
+ * types). Includes space for the trailing NUL. */
+#define DECIMAL_STR_MAX(type)                                           \
+        (2U+(sizeof(type) <= 1 ? 3U :                                   \
+             sizeof(type) <= 2 ? 5U :                                   \
+             sizeof(type) <= 4 ? 10U :                                  \
+             sizeof(type) <= 8 ? 20U : sizeof(int[-2*(sizeof(type) > 8)])))
+
 /** Structure containing D-Bus name, object path and interface of process. */
 struct fuzzing_target {
 	/* names on D-Bus have the most MAXLEN characters */
