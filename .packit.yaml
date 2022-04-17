@@ -1,0 +1,33 @@
+# See the documentation for more information:
+# https://packit.dev/docs/configuration/
+
+specfile_path: .packit_rpm/dfuzzer.spec
+
+synced_files:
+    - .packit.yaml
+    - src: .packit_rpm/dfuzzer.spec
+      dest: dfuzzer.spec
+
+upstream_package_name: dfuzzer
+downstream_package_name: dfuzzer
+upstream_project_url: https://github.com/matusmarhefka/dfuzzer
+upstream_tag_template: "v{version}"
+
+actions:
+  post-upstream-clone:
+    # Use the Fedora Rawhide specfile
+    - "git clone https://src.fedoraproject.org/rpms/dfuzzer .packit_rpm --depth=1"
+    # Drop the "sources" file so rebase-helper doesn't think we're a dist-git
+    - "rm -fv .packit_rpm/sources"
+
+jobs:
+- job: copr_build
+  trigger: pull_request
+  metadata:
+    targets:
+    - fedora-stable-aarch64
+    - fedora-stable-armhfp
+    - fedora-stable-i386
+    - fedora-stable-ppc64le
+    - fedora-stable-s390x
+    - fedora-stable-x86_64
