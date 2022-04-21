@@ -42,12 +42,14 @@ jobs:
         run: |
           make -C src
           ./src/dfuzzer -V
+          ./src/dfuzzer --version
           ./src/dfuzzer -s -l
+          ./src/dfuzzer --no-suppressions --list
           sudo make -C src install
 
       - name: Test
         run: |
-          # Test as an unprivileged user
+          # Test as an unprivileged user (short options)
           dfuzzer -v -n org.freedesktop.systemd1
-          # Test as root
-          sudo dfuzzer -v -n org.freedesktop.systemd1
+          # Test as root (long options + duplicate options)
+          sudo dfuzzer --verbose --bus this.should.be.ignored --bus org.freedesktop.systemd1

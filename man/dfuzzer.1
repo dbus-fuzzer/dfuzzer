@@ -55,7 +55,7 @@ to run dfuzzer as root (warning: this is dangerous, proceed with caution).
 
 .SH REQUIRED OPTIONS
 .PP
-\fB\-n\fR \fIBUS_NAME\fR
+\fB\-n\fR, \fB\-\-bus=\fIBUS_NAME\fR
 .RS 4
 D-Bus name to test.
 .RE
@@ -64,39 +64,39 @@ D-Bus name to test.
 
 .SH OTHER OPTIONS
 .PP
-\fB\-V\fR
+\fB\-V\fR, \fB\-\-version\fR
 .RS 4
 Print dfuzzer version and exit.
 .RE
 .PP
-\fB\-h\fR
+\fB\-h\fR, \fB\-\-help\fR
 .RS 4
 Print dfuzzer help and exit.
 .RE
 .PP
-\fB\-l\fR
+\fB\-l\fR, \fB\-\-list\fR
 .RS 4
 List all available connection names on both buses.
 .RE
 .PP
-\fB\-v\fR
+\fB\-v\fR, \fB\-\-verbose\fR
 .RS 4
 Enable verbose messages.
 .RE
 .PP
-\fB\-d\fR
+\fB\-d\fR, \fB\-\-debug\fR
 .RS 4
 Enable debug messages. Implies -v. This option should not be normally used
 during testing.
 .RE
 .PP
-\fB\-L\fR \fIDIRNAME\fR
+\fB\-L\fR, \fB\-\-log\-dir=\fIDIRNAME\fR
 .RS 4
 Optional directory for full, machine-readable CSV log output. The directory
 must exist.
 .RE
 .PP
-\fB\-s\fR
+\fB\-s\fR, \fB\-\-no\-suppressions\fR
 .RS 4
 Do not use suppression file. Default behaviour is to use suppression
 files in this order (if one doesn't exist next in order is taken for loading
@@ -127,17 +127,17 @@ which tells that for example methods \fImethod1\fR and \fImethod2\fR will be
 skipped when testing bus name \fIbus_name_2\fR.
 .RE
 .PP
-\fB\-o\fR \fIOBJECT_PATH\fR
+\fB\-o\fR, \fB\-\-object=\fIPATH\fR
 .RS 4
 Optional object path to test. All children objects are traversed.
 .RE
 .PP
-\fB\-i\fR \fIINTERFACE\fR
+\fB\-i\fR, \fB\-\-interface=\fIINTERFACE\fR
 .RS 4
 Interface to test. Requires also -o option.
 .RE
 .PP
-\fB\-m\fR \fIMEM_LIMIT\fR [in kB]
+\fB\-m\fR, \fB\-\-mem\-limit=\fISIZE\fR [in kB]
 .RS 4
 When tested process exceeds this limit, warning is printed on the output.
 Default value for this limit is 3x process intial memory size. If set memory
@@ -145,23 +145,23 @@ limit value is less than or equal to process initial memory size, it will be
 adjusted to the default value (3x process intial memory size).
 .RE
 .PP
-\fB\-b\fR \fImax_buf_size\fR [in B]
+\fB\-b\fR, \fB\-\-buffer\-limit=\fISIZE\fR [in B]
 .RS 4
 Maximum buffer size for generated strings, minimal value for this option is
 256 B. Default maximum size is 50000 B ~= 50 kB (the greater the limit,
 the longer the testing).
 .RE
 .PP
-\fB\-t\fR \fIMETHOD_NAME\fR
+\fB\-t\fR, \fB\-\-method=\fINAME\fR
 .RS 4
 When this parameter is provided, only method \fIMETHOD_NAME\fR is tested.
 All other methods of an interface are skipped. Requires also -o and -i options.
 .RE
 .PP
-\fB\-e\fR \fI'COMMAND'\fR
+\fB\-e\fR, \fB\-\-command=\fI'COMMAND'\fR
 .RS 4
 Command/Script to execute after each method call. If command/script
-finished unsuccessfuly, fail message is printed with its return
+finished unsuccessfully, fail message is printed with its return
 value.
 .RE
 

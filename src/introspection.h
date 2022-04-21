@@ -31,7 +31,7 @@
  * @return 0 on success, -1 on error
  */
 int df_init_introspection(const GDBusProxy *dproxy, const char *name,
-				const char *interface);
+                const char *interface);
 
 /**
  * @return Pointer on GDBusMethodInfo which contains information about method
