@@ -199,18 +199,18 @@ void df_error(const char *message, GError *error);
  * @function Prints debug message.
  * @param format Format string
  */
-void df_debug(const char *format, ...);
+void df_debug(const char *format, ...) __attribute__((__format__(printf, 1, 2)));
 
 /**
  * @function Prints verbose message.
  * @param format Format string
  */
-void df_verbose(const char *format, ...);
+void df_verbose(const char *format, ...) __attribute__((__format__(printf, 1, 2)));
 
 /**
  * @function Prints error message.
  * @param format Format string
  */
-void df_fail(const char *format, ...);
+void df_fail(const char *format, ...) __attribute__((__format__(printf, 1, 2)));
 
 #endif
