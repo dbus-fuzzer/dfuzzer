@@ -62,16 +62,6 @@ struct df_sig_list {
 
 
 /**
- * @function Error checked write function with short write correction (when
- * write is interrupted by a signal).
- * @param fd File descriptor where to write
- * @param buf Buffer from which to write to file descriptor fd
- * @param count Number of bytes to be written
- * @return 0 on success, -1 on error
- */
-inline int df_ewrite(int fd, const void *buf, size_t count);
-
-/**
  * @function Saves pointer on D-Bus interface proxy for this module to be
  * able to call methods through this proxy during fuzz testing. Also saves
  * process initial memory size to global var. df_initial_mem from file
