@@ -68,35 +68,8 @@ static int df_exec_cmd_check(const char *cmd);
 static GVariant *df_fuzz_create_variant(void);
 static int df_fuzz_create_list_variants(void);
 static int df_fuzz_create_fmt_string(char **fmt, const int n);
-static int df_fuzz_call_method(const GVariant *value, const int void_method);
+static int df_fuzz_call_method(GVariant *value, const int void_method);
 
-
-/**
- * @function Error checked write function with short write correction (when
- * write is interrupted by a signal).
- * @param fd File descriptor where to write
- * @param buf Buffer from which to write to file descriptor fd
- * @param count Number of bytes to be written
- * @return 0 on success, -1 on error
- */
-inline int df_ewrite(int fd, const void *buf, size_t count)
-{
-        ssize_t written = 0;
-        do {
-                written = write(fd, buf, count);
-                if (written == count)
-                        break;
-                if (written > 0) {
-                        buf += written;
-                        count -= written;
-                }
-        } while (written >= 0 || errno == EINTR);
-        if (written < 0) {
-                perror("write");
-                return -1;
-        }
-        return 0;
-}
 
 /**
  * @function Saves pointer on D-Bus interface proxy for this module to be
@@ -443,7 +416,7 @@ static int df_fuzz_write_log(void)
                                         g_variant_get(s->var, s->sig, var);
                                         if (var != NULL &&
                                                         g_variant_check_format_string(var, "s", FALSE)) {
-                                                g_variant_get(&var, "s", &tmp12);
+                                                g_variant_get(var, "s", &tmp12);
                                                 str_len = strlen(tmp12);
                                                 tmp12cpy = tmp12;
                                                 if (tmp12 != NULL)
@@ -819,7 +792,7 @@ static GVariant *df_fuzz_create_variant(void)
         // Initialize the cif
         if (ffi_prep_cif(&cif, FFI_DEFAULT_ABI, df_list.args + 1,
                                 &ffi_type_pointer, args) == FFI_OK) {
-                ffi_call(&cif, g_variant_new, &val, values);
+                ffi_call(&cif, FFI_FN(g_variant_new), &val, values);
                 // val now holds the result of the call to g_variant_new().
                 // When val will be freed, all the floating Gvariants which
                 // was used to create it will be freed too, because val is
@@ -1003,13 +976,12 @@ static int df_fuzz_create_fmt_string(char **fmt, const int n)
  * @return 0 on success, -1 on error, 1 if void method returned non-void
  * value or 2 when tested method raised exception (so it should be skipped)
  */
-static int df_fuzz_call_method(const GVariant *value, const int void_method)
+static int df_fuzz_call_method(GVariant *value, const int void_method)
 {
         _cleanup_(g_error_freep) GError *error = NULL;
         _cleanup_(g_variant_unrefp) GVariant *response = NULL;
         _cleanup_(g_freep) gchar *dbus_error = NULL;
-        gchar *fmt;
-
+        const gchar *fmt;
 
         // Synchronously invokes method with arguments stored in value (GVariant *)
         // on df_dproxy.

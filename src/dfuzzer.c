@@ -132,23 +132,19 @@ int main(int argc, char **argv)
 
 cleanup:
         // free all suppressions and their descriptions
-        if (df_suppression) {
-                for (int i = 0; df_suppression[i]; i++)
-                        free(df_suppression[i]);
-        }
-        if (df_supp_description) {
-                for (int i = 0; df_supp_description[i]; i++)
-                        free(df_supp_description[i]);
-        }
+        for (int i = 0; df_suppression[i]; i++)
+                free(df_suppression[i]);
+
+        for (int i = 0; df_supp_description[i]; i++)
+                free(df_supp_description[i]);
 
         return ret;
 }
 
 int df_process_bus(GBusType bus_type)
 {
-        _cleanup_(g_object_unrefp) GDBusConnection *dcon = NULL;
+        _cleanup_(g_dbus_connection_unrefp) GDBusConnection *dcon = NULL;
         _cleanup_(g_error_freep) GError *error = NULL;
-        int ret = DF_BUS_OK;
 
         switch (bus_type) {
         case G_BUS_TYPE_SESSION:
@@ -215,9 +211,9 @@ int df_process_bus(GBusType bus_type)
  * @param dcon D-Bus connection structure
  * @return 0 on success, -1 on error
  */
-int df_list_bus_names(const GDBusConnection *dcon)
+int df_list_bus_names(GDBusConnection *dcon)
 {
-        _cleanup_(g_object_unrefp) GDBusProxy *proxy = NULL;    // proxy for getting bus names
+        _cleanup_(g_dbus_proxy_unrefp) GDBusProxy *proxy = NULL;    // proxy for getting bus names
         _cleanup_(g_variant_iter_freep) GVariantIter *iter = NULL;
         _cleanup_(g_variant_unrefp) GVariant *response = NULL;  // response from method ListNames
         _cleanup_(g_error_freep) GError *error = NULL;          // must be set to NULL
@@ -273,12 +269,12 @@ int df_list_bus_names(const GDBusConnection *dcon)
  * will be traversed)
  * @return 1 when obj. path target_proc.obj_path is found on bus, 0 otherwise
  */
-int df_is_object_on_bus(const GDBusConnection *dcon, const char *root_node)
+int df_is_object_on_bus(GDBusConnection *dcon, const char *root_node)
 {
         char *intro_iface = "org.freedesktop.DBus.Introspectable";
         char *intro_method = "Introspect";
         _cleanup_(g_variant_unrefp) GVariant *response = NULL;
-        _cleanup_(g_object_unrefp) GDBusProxy *dproxy = NULL;
+        _cleanup_(g_dbus_proxy_unrefp) GDBusProxy *dproxy = NULL;
         _cleanup_(g_freep) gchar *introspection_xml = NULL;
         _cleanup_(g_error_freep) GError *error = NULL;
         /** Information about nodes in a remote object hierarchy. */
@@ -369,18 +365,17 @@ int df_is_object_on_bus(const GDBusConnection *dcon, const char *root_node)
  * @return 0 on success, 1 on error, 2 when testing detected any failures
  * or warnings, 3 on warnings
  */
-int df_traverse_node(const GDBusConnection *dcon, const char *root_node)
+int df_traverse_node(GDBusConnection *dcon, const char *root_node)
 {
         char *intro_iface = "org.freedesktop.DBus.Introspectable";
         char *intro_method = "Introspect";
         _cleanup_(g_variant_unrefp) GVariant *response = NULL;
-        _cleanup_(g_object_unrefp) GDBusProxy *dproxy = NULL;
+        _cleanup_(g_dbus_proxy_unrefp) GDBusProxy *dproxy = NULL;
         _cleanup_(g_freep) gchar *introspection_xml = NULL;
         _cleanup_(g_error_freep) GError *error = NULL;
         /** Information about nodes in a remote object hierarchy. */
         _cleanup_(g_dbus_node_info_unrefp) GDBusNodeInfo *node_data = NULL;
         GDBusNodeInfo *node = NULL;
-        char *object = NULL;
         int i = 0;
         /** Information about a D-Bus interface. */
         GDBusInterfaceInfo *interface = NULL;
@@ -505,9 +500,9 @@ int df_traverse_node(const GDBusConnection *dcon, const char *root_node)
  * @return 0 on success, 1 on error, 2 when testing detected any failures,
  * 3 on warnings
  */
-int df_fuzz(const GDBusConnection *dcon, const char *name, const char *obj, const char *intf)
+int df_fuzz(GDBusConnection *dcon, const char *name, const char *obj, const char *intf)
 {
-        _cleanup_(g_object_unrefp) GDBusProxy *dproxy; // D-Bus interface proxy
+        _cleanup_(g_dbus_proxy_unrefp) GDBusProxy *dproxy = NULL; // D-Bus interface proxy
         _cleanup_(g_error_freep) GError *error = NULL;
         GDBusMethodInfo *m;
         GDBusArgInfo *in_arg;
@@ -577,7 +572,7 @@ int df_fuzz(const GDBusConnection *dcon, const char *name, const char *obj, cons
                 }
 
                 // if method name is in df_suppression array of names, it is skipped
-                if (df_suppression != NULL) {
+                if (df_suppression[0] != NULL) {
                         int skipflg = 0;
                         for (i = 0; df_suppression[i] != NULL; i++) {
                                 if (strcmp(df_suppression[i], m->name) == 0) {
@@ -778,10 +773,10 @@ int df_open_proc_status_file(const int pid)
  * @param dcon D-Bus connection structure
  * @return Process PID on success, -1 on error
  */
-int df_get_pid(const GDBusConnection *dcon)
+int df_get_pid(GDBusConnection *dcon)
 {
         _cleanup_(g_error_freep) GError *error = NULL;
-        _cleanup_(g_object_unrefp) GDBusProxy *pproxy = NULL;
+        _cleanup_(g_dbus_proxy_unrefp) GDBusProxy *pproxy = NULL;
         _cleanup_(g_variant_unrefp) GVariant *variant_pid = NULL;
         int pid = -1;
 

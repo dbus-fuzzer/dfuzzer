@@ -17,11 +17,20 @@
                 }                                               \
         }
 
+static inline void g_dbus_connection_unref(GDBusConnection *p) {
+        g_object_unref(p);
+}
+
+static inline void g_dbus_proxy_unref(GDBusProxy *p) {
+        g_object_unref(p);
+}
+
 DEFINE_TRIVIAL_CLEANUP_FUNC(int, close);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(char*, free, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(gpointer, g_free, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(gpointer, g_object_unref, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(gchar*, g_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(GDBusConnection*, g_dbus_connection_unref, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(GDBusProxy*, g_dbus_proxy_unref, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(GVariantIter*, g_variant_iter_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(GError*, g_error_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(GVariant*, g_variant_unref, NULL);

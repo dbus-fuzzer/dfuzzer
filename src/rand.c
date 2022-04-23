@@ -23,6 +23,7 @@
 #include <string.h>
 #include <limits.h>
 #include <time.h>
+#include <stdint.h>
 
 #include "rand.h"
 
@@ -338,15 +339,6 @@ guint64 df_rand_guint64(void)
 
 /**
  * @return Generated pseudo-random double precision floating point number
- * from interval <0, 1>
- */
-inline double drand(void)
-{
-        return ((double)rand() / RAND_MAX);
-}
-
-/**
- * @return Generated pseudo-random double precision floating point number
  */
 gdouble df_rand_gdouble(void)
 {
@@ -539,7 +531,7 @@ int df_rand_dbus_objpath_string(gchar **buf)
  */
 int df_rand_dbus_signature_string(gchar **buf)
 {
-        static unsigned char size = 1;
+        static uint16_t size = 1;
         size++;
         int i, j;
 

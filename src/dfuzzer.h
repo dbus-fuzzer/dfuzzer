@@ -67,7 +67,7 @@ int df_process_bus(GBusType bus_type);
  * @param dcon D-Bus connection structure
  * @return 0 on success, -1 on error
  */
-int df_list_bus_names(const GDBusConnection *dcon);
+int df_list_bus_names(GDBusConnection *dcon);
 
 /**
  * @function Traverses through all objects of bus name target_proc.name
@@ -77,7 +77,7 @@ int df_list_bus_names(const GDBusConnection *dcon);
  * will be traversed)
  * @return 1 when obj. path target_proc.obj_path is found on bus, 0 otherwise
  */
-int df_is_object_on_bus(const GDBusConnection *dcon, const char *root_node);
+int df_is_object_on_bus(GDBusConnection *dcon, const char *root_node);
 
 /**
  * @function Traverses through all interfaces and objects of bus
@@ -89,7 +89,7 @@ int df_is_object_on_bus(const GDBusConnection *dcon, const char *root_node);
  * @return 0 on success, 1 on error, 2 when testing detected any failures
  * or warnings, 3 on warnings
  */
-int df_traverse_node(const GDBusConnection *dcon, const char *root_node);
+int df_traverse_node(GDBusConnection *dcon, const char *root_node);
 
 /**
  * @function Controls fuzz testing of all methods of specified interface (intf)
@@ -101,7 +101,7 @@ int df_traverse_node(const GDBusConnection *dcon, const char *root_node);
  * @return 0 on success, 1 on error, 2 when testing detected any failures
  * or warnings, 3 on warnings
  */
-int df_fuzz(const GDBusConnection *dcon, const char *name, const char *obj, const char *intf);
+int df_fuzz(GDBusConnection *dcon, const char *name, const char *obj, const char *intf);
 
 /**
  * @function Checks if name is valid D-Bus name, obj is valid
@@ -126,7 +126,7 @@ int df_open_proc_status_file(const int pid);
  * @param dcon D-Bus connection structure
  * @return Process PID on success, -1 on error
  */
-int df_get_pid(const GDBusConnection *dcon);
+int df_get_pid(GDBusConnection *dcon);
 
 /**
  * @function Prints process name and package to which process belongs.
