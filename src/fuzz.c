@@ -344,15 +344,15 @@ static int df_fuzz_write_log(void)
                                         ;
                                         gint64 tmp6;
                                         g_variant_get(s->var, s->sig, &tmp6);
-                                        df_fail("-- '%ld'\n", tmp6);
-                                        FULL_LOG("%ld;", tmp6);
+                                        df_fail("-- '%" G_GINT64_FORMAT "'\n", tmp6);
+                                        FULL_LOG("%" G_GINT64_FORMAT, tmp6);
                                         break;
                                 case 't':
                                         ;
                                         guint64 tmp7;
                                         g_variant_get(s->var, s->sig, &tmp7);
-                                        df_fail("-- '%lu'\n", tmp7);
-                                        FULL_LOG("%lu;", tmp7);
+                                        df_fail("-- '%" G_GUINT64_FORMAT "'\n", tmp7);
+                                        FULL_LOG("%" G_GUINT64_FORMAT, tmp7);
                                         break;
                                 case 'd':
                                         ;
