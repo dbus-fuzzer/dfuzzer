@@ -19,6 +19,7 @@ actions:
     - "git clone https://src.fedoraproject.org/rpms/dfuzzer .packit_rpm --depth=1"
     # Drop the "sources" file so rebase-helper doesn't think we're a dist-git
     - "rm -fv .packit_rpm/sources"
+    - sed -i '/CFLAGS/s/"$/ -Werror -Wall -Wextra"/' .packit_rpm/dfuzzer.spec
 
 jobs:
 - job: copr_build
