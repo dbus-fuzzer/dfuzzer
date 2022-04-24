@@ -170,6 +170,7 @@ int df_fuzz_add_method_arg(const char *signature)
         s->sig = strdup(signature);
         if (!s->sig) {
                 df_fail("Error: Could not allocate memory for argument signature.\n");
+                free(s);
                 return -1;
         }
 
