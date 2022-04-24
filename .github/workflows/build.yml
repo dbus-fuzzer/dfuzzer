@@ -19,11 +19,23 @@ jobs:
         env:
           - {
               TYPE: "default",
-              CFLAGS: "-Werror -Wextra"
+              CFLAGS: "-Werror"
             }
           - {
               TYPE: "asan+ubsan",
-              CFLAGS: "-Werror -Wextra -fsanitize=address,undefined",
+              CFLAGS: "-Werror -fsanitize=address,undefined",
+              ASAN_OPTIONS: "strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1:abort_on_error=1",
+              UBSAN_OPTIONS: "print_stacktrace=1:print_summary=1:halt_on_error=1"
+            }
+          - {
+              TYPE: "clang",
+              CC: "clang",
+              CFLAGS: "-Werror"
+            }
+          - {
+              TYPE: "clang+asan+ubsan",
+              CC: "clang",
+              CFLAGS: "-Werror -fsanitize=address,undefined",
               ASAN_OPTIONS: "strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1:abort_on_error=1",
               UBSAN_OPTIONS: "print_stacktrace=1:print_summary=1:halt_on_error=1"
             }
@@ -36,16 +48,17 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt -y update
-          sudo apt -y install gcc libglib2.0-dev libffi-dev make
+          sudo apt -y install gcc libglib2.0-dev libffi-dev meson clang
 
       - name: Build
         run: |
-          make -C src
-          ./src/dfuzzer -V
-          ./src/dfuzzer --version
-          ./src/dfuzzer -s -l
-          ./src/dfuzzer --no-suppressions --list
-          sudo make -C src install
+          meson build
+          ninja -C ./build -v
+          ./build/dfuzzer -V
+          ./build/dfuzzer --version
+          ./build/dfuzzer -s -l
+          ./build/dfuzzer --no-suppressions --list
+          sudo ninja -C ./build install
 
       - name: Test
         run: |
