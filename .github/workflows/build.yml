@@ -19,23 +19,23 @@ jobs:
         env:
           - {
               TYPE: "default",
-              CFLAGS: ""
+              CFLAGS: "-Werror"
             }
           - {
               TYPE: "asan+ubsan",
-              CFLAGS: "-fsanitize=address,undefined",
+              CFLAGS: "-Werror -fsanitize=address,undefined",
               ASAN_OPTIONS: "strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1:abort_on_error=1",
               UBSAN_OPTIONS: "print_stacktrace=1:print_summary=1:halt_on_error=1"
             }
           - {
               TYPE: "clang",
               CC: "clang",
-              CFLAGS: ""
+              CFLAGS: "-Werror"
             }
           - {
               TYPE: "clang+asan+ubsan",
               CC: "clang",
-              CFLAGS: "-fsanitize=address,undefined",
+              CFLAGS: "-Werror -fsanitize=address,undefined",
               ASAN_OPTIONS: "strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1:abort_on_error=1",
               UBSAN_OPTIONS: "print_stacktrace=1:print_summary=1:halt_on_error=1"
             }
