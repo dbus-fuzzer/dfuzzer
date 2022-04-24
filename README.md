@@ -1,6 +1,7 @@
 dfuzzer
 =======
 [![Total alerts](https://img.shields.io/lgtm/alerts/g/matusmarhefka/dfuzzer.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/matusmarhefka/dfuzzer/alerts/)
+[![Coverage Status](https://coveralls.io/repos/github/matusmarhefka/dfuzzer/badge.svg)](https://coveralls.io/github/matusmarhefka/dfuzzer)
 
 dfuzzer is the D-Bus fuzzer, the tool for fuzz testing processes communicating
 through D-Bus. It can be used to test processes connected to both, the session
