@@ -344,10 +344,8 @@ int df_is_object_on_bus(GDBusConnection *dcon, const char *root_node)
                         return DF_BUS_ERROR;
                 }
                 ret = df_is_object_on_bus(dcon, object);
-                if (ret == 1) {
-                        free(object);
+                if (ret == 1)
                         return 1;
-                }
                 // move to next node
                 node = node_data->nodes[i++];
         }
