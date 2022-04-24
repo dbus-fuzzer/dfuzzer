@@ -88,7 +88,10 @@ guint64 df_rand_guint64(void);
  * @return Generated pseudo-random double precision floating point number
  * from interval <0, 1>
  */
-inline double drand(void);
+inline double drand(void)
+{
+        return ((double)rand() / RAND_MAX);
+}
 
 /**
  * @return Generated pseudo-random double precision floating point number

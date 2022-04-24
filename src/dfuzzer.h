@@ -37,19 +37,16 @@
 /** Maximum length of strings containing D-Bus name, interface and object path */
 #define MAXLEN 256
 
-static inline int isempty(const char *s) {
-        return !s || s[0] == '\0';
-}
+#define DF_BUS_ROOT_NODE "/"
 
-/* Returns the number of chars needed to format variables of the
- * specified type as a decimal string. Adds in extra space for a
- * negative '-' prefix (hence works correctly on signed
- * types). Includes space for the trailing NUL. */
-#define DECIMAL_STR_MAX(type)                                           \
-        (2U+(sizeof(type) <= 1 ? 3U :                                   \
-             sizeof(type) <= 2 ? 5U :                                   \
-             sizeof(type) <= 4 ? 10U :                                  \
-             sizeof(type) <= 8 ? 20U : sizeof(int[-2*(sizeof(type) > 8)])))
+enum {
+        DF_BUS_OK = 0,
+        DF_BUS_SKIP,
+        DF_BUS_NO_PID,
+        DF_BUS_WARNING,
+        DF_BUS_FAIL,
+        DF_BUS_ERROR
+};
 
 /** Structure containing D-Bus name, object path and interface of process. */
 struct fuzzing_target {
@@ -62,36 +59,7 @@ struct fuzzing_target {
         char *interface;
 };
 
-#define ANSI_RED        "\x1B[0;31m"
-#define ANSI_GREEN      "\x1B[0;32m"
-#define ANSI_YELLOW     "\x1B[0;33m"
-#define ANSI_BLUE       "\x1B[0;34m"
-#define ANSI_MAGENTA    "\x1B[0;35m"
-#define ANSI_CYAN       "\x1B[0;36m"
-
-#define ANSI_NORMAL     "\x1B[0m"
-#define ANSI_BOLD       "\x1B[1m"
-
-#define ANSI_CR         "\r"
-
-static inline int df_isatty(void) {
-        return isatty(STDOUT_FILENO) && isatty(STDERR_FILENO);
-}
-
-#define DEFINE_ANSI_FUNC(name, NAME)                       \
-        static inline const char *ansi_##name(void) {      \
-                return df_isatty() ? ANSI_##NAME : "";     \
-        }
-
-DEFINE_ANSI_FUNC(red,        RED);
-DEFINE_ANSI_FUNC(green,      GREEN);
-DEFINE_ANSI_FUNC(yellow,     YELLOW);
-DEFINE_ANSI_FUNC(blue,       BLUE);
-DEFINE_ANSI_FUNC(magenta,    MAGENTA);
-DEFINE_ANSI_FUNC(cyan,       CYAN);
-DEFINE_ANSI_FUNC(normal,     NORMAL);
-DEFINE_ANSI_FUNC(bold,       BOLD);
-DEFINE_ANSI_FUNC(cr,         CR);
+int df_process_bus(GBusType bus_type);
 
 /**
  * @function Calls method ListNames to get all available connection names
@@ -99,7 +67,7 @@ DEFINE_ANSI_FUNC(cr,         CR);
  * @param dcon D-Bus connection structure
  * @return 0 on success, -1 on error
  */
-int df_list_bus_names(const GDBusConnection *dcon);
+int df_list_bus_names(GDBusConnection *dcon);
 
 /**
  * @function Traverses through all objects of bus name target_proc.name
@@ -109,7 +77,7 @@ int df_list_bus_names(const GDBusConnection *dcon);
  * will be traversed)
  * @return 1 when obj. path target_proc.obj_path is found on bus, 0 otherwise
  */
-int df_is_object_on_bus(const GDBusConnection *dcon, const char *root_node);
+int df_is_object_on_bus(GDBusConnection *dcon, const char *root_node);
 
 /**
  * @function Traverses through all interfaces and objects of bus
@@ -121,7 +89,7 @@ int df_is_object_on_bus(const GDBusConnection *dcon, const char *root_node);
  * @return 0 on success, 1 on error, 2 when testing detected any failures
  * or warnings, 3 on warnings
  */
-int df_traverse_node(const GDBusConnection *dcon, const char *root_node);
+int df_traverse_node(GDBusConnection *dcon, const char *root_node);
 
 /**
  * @function Controls fuzz testing of all methods of specified interface (intf)
@@ -133,7 +101,7 @@ int df_traverse_node(const GDBusConnection *dcon, const char *root_node);
  * @return 0 on success, 1 on error, 2 when testing detected any failures
  * or warnings, 3 on warnings
  */
-int df_fuzz(const GDBusConnection *dcon, const char *name, const char *obj, const char *intf);
+int df_fuzz(GDBusConnection *dcon, const char *name, const char *obj, const char *intf);
 
 /**
  * @function Checks if name is valid D-Bus name, obj is valid
@@ -158,7 +126,7 @@ int df_open_proc_status_file(const int pid);
  * @param dcon D-Bus connection structure
  * @return Process PID on success, -1 on error
  */
-int df_get_pid(const GDBusConnection *dcon);
+int df_get_pid(GDBusConnection *dcon);
 
 /**
  * @function Prints process name and package to which process belongs.
