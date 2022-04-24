@@ -170,6 +170,7 @@ int df_fuzz_add_method_arg(const char *signature)
         s->sig = strdup(signature);
         if (!s->sig) {
                 df_fail("Error: Could not allocate memory for argument signature.\n");
+                free(s);
                 return -1;
         }
 
@@ -466,9 +467,7 @@ static int df_exec_cmd_check(const char *cmd)
                 return 0;
 
         const char *fn = "/dev/null";
-        int fd;
-        int stdoutcpy;
-        int stderrcpy;
+        _cleanup_(closep) int stdoutcpy = -1, stderrcpy = -1, fd = -1;
         int status = 0;
 
         fd = open(fn, O_RDWR, S_IRUSR | S_IWUSR);
@@ -479,25 +478,29 @@ static int df_exec_cmd_check(const char *cmd)
 
         // backup std descriptors
         stdoutcpy = dup(1);
+        if (stdoutcpy < 0)
+                return -1;
         stderrcpy = dup(2);
+        if (stderrcpy < 0)
+                return -1;
 
         // make stdout and stderr go to fd
-        if (dup2(fd, 1) == -1)
+        if (dup2(fd, 1) < 0)
                 return -1;
-        if (dup2(fd, 2) == -1)
+        if (dup2(fd, 2) < 0)
                 return -1;
-        close(fd);      // fd no longer needed
+        fd = safe_close(fd);      // fd no longer needed
 
         // execute cmd
         status = system(cmd);
 
         // restore std descriptors
-        if (dup2(stdoutcpy, 1) == -1)
+        if (dup2(stdoutcpy, 1) < 0)
                 return -1;
-        close(stdoutcpy);
-        if (dup2(stderrcpy, 2) == -1)
+        stdoutcpy = safe_close(stdoutcpy);
+        if (dup2(stderrcpy, 2) < 0)
                 return -1;
-        close(stderrcpy);
+        stderrcpy = safe_close(stderrcpy);
 
 
         if (status == -1)

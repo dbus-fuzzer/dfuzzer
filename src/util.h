@@ -25,7 +25,16 @@ static inline void g_dbus_proxy_unref(GDBusProxy *p) {
         g_object_unref(p);
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(int, close);
+static inline int safe_close(int fd) {
+        if (fd >= 0)
+                close(fd);
+
+        return -1;
+}
+
+static inline void closep(int *fd) {
+        safe_close(*fd);
+}
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(char*, free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(gchar*, g_free, NULL);
