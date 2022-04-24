@@ -478,12 +478,16 @@ static int df_exec_cmd_check(const char *cmd)
 
         // backup std descriptors
         stdoutcpy = dup(1);
+        if (stdoutcpy < 0)
+                return -1;
         stderrcpy = dup(2);
+        if (stderrcpy < 0)
+                return -1;
 
         // make stdout and stderr go to fd
-        if (dup2(fd, 1) == -1)
+        if (dup2(fd, 1) < 0)
                 return -1;
-        if (dup2(fd, 2) == -1)
+        if (dup2(fd, 2) < 0)
                 return -1;
         fd = safe_close(fd);      // fd no longer needed
 
@@ -491,10 +495,10 @@ static int df_exec_cmd_check(const char *cmd)
         status = system(cmd);
 
         // restore std descriptors
-        if (dup2(stdoutcpy, 1) == -1)
+        if (dup2(stdoutcpy, 1) < 0)
                 return -1;
         stdoutcpy = safe_close(stdoutcpy);
-        if (dup2(stderrcpy, 2) == -1)
+        if (dup2(stderrcpy, 2) < 0)
                 return -1;
         stderrcpy = safe_close(stderrcpy);
 
