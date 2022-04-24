@@ -539,7 +539,7 @@ int df_fuzz(GDBusConnection *dcon, const char *name, const char *obj, const char
         }
 
         // Introspection of object through proxy.
-        if (df_init_introspection(dproxy, name, intf) == -1) {
+        if (df_init_introspection(dproxy, intf) == -1) {
                 df_debug("Error in df_init_introspection() on introspecting object\n");
                 return DF_BUS_ERROR;
         }
