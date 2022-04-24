@@ -467,9 +467,7 @@ static int df_exec_cmd_check(const char *cmd)
                 return 0;
 
         const char *fn = "/dev/null";
-        int fd;
-        int stdoutcpy;
-        int stderrcpy;
+        _cleanup_(closep) int stdoutcpy = -1, stderrcpy = -1, fd = -1;
         int status = 0;
 
         fd = open(fn, O_RDWR, S_IRUSR | S_IWUSR);
@@ -487,7 +485,7 @@ static int df_exec_cmd_check(const char *cmd)
                 return -1;
         if (dup2(fd, 2) == -1)
                 return -1;
-        close(fd);      // fd no longer needed
+        fd = safe_close(fd);      // fd no longer needed
 
         // execute cmd
         status = system(cmd);
@@ -495,10 +493,10 @@ static int df_exec_cmd_check(const char *cmd)
         // restore std descriptors
         if (dup2(stdoutcpy, 1) == -1)
                 return -1;
-        close(stdoutcpy);
+        stdoutcpy = safe_close(stdoutcpy);
         if (dup2(stderrcpy, 2) == -1)
                 return -1;
-        close(stderrcpy);
+        stderrcpy = safe_close(stderrcpy);
 
 
         if (status == -1)
