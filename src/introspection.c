@@ -43,11 +43,10 @@ static GDBusArgInfo **df_out_args;
  * At the end looks up information about an interface and initializes module
  * global pointers on first method and its first argument.
  * @param dproxy Pointer on D-Bus interface proxy
- * @param name D-Bus name
  * @param interface D-Bus interface
  * @return 0 on success, -1 on error
  */
-int df_init_introspection(GDBusProxy *dproxy, const char *name, const char *interface)
+int df_init_introspection(GDBusProxy *dproxy, const char *interface)
 {
         if (!dproxy || !interface) {
                 df_debug("Passing NULL argument to function.\n");

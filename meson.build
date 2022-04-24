@@ -12,9 +12,6 @@ libffi = dependency('libffi', required : true)
 
 subdir('src')
 
-# https://github.com/matusmarhefka/dfuzzer/issues/30
-add_project_arguments('-Wno-unused-parameter', language : 'c')
-
 executable(
         'dfuzzer',
         dfuzzer_sources,
