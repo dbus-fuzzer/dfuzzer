@@ -11,6 +11,10 @@ $dfuzzer -V
 $dfuzzer --version
 $dfuzzer -s -l
 $dfuzzer --no-suppressions --list
+# Test a long suppression file
+perl -e 'print "[org.freedesktop.systemd1]\n"; print "Reboot destructive\n" x 250; print "Reboot\n" x 250' >dfuzzer.conf
+$dfuzzer -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i org.freedesktop.systemd1.Manager -t Reboot
+rm -f dfuzzer.conf
 # Test as an unprivileged user (short options)
 $dfuzzer -v -n org.freedesktop.systemd1
 # Test as root (long options + duplicate options)

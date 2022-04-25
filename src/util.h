@@ -36,6 +36,17 @@ static inline void closep(int *fd) {
         safe_close(*fd);
 }
 
+static inline FILE *safe_fclose(FILE *f) {
+        if (f)
+                fclose(f);
+
+        return NULL;
+}
+
+static inline void fclosep(FILE **f) {
+        safe_fclose(*f);
+}
+
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(char*, free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(gchar*, g_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(GDBusConnection*, g_dbus_connection_unref, NULL);
@@ -48,10 +59,21 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(GDBusNodeInfo*, g_dbus_node_info_unref, NULL);
 #define _cleanup_(x) __attribute__((__cleanup__(x)))
 #define _cleanup_free_ _cleanup_(freep)
 #define _cleanup_close_ _cleanup_(closep)
+#define _cleanup_fclose_ _cleanup_(fclosep)
 
 static inline int isempty(const char *s) {
         return !s || s[0] == '\0';
 }
+
+/* Takes inspiration from Rust's Option::take() method: reads and returns a pointer, but at the same time
+ * resets it to NULL. See: https://doc.rust-lang.org/std/option/enum.Option.html#method.take */
+#define TAKE_PTR(ptr)                           \
+        ({                                      \
+                typeof(ptr) *_pptr_ = &(ptr);   \
+                typeof(ptr) _ptr_ = *_pptr_;    \
+                *_pptr_ = NULL;                 \
+                _ptr_;                          \
+        })
 
 /* Returns the number of chars needed to format variables of the
  * specified type as a decimal string. Adds in extra space for a
