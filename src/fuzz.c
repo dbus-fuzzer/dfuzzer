@@ -913,6 +913,10 @@ static int df_fuzz_create_list_variants(void)
                 } else {    // advanced argument (array of something, dictionary, ...)
                         // fprintf(stderr, "Advanced signatures not yet implemented\n");
                         df_unsupported_sig_str = s->sig;
+                        for (s = df_list.list; s && s->var; s = s->next) {
+                                g_variant_unref(s->var);
+                                s->var = NULL;
+                        }
                         return 1;   // unsupported method signature
                 }
 
