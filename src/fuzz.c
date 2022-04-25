@@ -533,7 +533,6 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
                 return 0;
 
         struct df_signature *s = df_list.list;  // pointer on the first signature
-        _cleanup_(g_variant_unrefp) GVariant *value = NULL;
         int ret = 0;            // return value from df_fuzz_call_method()
         int execr = 0;          // return value from execution of execute_cmd
         int leaking_mem_flg = 0;            // if set to 1, leaks were detected
@@ -562,6 +561,8 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
         df_verbose("  %s...", df_list.df_method_name);
 
         while (df_rand_continue(df_list.fuzz_on_str_len)) {
+                _cleanup_(g_variant_unrefp) GVariant *value = NULL;
+
                 // parsing proces memory size from its status file described by statfd
                 used_memory = df_fuzz_get_proc_mem_size(statfd);
                 if (used_memory == -1) {
@@ -912,6 +913,10 @@ static int df_fuzz_create_list_variants(void)
                 } else {    // advanced argument (array of something, dictionary, ...)
                         // fprintf(stderr, "Advanced signatures not yet implemented\n");
                         df_unsupported_sig_str = s->sig;
+                        for (s = df_list.list; s && s->var; s = s->next) {
+                                g_variant_unref(s->var);
+                                s->var = NULL;
+                        }
                         return 1;   // unsupported method signature
                 }
 
