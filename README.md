@@ -16,22 +16,26 @@ Automatic installation (Fedora 21 and higher):
 
 Manual installation:
 --------------
-    $ git clone https://github.com/matusmarhefka/dfuzzer.git
+    $ git clone https://github.com/matusmarhefka/dfuzzer
+    $ cd dfuzzer
+    $ meson --buildtype=release build
+    $ ninja -C ./build -v
+    $ sudo ninja -C ./build install
 
 
 Requirements:
 
     glib2-devel  (2.34 or higher)
     libffi-devel (3.0 or higher)
-    doxygen      (optional)
+    meson
 
 Fedora:
 
-    $ yum install glib2-devel libffi-devel
+    $ dnf install glib2-devel libffi-devel meson
 
 Debian:
 
-    $ apt-get install libglib2.0-dev libffi-dev
+    $ apt-get install libglib2.0-dev libffi-dev meson
 
 
 Using valgrind with _GLib_:
