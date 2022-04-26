@@ -1,0 +1,2 @@
+option('dfuzzer-test-server', type: 'boolean', value: 'false',
+       description : 'build dfuzzer-test-server')

@@ -10,3 +10,7 @@ dfuzzer_sources = files(
         'util.c',
         'util.h',
 )
+
+dfuzzer_test_server_sources = files(
+        'dfuzzer-test-server.c',
+)
