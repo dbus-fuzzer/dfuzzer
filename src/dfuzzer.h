@@ -22,6 +22,7 @@
 #ifndef DFUZZER_H
 #define DFUZZER_H
 
+#include <errno.h>
 #include <unistd.h>
 
 /** Version of dfuzzer */
@@ -57,6 +58,11 @@ struct fuzzing_target {
         char *obj_path;
         /** Interface */
         char *interface;
+};
+
+struct suppression_item {
+        char *method;
+        char *description;
 };
 
 int df_process_bus(GBusType bus_type);
@@ -212,5 +218,10 @@ void df_verbose(const char *format, ...) __attribute__((__format__(printf, 1, 2)
  * @param format Format string
  */
 void df_fail(const char *format, ...) __attribute__((__format__(printf, 1, 2)));
+
+static inline int df_oom(void) {
+        df_fail("Allocation error: %m\n");
+        return -ENOMEM;
+}
 
 #endif
