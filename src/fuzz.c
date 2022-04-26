@@ -533,7 +533,7 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
                 return 0;
 
         struct df_signature *s = df_list.list;  // pointer on the first signature
-        _cleanup_(g_variant_unrefp) GVariant *value = NULL;
+        _cleanup_(g_variant_unrefp) GVariant *free_me = NULL;
         int ret = 0;            // return value from df_fuzz_call_method()
         int execr = 0;          // return value from execution of execute_cmd
         int leaking_mem_flg = 0;            // if set to 1, leaks were detected
@@ -562,6 +562,7 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
         df_verbose("  %s...", df_list.df_method_name);
 
         while (df_rand_continue(df_list.fuzz_on_str_len)) {
+                _cleanup_(g_variant_unrefp) GVariant *value = NULL;
                 // parsing proces memory size from its status file described by statfd
                 used_memory = df_fuzz_get_proc_mem_size(statfd);
                 if (used_memory == -1) {
@@ -608,6 +609,7 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
                                 if (execr > 0)
                                         df_fail("%s   '%s' returned %s%d%s\n",
                                                 ansi_cr(), execute_cmd, ansi_red(), execr, ansi_normal());
+                                free_me = TAKE_PTR(value);
                                 goto fail_label;
                         } else if (used_memory == -1) { // error on reading process status
                                 df_fail("Error: Unable to get memory size of [PID:%d].\n", pid);
@@ -624,6 +626,7 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
                         if (execr > 0)
                                 df_fail("%s   '%s' returned %s%d%s\n",
                                         ansi_cr(), execute_cmd, ansi_red(), execr, ansi_normal());
+                        free_me = TAKE_PTR(value);
                         goto fail_label;
                 } else if (ret == 2) {
                         // tested method returned exception
@@ -633,6 +636,7 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
                                         "   [PID: %d], [MEM: %ld kB]\n",
                                         ansi_cr(), ansi_red(), ansi_normal(),
                                         df_list.df_method_name, pid, prev_memory);
+                                free_me = TAKE_PTR(value);
                                 goto fail_label;
                         } else if (used_memory == -1) { // error on reading process status
                                 df_fail("Error: Unable to get memory size of [PID:%d].\n", pid);
@@ -652,6 +656,7 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
                         df_fail("%s  %sFAIL%s %s - '%s' returned %s%d%s\n",
                                 ansi_cr(), ansi_red(), ansi_normal(), df_list.df_method_name,
                                 execute_cmd, ansi_red(), execr, ansi_normal());
+                        free_me = TAKE_PTR(value);
                         goto fail_label;
                 }
 
@@ -676,6 +681,7 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
                                 "   [PID: %d], [MEM: %ld kB]\n",
                                 ansi_cr(), ansi_red(), ansi_normal(),
                                 df_list.df_method_name, pid, prev_memory);
+                        free_me = TAKE_PTR(value);
                         goto fail_label;
                 } else if (used_memory == -1) { // error on reading process status
                         df_fail("Error: Unable to get memory size of [PID:%d].\n", pid);
