@@ -1032,7 +1032,10 @@ int df_load_suppressions(void)
         _cleanup_free_ char *line = NULL, *home_supp = NULL;
         char *env = NULL;
         int name_found = 0, i = 0;
-        size_t len = 0;
+        size_t len = 0, n;
+
+        if (isempty(target_proc.name))
+                return 0;
 
         env = getenv("HOME");
         if (env) {
@@ -1081,10 +1084,14 @@ int df_load_suppressions(void)
         df_verbose("Found suppressions for bus: '%s'\n", target_proc.name);
 
         i = 0;
-        while (i < (MAXLEN - 1) && getline(&line, &len, f) > 0) {
+        while (i < (MAXLEN - 1) && (n = getline(&line, &len, f)) > 0) {
                 _cleanup_free_ char *suppression = NULL, *description = NULL;
                 if (line[0] == '[')
                         break;
+
+                /* The line contains only whitespace, skip it */
+                if (strspn(line, " \t\r\n") == n)
+                        continue;
 
                 /* The suppression description is optional, so let's accept such
                  * lines as well */

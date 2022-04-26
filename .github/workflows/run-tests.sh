@@ -12,6 +12,7 @@ fi
 
 $dfuzzer -V
 $dfuzzer --version
+$dfuzzer -l
 $dfuzzer -s -l
 $dfuzzer --no-suppressions --list
 # Test a long suppression file
