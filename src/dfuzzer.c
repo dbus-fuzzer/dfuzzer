@@ -1034,6 +1034,9 @@ int df_load_suppressions(void)
         int name_found = 0, i = 0;
         size_t len = 0;
 
+        if (isempty(target_proc.name))
+                return 0;
+
         env = getenv("HOME");
         if (env) {
                 home_supp = strjoin(env, "/", SF2);
