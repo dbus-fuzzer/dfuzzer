@@ -6,3 +6,7 @@ extraction:
         - gcc
         - libglib2.0-dev
         - libffi-dev
+    index:
+      build_command:
+        - meson -Ddfuzzer-test-server=true build
+        - ninja -C build -v
