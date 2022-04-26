@@ -676,16 +676,10 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
                                 "   [PID: %d], [MEM: %ld kB]\n",
                                 ansi_cr(), ansi_red(), ansi_normal(),
                                 df_list.df_method_name, pid, prev_memory);
-                        if (execr > 0)
-                                df_fail("%s   '%s' returned %s%d%s\n",
-                                        ansi_cr(), execute_cmd, ansi_red(), execr, ansi_normal());
                         goto fail_label;
                 } else if (used_memory == -1) { // error on reading process status
                         df_fail("Error: Unable to get memory size of [PID:%d].\n", pid);
                         df_debug("Error in df_fuzz_get_proc_mem_size()\n");
-                        if (execr > 0)
-                                df_fail("%s   '%s' returned %s%d%s\n",
-                                        ansi_cr(), execute_cmd, ansi_red(), execr, ansi_normal());
                         return -1;
                 }
                 // else continue, we managed to get process memory size
