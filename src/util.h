@@ -47,6 +47,13 @@ static inline void fclosep(FILE **f) {
         safe_fclose(*f);
 }
 
+static inline GVariant *safe_g_variant_unref(GVariant *p) {
+        if (p)
+                g_variant_unref(p);
+
+        return NULL;
+}
+
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(char*, free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(gchar*, g_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(GDBusConnection*, g_dbus_connection_unref, NULL);
