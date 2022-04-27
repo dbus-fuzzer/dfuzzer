@@ -34,6 +34,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "util.h"
+
 
 static GDBusNodeInfo *introspection_data = NULL;
 
@@ -51,18 +53,18 @@ static const gchar introspection_xml[] =
 "</node>";
 
 
-static void handle_method_call(GDBusConnection *connection, const gchar *sender,
-        const gchar *object_path, const gchar *interface_name,
-        const gchar *method_name, GVariant *parameters,
-        GDBusMethodInvocation *invocation, gpointer user_data)
+static void handle_method_call(
+                GDBusConnection *connection, const gchar *sender,
+                const gchar *object_path, const gchar *interface_name,
+                const gchar *method_name, GVariant *parameters,
+                GDBusMethodInvocation *invocation, gpointer user_data)
 {
         g_printf("->[handle_method_call]\n");
 
         if (g_strcmp0(method_name, "df_hello") == 0) {
+                _cleanup_(g_freep) gchar *response = NULL;
                 gchar *msg;
-                gchar buf[5000];
                 int n;
-                gchar *response;
 
                 // Deconstructs a GVariant instance parameters into gchar * msg.
                 // "(&s)" means msg will point inside parameters structure, so do not
@@ -73,28 +75,19 @@ static void handle_method_call(GDBusConnection *connection, const gchar *sender,
                 g_printf("\n@@@\nMsg from Client: [--s-- \'%s\'\n--i-- \'%d\']\n", msg, n);
                 response = g_strdup_printf("%s", msg);
 
-                //strcpy(buf, msg);             // XXX: segfault if uncommented
                 // Finishes handling a D-Bus method call by returning response
                 // converted to GVariant. This method will free invocation,
                 // you cannot use it afterwards.
                 g_dbus_method_invocation_return_value(invocation,
                         g_variant_new("(s)", response));
                 g_printf("Sending response to Client: [%s]\n", response);
-                g_free(response);               // XXX: memory leaks if commented
         }
 }
 
 // Virtual table for handling properties and method calls for a D-Bus interface.
-static const GDBusInterfaceVTable interface_vtable =
-{
-        handle_method_call,
-        NULL,
-        NULL
-};
+static const GDBusInterfaceVTable interface_vtable = { .method_call = handle_method_call };
 
-
-static void bus_acquired(GDBusConnection *connection, const gchar *name,
-        gpointer user_data)
+static void bus_acquired(GDBusConnection *connection, const gchar *name, gpointer user_data)
 {
         g_printf("->[bus_acquired]\n");
 
@@ -113,14 +106,12 @@ static void bus_acquired(GDBusConnection *connection, const gchar *name,
         g_assert(reg_id > 0);
 }
 
-static void name_acquired(GDBusConnection *connection, const gchar *name,
-        gpointer user_data)
+static void name_acquired(GDBusConnection *connection, const gchar *name, gpointer user_data)
 {
         g_printf("->[name_acquired]\n");
 }
 
-static void name_lost(GDBusConnection *connection, const gchar *name,
-        gpointer user_data)
+static void name_lost(GDBusConnection *connection, const gchar *name, gpointer user_data)
 {
         g_printerr("Unable to connect to the bus daemon!\n");
         exit(1);
@@ -130,9 +121,6 @@ int main(int argc, char **argv)
 {
         guint name_id;
         GMainLoop *loop;
-
-        // Initializes the type system.
-        g_type_init();
 
         // Parses introspection_xml and returns a GDBusNodeInfo representing the data.
         // The introspection XML must contain exactly one top-level <node> element.
