@@ -24,7 +24,8 @@ if get_option('dfuzzer-test-server')
                 'dfuzzer-test-server',
                 dfuzzer_test_server_sources,
                 dependencies : [libgio],
-                install : true
+                c_args : '-Wno-unused-parameter',
+                install : true,
         )
 endif
 
