@@ -130,7 +130,7 @@ int main(int argc, char **argv)
         // Starts acquiring name on the bus (G_BUS_TYPE_SESSION) and calls
         // name_acquired handler and name_lost when the name is acquired
         // respectively lost.
-        name_id = g_bus_own_name(G_BUS_TYPE_SESSION,
+        name_id = g_bus_own_name(G_BUS_TYPE_SYSTEM,
                                 "org.freedesktop.dfuzzerServer",
                                 G_BUS_NAME_OWNER_FLAGS_NONE,
                                 bus_acquired,
