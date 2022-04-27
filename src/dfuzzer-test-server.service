@@ -1,0 +1,7 @@
+[Unit]
+Description=dfuzzer test server
+
+[Service]
+Type=dbus
+BusName=org.freedesktop.dfuzzerServer
+ExecStart=/usr/bin/dfuzzer-test-server

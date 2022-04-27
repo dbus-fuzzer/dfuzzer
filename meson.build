@@ -27,6 +27,12 @@ if get_option('dfuzzer-test-server')
                 c_args : '-Wno-unused-parameter',
                 install : true,
         )
+        install_data('src/org.freedesktop.dfuzzerServer.conf',
+                     install_dir : '/etc/dbus-1/system.d')
+        install_data('src/org.freedesktop.dfuzzerServer.service',
+                     install_dir : '/usr/share/dbus-1/system-services')
+        install_data('src/dfuzzer-test-server.service',
+                     install_dir : '/usr/lib/systemd/system')
 endif
 
 install_data('src/dfuzzer.conf', install_dir : get_option('sysconfdir'))
