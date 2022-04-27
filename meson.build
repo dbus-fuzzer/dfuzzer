@@ -19,5 +19,14 @@ executable(
         install : true
 )
 
+if get_option('dfuzzer-test-server')
+        executable(
+                'dfuzzer-test-server',
+                dfuzzer_test_server_sources,
+                dependencies : [libgio],
+                install : true
+        )
+endif
+
 install_data('src/dfuzzer.conf', install_dir : get_option('sysconfdir'))
 install_man('man/dfuzzer.1')
