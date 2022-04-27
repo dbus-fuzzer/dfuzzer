@@ -4,10 +4,7 @@ set -ex
 
 dfuzzer=dfuzzer
 if [[ "$TYPE" == valgrind ]]; then
-    # leak-check=full should be brought back once https://github.com/matusmarhefka/dfuzzer/issues/45
-    # is addressed properly. Until then let's use valgrind to make sure uninitizlized memory isn't
-    # used anywhere.
-    dfuzzer='valgrind --leak-check=no --show-leak-kinds=definite --errors-for-leak-kinds=definite --error-exitcode=1 dfuzzer'
+    dfuzzer='valgrind --leak-check=full --show-leak-kinds=definite --errors-for-leak-kinds=definite --error-exitcode=1 dfuzzer'
 fi
 
 $dfuzzer -V
