@@ -9,8 +9,13 @@ fi
 
 sudo systemctl daemon-reload
 sudo systemctl start dfuzzer-test-server
-$dfuzzer -l
+
+set +e
+# https://github.com/matusmarhefka/dfuzzer/issues/45
 $dfuzzer -v -n org.freedesktop.dfuzzerServer
+[[ $? == 2 ]] || exit 1
+set -e
+
 sudo systemctl stop dfuzzer-test-server
 
 $dfuzzer -V
