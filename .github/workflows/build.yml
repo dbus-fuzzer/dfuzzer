@@ -61,7 +61,7 @@ jobs:
 
       - name: Build
         run: |
-          meson build
+          meson -Ddfuzzer-test-server=true build
           ninja -C ./build -v
           sudo ninja -C ./build install
 
