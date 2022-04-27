@@ -571,6 +571,7 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
                 }
                 prev_memory = used_memory;
 
+                value = safe_g_variant_unref(value);
 
                 // creates variant containing all (fuzzed) method arguments
                 value = df_fuzz_create_variant();
