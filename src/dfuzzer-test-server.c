@@ -49,6 +49,9 @@ static const gchar introspection_xml[] =
 "                       <arg type=\"i\" name=\"lol\" direction=\"in\"/>"
 "                       <arg type=\"s\" name=\"response\" direction=\"out\"/>"
 "               </method>"
+"               <method name=\"df_crash\">"
+"                       <arg type=\"g\" name=\"lol\" direction=\"in\"/>"
+"               </method>"
 "       </interface>"
 "</node>";
 
@@ -81,7 +84,8 @@ static void handle_method_call(
                 g_dbus_method_invocation_return_value(invocation,
                         g_variant_new("(s)", response));
                 g_printf("Sending response to Client: [%s]\n", response);
-        }
+        } else if (g_strcmp0(method_name, "df_crash") == 0)
+		abort();
 }
 
 // Virtual table for handling properties and method calls for a D-Bus interface.
