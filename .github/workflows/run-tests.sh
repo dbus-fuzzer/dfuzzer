@@ -7,6 +7,12 @@ if [[ "$TYPE" == valgrind ]]; then
     dfuzzer='valgrind --leak-check=full --show-leak-kinds=definite --errors-for-leak-kinds=definite --error-exitcode=1 dfuzzer'
 fi
 
+sudo systemctl daemon-reload
+sudo systemctl start dfuzzer-test-server
+$dfuzzer -l
+$dfuzzer -v -n org.freedesktop.dfuzzerServer
+sudo systemctl stop dfuzzer-test-server
+
 $dfuzzer -V
 $dfuzzer --version
 $dfuzzer -l
