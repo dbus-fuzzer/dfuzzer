@@ -49,6 +49,9 @@ static const gchar introspection_xml[] =
 "                       <arg type=\"i\" name=\"lol\" direction=\"in\"/>"
 "                       <arg type=\"s\" name=\"response\" direction=\"out\"/>"
 "               </method>"
+"               <method name=\"df_crash\">"
+"                       <arg type=\"o\" name=\"lol\" direction=\"in\"/>"
+"               </method>"
 "       </interface>"
 "</node>";
 
@@ -81,7 +84,8 @@ static void handle_method_call(
                 g_dbus_method_invocation_return_value(invocation,
                         g_variant_new("(s)", response));
                 g_printf("Sending response to Client: [%s]\n", response);
-        }
+        } else if (g_strcmp0(method_name, "df_crash") == 0)
+		abort();
 }
 
 // Virtual table for handling properties and method calls for a D-Bus interface.
@@ -130,7 +134,7 @@ int main(int argc, char **argv)
         // Starts acquiring name on the bus (G_BUS_TYPE_SESSION) and calls
         // name_acquired handler and name_lost when the name is acquired
         // respectively lost.
-        name_id = g_bus_own_name(G_BUS_TYPE_SESSION,
+        name_id = g_bus_own_name(G_BUS_TYPE_SYSTEM,
                                 "org.freedesktop.dfuzzerServer",
                                 G_BUS_NAME_OWNER_FLAGS_NONE,
                                 bus_acquired,

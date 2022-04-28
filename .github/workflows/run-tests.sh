@@ -4,8 +4,19 @@ set -ex
 
 dfuzzer=dfuzzer
 if [[ "$TYPE" == valgrind ]]; then
-    dfuzzer='valgrind --leak-check=full --show-leak-kinds=definite --errors-for-leak-kinds=definite --error-exitcode=1 dfuzzer'
+    dfuzzer='valgrind --leak-check=full --show-leak-kinds=definite --errors-for-leak-kinds=definite --error-exitcode=42 dfuzzer'
 fi
+
+sudo systemctl daemon-reload
+sudo systemctl start dfuzzer-test-server
+
+set +e
+# https://github.com/matusmarhefka/dfuzzer/issues/45
+$dfuzzer -v -n org.freedesktop.dfuzzerServer
+[[ $? == 2 ]] || exit 1
+set -e
+
+sudo systemctl stop dfuzzer-test-server
 
 $dfuzzer -V
 $dfuzzer --version
