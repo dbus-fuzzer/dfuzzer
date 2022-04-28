@@ -27,6 +27,11 @@ $dfuzzer --no-suppressions --list
 perl -e 'print "[org.freedesktop.systemd1]\n"; print "Reboot destructive\n" x 250; print "Reboot\n" x 250' >dfuzzer.conf
 $dfuzzer -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i org.freedesktop.systemd1.Manager -t Reboot
 rm -f dfuzzer.conf
+# Check if we probe void methods
+log_out="$(mktemp)"
+sudo $dfuzzer -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i org.freedesktop.systemd1.Manager -t ListUnits |& tee "$log_out"
+grep "PASS" "$log_out"
+grep "SKIP" "$log_out" && false
 # Test as an unprivileged user (short options)
 $dfuzzer -v -n org.freedesktop.systemd1
 # Test as root (long options + duplicate options)
