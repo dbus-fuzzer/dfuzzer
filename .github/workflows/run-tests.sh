@@ -8,7 +8,6 @@ if [[ "$TYPE" == valgrind ]]; then
 fi
 
 sudo systemctl daemon-reload
-sudo systemctl start dfuzzer-test-server
 
 set +e
 # https://github.com/matusmarhefka/dfuzzer/issues/45
@@ -18,15 +17,11 @@ set -e
 
 sudo systemctl stop dfuzzer-test-server
 
-sudo systemctl start dfuzzer-test-server
-
 # dfuzzer should return 0 by default when services it tests time out
 # https://github.com/matusmarhefka/dfuzzer/pull/57#issuecomment-1112191073
 "${dfuzzer[@]}" -v -n org.freedesktop.dfuzzerServer -o /org/freedesktop/dfuzzerObject -i org.freedesktop.dfuzzerInterface -t df_hang
 
 sudo systemctl stop dfuzzer-test-server
-
-sudo systemctl start dfuzzer-test-server
 
 "${dfuzzer[@]}" -e true -v -n org.freedesktop.dfuzzerServer -o /org/freedesktop/dfuzzerObject -i org.freedesktop.dfuzzerInterface -t df_hello
 
@@ -35,6 +30,17 @@ set +e
 [[ $? == 2 ]] || exit 1
 set -e
 
+sudo systemctl stop dfuzzer-test-server
+
+# Make sure we can still test services, which cannot be auto-activated
+rm /usr/share/dbus-1/system-services/org.freedesktop.dfuzzerServer.service
+sudo systemctl reload dbus
+set +e
+"${dfuzzer[@]}" -v -n org.freedesktop.dfuzzerServer -o /org/freedesktop/dfuzzerObject -i org.freedesktop.dfuzzerInterface -t df_hello
+[[ $? == 4 ]] || exit 1
+set -e
+sudo systemctl start dfuzzer-test-server
+"${dfuzzer[@]}" -v -n org.freedesktop.dfuzzerServer -o /org/freedesktop/dfuzzerObject -i org.freedesktop.dfuzzerInterface -t df_hello
 sudo systemctl stop dfuzzer-test-server
 
 "${dfuzzer[@]}" -V

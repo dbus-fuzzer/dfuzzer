@@ -171,7 +171,7 @@ int df_process_bus(GBusType bus_type)
                 }
         } else {
                 // gets pid of tested process
-                df_pid = df_get_pid(dcon);
+                df_pid = df_get_pid(dcon, TRUE);
                 if (df_pid > 0) {
                         df_print_process_info(df_pid);
                         fprintf(stderr, "%s%s[CONNECTED TO PID: %d]%s\n", ansi_cr(), ansi_cyan(), df_pid, ansi_normal());
@@ -653,7 +653,7 @@ int df_fuzz(GDBusConnection *dcon, const char *name, const char *obj, const char
                         sleep(5);       // wait for application to launch
 
                         // gets pid of tested process
-                        df_pid = df_get_pid(dcon);
+                        df_pid = df_get_pid(dcon, FALSE);
                         if (df_pid < 0) {
                                 df_fuzz_clean_method();
                                 df_unref_introspection();
@@ -760,7 +760,7 @@ int df_open_proc_status_file(const int pid)
  * @param dcon D-Bus connection structure
  * @return Process PID on success, -1 on error
  */
-int df_get_pid(GDBusConnection *dcon)
+int df_get_pid(GDBusConnection *dcon, gboolean activate)
 {
         _cleanup_(g_error_freep) GError *error = NULL;
         _cleanup_(g_dbus_proxy_unrefp) GDBusProxy *pproxy = NULL;
@@ -782,6 +782,34 @@ int df_get_pid(GDBusConnection *dcon)
                 df_fail("Error: Unable to create proxy for getting process pid.\n");
                 df_error("Error on creating proxy for getting process pid", error);
                 return -1;
+        }
+
+        /* Attempt to activate the remote side. Since we can't use any well-known
+         * remote method for auto-activation, fall back to calling
+         * the org.freedesktop.DBus.StartServiceByName method.
+         *
+         * See:
+         *  - https://dbus.freedesktop.org/doc/dbus-specification.html#bus-messages-start-service-by-name
+         *  - https://dbus.freedesktop.org/doc/system-activation.txt
+         */
+        if (activate) {
+                _cleanup_(g_error_freep) GError *act_error = NULL;
+                _cleanup_(g_variant_unrefp) GVariant *act_res = NULL;
+
+                act_res = g_dbus_proxy_call_sync(
+                                pproxy,
+                                "StartServiceByName",
+                                g_variant_new("(su)", target_proc.name, 0),
+                                G_DBUS_CALL_FLAGS_NONE,
+                                -1,
+                                NULL,
+                                &act_error);
+                if (!act_res) {
+                        /* Don't make this a hard fail */
+                        g_dbus_error_strip_remote_error(act_error);
+                        df_verbose("Error while activating '%s': %s.\n", target_proc.name, act_error->message);
+                        df_error("Failed to activate the target", act_error);
+                }
         }
 
         // Synchronously invokes method GetConnectionUnixProcessID
