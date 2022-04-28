@@ -130,9 +130,10 @@ int df_open_proc_status_file(const int pid);
  * @function Calls method GetConnectionUnixProcessID on the interface
  * org.freedesktop.DBus to get process pid.
  * @param dcon D-Bus connection structure
+ * @param activate if TRUE, attempt to activate the remote side
  * @return Process PID on success, -1 on error
  */
-int df_get_pid(GDBusConnection *dcon);
+int df_get_pid(GDBusConnection *dcon, gboolean activate);
 
 /**
  * @function Prints process name and package to which process belongs.
