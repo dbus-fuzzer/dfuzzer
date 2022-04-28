@@ -50,7 +50,7 @@ static const gchar introspection_xml[] =
 "                       <arg type=\"s\" name=\"response\" direction=\"out\"/>"
 "               </method>"
 "               <method name=\"df_crash\">"
-"                       <arg type=\"g\" name=\"lol\" direction=\"in\"/>"
+"                       <arg type=\"o\" name=\"lol\" direction=\"in\"/>"
 "               </method>"
 "       </interface>"
 "</node>";
