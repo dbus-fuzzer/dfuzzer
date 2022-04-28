@@ -61,7 +61,17 @@ jobs:
 
       - name: Build
         run: |
-          meson -Ddfuzzer-test-server=true build
+          set -ex
+          # To get around https://github.com/matusmarhefka/dfuzzer/issues/19
+          # let's build and install the test server without sanitizers first
+          CFLAGS=-Werror meson -Ddfuzzer-test-server=true build
+          ninja -C ./build -v
+          sudo ninja -C ./build install
+
+          # Now that the test server is installed let's rebuild and reinstall
+          # dfuzzer with the right CFLAGS
+          git clean -dxff
+          meson build
           ninja -C ./build -v
           sudo ninja -C ./build install
 

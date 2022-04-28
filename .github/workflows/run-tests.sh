@@ -26,6 +26,17 @@ sudo systemctl start dfuzzer-test-server
 
 sudo systemctl stop dfuzzer-test-server
 
+sudo systemctl start dfuzzer-test-server
+
+"${dfuzzer[@]}" -e true -v -n org.freedesktop.dfuzzerServer -o /org/freedesktop/dfuzzerObject -i org.freedesktop.dfuzzerInterface -t df_hello
+
+set +e
+"${dfuzzer[@]}" -e false -v -n org.freedesktop.dfuzzerServer -o /org/freedesktop/dfuzzerObject -i org.freedesktop.dfuzzerInterface -t df_hello
+[[ $? == 2 ]] || exit 1
+set -e
+
+sudo systemctl stop dfuzzer-test-server
+
 "${dfuzzer[@]}" -V
 "${dfuzzer[@]}" --version
 "${dfuzzer[@]}" -l
