@@ -84,7 +84,7 @@ jobs:
       - name: Build
         run: |
           set -ex
-          meson -Db_coverage=true build
+          meson -Ddfuzzer-test-server=true -Db_coverage=true build
           ninja -C ./build -v
           sudo ninja -C ./build install
 
