@@ -103,9 +103,10 @@ gdouble df_rand_gdouble(void);
  * of generated strings not to exceed df_buf_size length.
  * @param fuzz_on_str_len If 1, fuzzing will be controlled by generated random
  * strings lengths
+ * @param nargs Number of arguments of the currently tested method
  * @return 1 when callee should continue, 0 otherwise
  */
-int df_rand_continue(const int fuzz_on_str_len);
+int df_rand_continue(const int fuzz_on_str_len, const int nargs);
 
 /**
  * @function Allocates memory for pseudo-random string of size counted

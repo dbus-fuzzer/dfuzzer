@@ -379,9 +379,18 @@ gdouble df_rand_gdouble(void)
  * strings lengths
  * @return 1 when callee should continue, 0 otherwise
  */
-int df_rand_continue(const int fuzz_on_str_len)
+int df_rand_continue(const int fuzz_on_str_len, const int nargs)
 {
         static int counter = 0; // makes sure to test biggest strings more times
+
+       if (nargs == 0) {
+               if (df_num_fuzz_counter == 10) {
+                       df_num_fuzz_counter = 0;
+                       return 0;
+               }
+               df_num_fuzz_counter++;
+               return 1;
+       }
 
         if (fuzz_on_str_len) {
                 if (df_str_len >= df_buf_size) {

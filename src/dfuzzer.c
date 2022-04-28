@@ -604,14 +604,6 @@ int df_fuzz(GDBusConnection *dcon, const char *name, const char *obj, const char
                         }
                 }
 
-                // methods with no arguments are not tested
-                if (df_list_args_count() == 0) {
-                        df_verbose("%s  %sSKIP%s %s - void method\n",
-                                   ansi_cr(), ansi_blue(), ansi_normal(), m->name);
-                        df_fuzz_clean_method();
-                        continue;
-                }
-
                 if (df_method_has_out_args())
                         void_method = 0;
                 else

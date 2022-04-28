@@ -528,10 +528,6 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
                 const char *obj, const char *intf, const int pid,
                 const int void_method, const char *execute_cmd)
 {
-        // methods with no arguments are not tested
-        if (df_list.args == 0)
-                return 0;
-
         struct df_signature *s = df_list.list;  // pointer on the first signature
         _cleanup_(g_variant_unrefp) GVariant *value = NULL;
         int ret = 0;            // return value from df_fuzz_call_method()
@@ -561,7 +557,7 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
 
         df_verbose("  %s...", df_list.df_method_name);
 
-        while (df_rand_continue(df_list.fuzz_on_str_len)) {
+        while (df_rand_continue(df_list.fuzz_on_str_len, df_list.args)) {
                 // parsing proces memory size from its status file described by statfd
                 used_memory = df_fuzz_get_proc_mem_size(statfd);
                 if (used_memory == -1) {
