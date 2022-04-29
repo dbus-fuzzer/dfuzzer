@@ -54,6 +54,12 @@ static inline GVariant *safe_g_variant_unref(GVariant *p) {
         return NULL;
 }
 
+static inline GVariantIter *safe_g_variant_iter_free(GVariantIter *p) {
+        if (p)
+                g_variant_iter_free(p);
+
+        return NULL;
+}
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(char*, free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(gchar*, g_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(GDBusConnection*, g_dbus_connection_unref, NULL);

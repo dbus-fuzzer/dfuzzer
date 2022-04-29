@@ -9,6 +9,9 @@ fi
 
 sudo systemctl daemon-reload
 
+# Test if we can list activatable dbus services as well
+"${dfuzzer[@]}" -l | grep 'org.freedesktop.dfuzzerServer (activatable)'
+
 set +e
 # https://github.com/matusmarhefka/dfuzzer/issues/45
 "${dfuzzer[@]}" -v -n org.freedesktop.dfuzzerServer

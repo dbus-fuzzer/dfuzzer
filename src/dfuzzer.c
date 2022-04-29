@@ -139,6 +139,29 @@ cleanup:
         return ret;
 }
 
+GVariant *df_dbus_call(GDBusProxy *proxy, const char *method, GDBusCallFlags flags)
+{
+        _cleanup_(g_error_freep) GError *error = NULL;
+        GVariant *response = NULL;
+
+        response = g_dbus_proxy_call_sync(
+                        proxy,
+                        method,
+                        NULL,
+                        flags,
+                        -1,
+                        NULL,
+                        &error);
+        if (!response) {
+                g_dbus_error_strip_remote_error(error);
+                df_fail("Error while calling method '%s': %s.\n", method, error->message);
+                df_error("Error in g_dbus_proxy_call_sync()", error);
+                return NULL;
+        }
+
+        return response;
+}
+
 int df_process_bus(GBusType bus_type)
 {
         _cleanup_(g_dbus_connection_unrefp) GDBusConnection *dcon = NULL;
@@ -211,14 +234,12 @@ int df_process_bus(GBusType bus_type)
  */
 int df_list_bus_names(GDBusConnection *dcon)
 {
-        _cleanup_(g_dbus_proxy_unrefp) GDBusProxy *proxy = NULL;    // proxy for getting bus names
+        _cleanup_(g_dbus_proxy_unrefp) GDBusProxy *proxy = NULL;
         _cleanup_(g_variant_iter_freep) GVariantIter *iter = NULL;
-        _cleanup_(g_variant_unrefp) GVariant *response = NULL;  // response from method ListNames
-        _cleanup_(g_error_freep) GError *error = NULL;          // must be set to NULL
+        _cleanup_(g_variant_unrefp) GVariant *response = NULL;
+        _cleanup_(g_error_freep) GError *error = NULL;
         char *str;
 
-        // Uses dcon (GDBusConnection *) to create proxy for accessing
-        // org.freedesktop.DBus (for calling its method ListNames)
         proxy = g_dbus_proxy_new_sync(
                         dcon,
                         G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES|G_DBUS_PROXY_FLAGS_DO_NOT_CONNECT_SIGNALS,
@@ -234,26 +255,27 @@ int df_list_bus_names(GDBusConnection *dcon)
                 return -1;
         }
 
-        // Synchronously invokes method ListNames
-        response = g_dbus_proxy_call_sync(
-                        proxy,
-                        "ListNames",
-                        NULL,
-                        G_DBUS_CALL_FLAGS_NONE,
-                        -1,
-                        NULL,
-                        &error);
-        if (!response) {
-                g_dbus_error_strip_remote_error(error);
-                df_fail("Error: %s.\n", error->message);
-                df_error("Error in g_dbus_proxy_call_sync()", error);
+        response = df_dbus_call(proxy, "ListNames", G_DBUS_CALL_FLAGS_NONE);
+        if (!response)
                 return -1;
-        }
 
         g_variant_get(response, "(as)", &iter);
         while (g_variant_iter_loop(iter, "s", &str)) {
                 if (str[0] != ':')
                         printf("%s\n", str);
+        }
+
+        response = safe_g_variant_unref(response);
+        iter = safe_g_variant_iter_free(iter);
+
+        response = df_dbus_call(proxy, "ListActivatableNames", G_DBUS_CALL_FLAGS_NONE);
+        if (!response)
+                return -1;
+
+        g_variant_get(response, "(as)", &iter);
+        while (g_variant_iter_loop(iter, "s", &str)) {
+                if (str[0] != ':')
+                        printf("%s (activatable)\n", str);
         }
 
         return 0;
