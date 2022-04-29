@@ -65,6 +65,7 @@ struct suppression_item {
         char *description;
 };
 
+GVariant *df_dbus_call(GDBusProxy *proxy, const char *method, GDBusCallFlags flags);
 int df_process_bus(GBusType bus_type);
 
 /**
