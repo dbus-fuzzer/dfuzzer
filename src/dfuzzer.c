@@ -43,8 +43,6 @@ static int df_verbose_flag;
 static int df_debug_flag;
 /** Option for listing names on the bus */
 static int df_list_names;
-/** Memory limit for tested process in kB */
-static long df_mem_limit;
 /** Maximum buffer size for generated strings by rand module (in Bytes) */
 static long df_buf_size;
 /** Contains method name or NULL. When not NULL, only method with this name
@@ -524,7 +522,6 @@ int df_fuzz(GDBusConnection *dcon, const char *name, const char *obj, const char
         _cleanup_(g_error_freep) GError *error = NULL;
         GDBusMethodInfo *m;
         GDBusArgInfo *in_arg;
-        _cleanup_(closep) int statfd = -1;
         int ret = 0;
         int method_found = 0;   // If df_test_method is found in an interface,
         // method_found is set to 1, otherwise is 0.
@@ -564,17 +561,9 @@ int df_fuzz(GDBusConnection *dcon, const char *name, const char *obj, const char
                 return DF_BUS_ERROR;
         }
 
-        // opens process status file
-        statfd = df_open_proc_status_file(df_pid);
-        if (statfd == -1) {
-                df_unref_introspection();
-                df_debug("Error in df_open_proc_status_file()\n");
-                return DF_BUS_ERROR;
-        }
-
         // tells fuzz module to call methods on dproxy, use FD statfd
         // for monitoring tested process and memory limit for process
-        if (df_fuzz_init(dproxy, statfd, df_pid, df_mem_limit) == -1) {
+        if (df_fuzz_init(dproxy) == -1) {
                 df_unref_introspection();
                 df_debug("Error in df_fuzz_add_proxy()\n");
                 return DF_BUS_ERROR;
@@ -633,7 +622,6 @@ int df_fuzz(GDBusConnection *dcon, const char *name, const char *obj, const char
 
                 // tests for method
                 ret = df_fuzz_test_method(
-                                statfd,
                                 df_buf_size,
                                 name,
                                 obj,
@@ -685,19 +673,9 @@ int df_fuzz(GDBusConnection *dcon, const char *name, const char *obj, const char
                         fprintf(stderr, "%s%s[RE-CONNECTED TO PID: %d]%s\n",
                                         ansi_cr(), ansi_cyan(), df_pid, ansi_blue());
 
-                        // opens process status file
-                        close(statfd);
-                        statfd = -1;
-                        if ((statfd = df_open_proc_status_file(df_pid)) == -1) {
-                                df_fuzz_clean_method();
-                                df_unref_introspection();
-                                df_debug("Error in df_open_proc_status_file()\n");
-                                return DF_BUS_ERROR;
-                        }
-
                         // tells fuzz module to call methods on different dproxy and to use
                         // new status file of process with PID df_pid
-                        if (df_fuzz_init(dproxy, statfd, df_pid, df_mem_limit) == -1) {
+                        if (df_fuzz_init(dproxy) == -1) {
                                 df_fuzz_clean_method();
                                 df_unref_introspection();
                                 df_debug("Error in df_fuzz_add_proxy()\n");
@@ -754,26 +732,6 @@ int df_is_valid_dbus(const char *name, const char *obj, const char *intf)
                 return 0;
         }
         return 1;
-}
-
-/**
- * @function Opens process status file.
- * @param pid PID - identifier of process
- * @return FD of status file on success, -1 on error
- */
-int df_open_proc_status_file(const int pid)
-{
-        char file_path[14 + DECIMAL_STR_MAX(pid)]; // "/proc/PID/status"
-        int statfd;
-
-        sprintf(file_path, "/proc/%d/status", pid);
-
-        statfd = open(file_path, O_RDONLY);
-        if (statfd == -1) {
-                df_fail("Error: Unable to open file '%s'.\n", file_path);
-                return -1;
-        }
-        return statfd;
 }
 
 /**
@@ -918,8 +876,6 @@ void df_print_process_info(int pid)
  *  - df_buf_size -
  *     Maximum buffer size for generated strings by rand
  *     module (in Bytes)
- *  - df_mem_limit -
- *     Memory limit for tested process in kB
  *  - df_test_method -
  *     Contains method name or NULL. When not NULL, only
  *     method with this name will be tested
@@ -987,11 +943,7 @@ void df_parse_parameters(int argc, char **argv)
                                 target_proc.interface = optarg;
                                 break;
                         case 'm':
-                                df_mem_limit = strtol(optarg, NULL, 10);
-                                if (df_mem_limit <= 0 || errno == ERANGE || errno == EINVAL) {
-                                        df_fail("%s: invalid value for option -- 'm'\n", argv[0]);
-                                        exit(1);
-                                }
+                                df_verbose("Option -m has no effect anymore");
                                 break;
                         case 'b':
                                 df_buf_size = strtol(optarg, NULL, 10);
@@ -1074,7 +1026,8 @@ int df_load_suppressions(void)
         _cleanup_free_ char *line = NULL, *home_supp = NULL;
         char *env = NULL;
         int name_found = 0, i = 0;
-        size_t len = 0, n;
+        size_t len = 0;
+        ssize_t n;
 
         if (isempty(target_proc.name))
                 return 0;
@@ -1132,7 +1085,7 @@ int df_load_suppressions(void)
                         break;
 
                 /* The line contains only whitespace, skip it */
-                if (strspn(line, " \t\r\n") == n)
+                if (strspn(line, " \t\r\n") == (size_t) n)
                         continue;
 
                 /* The suppression description is optional, so let's accept such
@@ -1212,12 +1165,6 @@ void df_print_help(const char *name)
                 "   Optional object path to test. All children objects are traversed.\n"
                 "-i --interface=INTERFACE\n"
                 "   Interface to test. Requires also -o option.\n"
-                "-m --mem-limit=MEM_LIMIT [in kB]\n"
-                "   When tested process exceeds this limit, warning is printed\n"
-                "   on the output. Default value for this limit is 3x process intial\n"
-                "   memory size. If set memory limit value is less than or\n"
-                "   equal to process initial memory size, it will be adjusted\n"
-                "   to default value (3x process intial memory size).\n"
                 "-b --buffer-limit=MAX_BUF_SIZE [in B]\n"
                 "   Maximum buffer size for generated strings, minimal value for this\n"
                 "   option is 256 B. Default maximum size is 50000 B ~= 50 kB (the greater\n"

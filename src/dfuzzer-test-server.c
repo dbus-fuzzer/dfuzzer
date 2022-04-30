@@ -55,6 +55,9 @@ static const gchar introspection_xml[] =
 "               <method name=\"df_hang\">"
 "                       <arg type=\"t\" name=\"lol\" direction=\"in\"/>"
 "               </method>"
+"               <method name=\"df_noreply\">"
+"                       <arg type=\"t\" name=\"lol\" direction=\"in\"/>"
+"               </method>"
 "       </interface>"
 "</node>";
 
@@ -91,6 +94,8 @@ static void handle_method_call(
                 abort();
         else if (g_strcmp0(method_name, "df_hang") == 0)
                 pause();
+        else if (g_strcmp0(method_name, "df_noreply") == 0)
+                return;
 }
 
 // Virtual table for handling properties and method calls for a D-Bus interface.

@@ -22,7 +22,7 @@ sudo systemctl stop dfuzzer-test-server
 
 # dfuzzer should return 0 by default when services it tests time out
 # https://github.com/matusmarhefka/dfuzzer/pull/57#issuecomment-1112191073
-"${dfuzzer[@]}" -v -n org.freedesktop.dfuzzerServer -o /org/freedesktop/dfuzzerObject -i org.freedesktop.dfuzzerInterface -t df_hang
+"${dfuzzer[@]}" -s -v -n org.freedesktop.dfuzzerServer -o /org/freedesktop/dfuzzerObject -i org.freedesktop.dfuzzerInterface -t df_hang
 
 sudo systemctl stop dfuzzer-test-server
 

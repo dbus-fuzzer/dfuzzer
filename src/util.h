@@ -1,6 +1,8 @@
 /** @file util.h */
 #pragma once
 
+#define USEC_PER_SEC ((useconds_t) 1000000ULL)
+
 /* When func() returns the void value (NULL, -1, …) of the appropriate type */
 #define DEFINE_TRIVIAL_CLEANUP_FUNC(type, func)                 \
         static inline void func##p(type *p) {                   \

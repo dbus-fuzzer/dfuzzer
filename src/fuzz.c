@@ -18,17 +18,19 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+#include <assert.h>
+#include <ctype.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <ffi.h>
 #include <gio/gio.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#include <fcntl.h>
-#include <ctype.h>
-#include <errno.h>
-#include <ffi.h>        // dynamic function call construction
 
 #include "fuzz.h"
 #include "dfuzzer.h"
@@ -42,16 +44,6 @@ static GDBusProxy *df_dproxy;
 static struct df_sig_list df_list;
 /** Pointer on the last item of the linked list in the global var. df_list. */
 static struct df_signature *df_last;
-/** Initial memory size of process is saved into this variable; value -2
-  * indicates that initial memory was not loaded so far */
-static long df_initial_mem = -2;
-/** Memory limit for tested process in kB - if tested process exceeds this
-  * limit it will be noted into log file; if set to -1 memory limit will
-  * be reloaded in df_fuzz_init() */
-static long df_mem_limit = -1;
-/** If memory limit passed to function df_fuzz_init() is non-zero, this flag
-  * is set to 1 */
-static int df_mlflg;
 /** Flag for unsupported method signature, 1 means signature is unsupported */
 static int df_unsupported_sig;
 /** Pointer on unsupported signature string (do not free it) */
@@ -62,7 +54,6 @@ static char df_except_counter = 0;
 
 
 /* Module static functions */
-static long df_fuzz_get_proc_mem_size(const int statfd);
 static int df_fuzz_write_log(void);
 static int df_exec_cmd_check(const char *cmd);
 static GVariant *df_fuzz_create_variant(void);
@@ -73,45 +64,18 @@ static int df_fuzz_call_method(GVariant *value, const int void_method);
 
 /**
  * @function Saves pointer on D-Bus interface proxy for this module to be
- * able to call methods through this proxy during fuzz testing. Also saves
- * process initial memory size to global var. df_initial_mem from file
- * described by statfd.
+ * able to call methods through this proxy during fuzz testing.
  * @param dproxy Pointer on D-Bus interface proxy
- * @param statfd FD of process status file
- * @param pid PID of tested process
- * @param mem_limit Memory limit in kB - if tested process exceeds this limit
- * it will be noted into log file
  * @return 0 on success, -1 on error
  */
-int df_fuzz_init(GDBusProxy *dproxy, const int statfd,
-                const int pid, const long mem_limit)
+
+int df_fuzz_init(GDBusProxy *dproxy)
 {
         if (dproxy == NULL) {
                 df_debug("Passing NULL argument to function.\n");
                 return -1;
         }
         df_dproxy = dproxy;
-
-        // load initial memory only on the beginning
-        if (df_initial_mem == -2)
-                df_initial_mem = df_fuzz_get_proc_mem_size(statfd);
-        if (df_initial_mem == -1) {
-                df_fail("Error: Unable to get memory size of [PID:%d].\n", pid);
-                df_debug("Error in df_fuzz_get_proc_mem_size()\n");
-                return -1;
-        }
-
-        // on crash, df_mem_limit is always set to -1 in df_fuzz_test_method()
-        if (df_mem_limit == -1) {
-                if (mem_limit != 0) {   // user specified memory limit
-                        df_mlflg = 1;
-                        if (mem_limit <= df_initial_mem)
-                                df_mem_limit = 3 * df_initial_mem;
-                        else
-                                df_mem_limit = mem_limit;
-                } else
-                        df_mem_limit = 3 * df_initial_mem;
-        }
 
         return 0;
 }
@@ -195,84 +159,6 @@ int df_fuzz_add_method_arg(const char *signature)
 int df_list_args_count(void)
 {
         return df_list.args;
-}
-
-/**
- * @function Parses VmRSS (Resident Set Size) value from statfd and returns it
- * as process memory size.
- * @param statfd FD of process status file
- * @return Process memory size on success, 0 when statfd is not readable (that
- * means process exited: errno set to ESRCH - no such process) or -1 on error
- */
-static long df_fuzz_get_proc_mem_size(const int statfd)
-{
-        long mem_size = -1;
-        char buf[MAXLINE];  // buffer for reading from file
-        char *ptr;          // pointer into buf
-        char *mem;          // pointer into buf, on VmRSS line
-        int stopr;
-        off_t ret;
-        ssize_t n;
-        ssize_t count;      // total count of bytes read from file
-
-        // rewinds file position to the beginning
-        ret = lseek(statfd, 0L, SEEK_SET);
-        if (ret == ((off_t) -1) && errno == ESRCH)  // process exited
-                return 0;
-        else if (ret == -1)
-                return -1;
-
-
-        stopr = 0;
-        ret = 0;
-        n = 0;
-        count = 0;
-        ptr = buf;
-        while (!stopr) {
-                n = read(statfd, ptr, (MAXLINE - 1 - count));
-                if (n == -1 && errno == ESRCH)  // process exited
-                        return 0;
-                else if (n == -1)
-                        return -1;
-                else if (n == 0)
-                        stopr++;
-                ptr += n;
-                count += n;
-                *ptr = '\0';
-
-                if ((mem = strstr(buf, "VmRSS:")) != NULL) {
-                        // check for new line (that whole memory size number is in buffer)
-                        char *nl = mem;
-                        while (*nl != '\0') {
-                                if (*nl == '\n') {
-                                        stopr++;
-                                        ret = 1;
-                                        break;
-                                }
-                                nl++;
-                        }
-                } else {
-                        // if no VmRSS in buffer, we can flush it
-                        ptr = buf;
-                        count = 0;
-                        ret = 0;
-                }
-        }
-
-        if (ret == 0)
-                return ret;
-
-        // now mem points to "VmRSS:" and we are sure that number with memory
-        // size is in buf too
-        while (isdigit(*mem) == 0)
-                mem++;
-
-        mem_size = strtol(mem, NULL, 10);
-        if (errno == ERANGE || errno == EINVAL) {
-                df_debug("Error on conversion of process memory to a long integer\n");
-                return -1;
-        }
-        return mem_size;
 }
 
 /**
@@ -508,6 +394,42 @@ static int df_exec_cmd_check(const char *cmd)
         return WEXITSTATUS(status);
 }
 
+static int df_check_if_exited(const int pid) {
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *line = NULL;
+        char proc_pid[14 + DECIMAL_STR_MAX(pid)];
+        size_t len = 0;
+        int dumping;
+
+        assert(pid > 0);
+
+        sprintf(proc_pid, "/proc/%d/status", pid);
+
+        f = fopen(proc_pid, "r");
+        if (!f) {
+                if (errno == ENOENT || errno == ENOTDIR)
+                        return 0;
+
+                return -1;
+        }
+
+        /* Check if the process is not currently dumping a core */
+        while (getline(&line, &len, f) > 0) {
+                if (sscanf(line, "CoreDumping: %d", &dumping) == 1) {
+                        if (dumping > 0)
+                                return 0;
+
+                        break;
+                }
+        }
+
+        /* Assume the process exited if we fail while reading the stat file */
+        if (ferror(f))
+                return 0;
+
+        return 1;
+}
+
 /**
  * @function Function is testing a method in a cycle, each cycle generates
  * data for function arguments, calls method and waits for result.
@@ -524,7 +446,8 @@ static int df_exec_cmd_check(const char *cmd)
  * function returning non-void value, 3 on warnings and 4 when executed
  * command finished unsuccessfuly
  */
-int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
+int df_fuzz_test_method(
+                long buf_size, const char *name,
                 const char *obj, const char *intf, const int pid,
                 const int void_method, const char *execute_cmd)
 {
@@ -532,11 +455,8 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
         _cleanup_(g_variant_unrefp) GVariant *value = NULL;
         int ret = 0;            // return value from df_fuzz_call_method()
         int execr = 0;          // return value from execution of execute_cmd
-        int leaking_mem_flg = 0;            // if set to 1, leaks were detected
         int buf_size_flg = 0;               // if set to 1, buf_size was specified
         // by option -b
-        long used_memory = 0;               // memory size used by process in kB
-        long prev_memory = 0;               // last known memory size
 
         // DEBUG:
         int j = 0;
@@ -558,14 +478,7 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
         df_verbose("  %s...", df_list.df_method_name);
 
         while (df_rand_continue(df_list.fuzz_on_str_len, df_list.args)) {
-                // parsing proces memory size from its status file described by statfd
-                used_memory = df_fuzz_get_proc_mem_size(statfd);
-                if (used_memory == -1) {
-                        df_fail("Error: Unable to get memory size of [PID:%d].\n", pid);
-                        df_debug("Error in df_fuzz_get_proc_mem_size()\n");
-                        return -1;
-                }
-                prev_memory = used_memory;
+                int r;
 
                 value = safe_g_variant_unref(value);
 
@@ -582,115 +495,42 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
                                 return 0;
                         }
 
-                        df_debug("Call of df_fuzz_create_variant() returned NULL pointer\n");
-                        return -1;
+                        return df_debug_ret(-1, "Call of df_fuzz_create_variant() returned NULL pointer\n");
                 }
 
 
                 ret = df_fuzz_call_method(value, void_method);
                 execr = df_exec_cmd_check(execute_cmd);
-                if (execr == -1)
-                        return -1;
-                if (ret == -1) {
-                        // Here we look at process status file to be sure it really
-                        // exited. If file is readable it means process is
-                        // processing long string(s) and that is the reason it
-                        // didn't respond so we continue.
-                        used_memory = df_fuzz_get_proc_mem_size(statfd);
-                        if (used_memory == 0) {         // process exited
-                                df_fail("%s  %sFAIL%s %s - process exited\n"
-                                        "   [PID: %d], [MEM: %ld kB]\n",
-                                        ansi_cr(), ansi_red(), ansi_normal(),
-                                        df_list.df_method_name, pid, prev_memory);
-                                if (execr > 0)
-                                        df_fail("%s   '%s' returned %s%d%s\n",
-                                                ansi_cr(), execute_cmd, ansi_red(), execr, ansi_normal());
-                                goto fail_label;
-                        } else if (used_memory == -1) { // error on reading process status
-                                df_fail("Error: Unable to get memory size of [PID:%d].\n", pid);
-                                df_debug("Error in df_fuzz_get_proc_mem_size()\n");
-                                if (execr > 0)
-                                        df_fail("%s   '%s' returned %s%d%s\n",
-                                                ansi_cr(), execute_cmd, ansi_red(), execr, ansi_normal());
-                                return -1;
-                        }
-                        // else continue, we managed to get process memory size
-                        prev_memory = used_memory;
-                } else if (ret == 1) {
-                        // method returning void is returning illegal value
-                        if (execr > 0)
-                                df_fail("%s   '%s' returned %s%d%s\n",
-                                        ansi_cr(), execute_cmd, ansi_red(), execr, ansi_normal());
-                        goto fail_label;
-                } else if (ret == 2) {
-                        // tested method returned exception
-                        used_memory = df_fuzz_get_proc_mem_size(statfd);
-                        if (used_memory == 0) {         // process exited
-                                df_fail("%s  %sFAIL%s %s - process exited\n"
-                                        "   [PID: %d], [MEM: %ld kB]\n",
-                                        ansi_cr(), ansi_red(), ansi_normal(),
-                                        df_list.df_method_name, pid, prev_memory);
-                                goto fail_label;
-                        } else if (used_memory == -1) { // error on reading process status
-                                df_fail("Error: Unable to get memory size of [PID:%d].\n", pid);
-                                df_debug("Error in df_fuzz_get_proc_mem_size()\n");
-                                if (execr > 0)
-                                        df_fail("%s   '%s' returned %s%d%s\n",
-                                                ansi_cr(), execute_cmd, ansi_red(), execr, ansi_normal());
-                                return -1;
-                        }
-                        if (execr > 0)
-                                df_fail("%s   '%s' returned %s%d%s\n",
-                                        ansi_cr(), execute_cmd, ansi_red(), execr, ansi_normal());
-                        return 0;
-                }
 
-                if (execr > 0) {
+                if (execr < 0)
+                        return df_fail_ret(-1, "df_exec_cmd_check() failed: %m");
+                else if (execr > 0) {
                         df_fail("%s  %sFAIL%s %s - '%s' returned %s%d%s\n",
                                 ansi_cr(), ansi_red(), ansi_normal(), df_list.df_method_name,
                                 execute_cmd, ansi_red(), execr, ansi_normal());
-                        goto fail_label;
+                        break;
                 }
 
-
-                // process memory size exceeded maximum normal memory size
-                // (this is just a warning message)
-                if (used_memory >= df_mem_limit) {
-                        df_fail("%s  %sWARN%s %s - memory usage %.1fx more "
-                                "than initial memory\n   (%ld -> %ld [kB])\n",
-                                ansi_cr(), ansi_magenta(), ansi_normal(),
-                                df_list.df_method_name, (((float) used_memory)/df_initial_mem),
-                                df_initial_mem, used_memory);
-                        df_mem_limit = used_memory * 2;
-                        leaking_mem_flg = 1;
+                r = df_check_if_exited(pid);
+                if (r < 0)
+                        return df_fail_ret(-1, "Error while reading process' stat file: %m");
+                else if (r == 0) {
+                        ret = -1;
+                        df_fail("%s  %sFAIL%s %s - process %d exited\n",
+                                ansi_cr(), ansi_red(), ansi_normal(), df_list.df_method_name, pid);
+                        break;
                 }
 
-
-                // Here we look at process status file to find out status of process.
-                used_memory = df_fuzz_get_proc_mem_size(statfd);
-                if (used_memory == 0) {         // process exited
-                        df_fail("%s  %sFAIL%s %s - process exited\n"
-                                "   [PID: %d], [MEM: %ld kB]\n",
-                                ansi_cr(), ansi_red(), ansi_normal(),
-                                df_list.df_method_name, pid, prev_memory);
-                        if (execr > 0)
-                                df_fail("%s   '%s' returned %s%d%s\n",
-                                        ansi_cr(), execute_cmd, ansi_red(), execr, ansi_normal());
-                        goto fail_label;
-                } else if (used_memory == -1) { // error on reading process status
-                        df_fail("Error: Unable to get memory size of [PID:%d].\n", pid);
-                        df_debug("Error in df_fuzz_get_proc_mem_size()\n");
-                        if (execr > 0)
-                                df_fail("%s   '%s' returned %s%d%s\n",
-                                        ansi_cr(), execute_cmd, ansi_red(), execr, ansi_normal());
-                        return -1;
-                }
-                // else continue, we managed to get process memory size
-                prev_memory = used_memory;
+                /* Ignore exceptions returned by the test method */
+                if (ret == 2)
+                        return 0;
+                else if (ret > 0)
+                        break;
 
                 FULL_LOG("%s;%s;", intf, obj);
 
-                if(logfile) df_fuzz_write_log();
+                if (logfile)
+                        df_fuzz_write_log();
                 FULL_LOG("Success\n");
                 if (df_except_counter == MAX_EXCEPTIONS) {
                         df_except_counter = 0;
@@ -698,17 +538,15 @@ int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
                 }
         }
 
+        if (ret != 0 || execr != 0)
+                goto fail_label;
 
-        // test passed
-        if (leaking_mem_flg)    // warning
-                return 3;
         df_verbose("%s  %sPASS%s %s\n",
                    ansi_cr(), ansi_green(), ansi_normal(), df_list.df_method_name);
         return 0;
 
 
 fail_label:
-        df_mem_limit = -1;      // set to -1 to reload memory limit
         if (ret != 1) {
                 df_fail("   on input:\n");
                 FULL_LOG("%s;%s;", intf, obj);
@@ -717,8 +555,6 @@ fail_label:
 
         df_fail("   reproducer: %sdfuzzer -v -n %s -o %s -i %s -t %s",
                 ansi_yellow(), name, obj, intf, df_list.df_method_name);
-        if (df_mlflg)
-                df_fail(" -m %ld", df_mem_limit);
         if (buf_size_flg)
                 df_fail(" -b %ld", buf_size);
         if (execute_cmd != NULL)
