@@ -22,6 +22,7 @@
 #include <stdlib.h>
 
 #include "introspection.h"
+#include "bus.h"
 #include "dfuzzer.h"
 
 
@@ -59,16 +60,12 @@ int df_init_introspection(GDBusProxy *dproxy, const char *interface)
 
         // Synchronously invokes the org.freedesktop.DBus.Introspectable.Introspect
         // method on dproxy to get introspection data in XML format
-        response = g_dbus_proxy_call_sync(dproxy,
-                        "org.freedesktop.DBus.Introspectable.Introspect",
-                        NULL, G_DBUS_CALL_FLAGS_NONE, -1,
-                        NULL, &error);
-        if (!response) {
-                g_dbus_error_strip_remote_error(error);
-                df_fail("Error: %s.\n", error->message);
-                df_error("Error in g_dbus_proxy_call_sync()", error);
+        response = df_bus_call(dproxy,
+                               "org.freedesktop.DBus.Introspectable.Introspect",
+                               NULL,
+                               G_DBUS_CALL_FLAGS_NONE);
+        if (!response)
                 return -1;
-        }
 
         g_variant_get(response, "(s)", &introspection_xml);
         g_variant_unref(response);
