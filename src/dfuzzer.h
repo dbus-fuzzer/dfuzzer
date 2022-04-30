@@ -121,13 +121,6 @@ int df_fuzz(GDBusConnection *dcon, const char *name, const char *obj, const char
 int df_is_valid_dbus(const char *name, const char *obj, const char *intf);
 
 /**
- * @function Opens process status file.
- * @param pid PID - identifier of process
- * @return FD of status file on success, -1 on error
- */
-int df_open_proc_status_file(const int pid);
-
-/**
  * @function Calls method GetConnectionUnixProcessID on the interface
  * org.freedesktop.DBus to get process pid.
  * @param dcon D-Bus connection structure
@@ -221,9 +214,14 @@ void df_verbose(const char *format, ...) __attribute__((__format__(printf, 1, 2)
  */
 void df_fail(const char *format, ...) __attribute__((__format__(printf, 1, 2)));
 
-static inline int df_oom(void) {
-        df_fail("Allocation error: %m\n");
-        return -ENOMEM;
-}
+#define df_log_ret_internal(ret, fun, ...)          \
+        ({                                          \
+                fun(__VA_ARGS__);                   \
+                ret;                                \
+        })
+
+#define df_oom(void) df_log_ret_internal(-ENOMEM, df_fail, "Allocation error: %m\n")
+#define df_fail_ret(ret, ...) df_log_ret_internal(ret, df_fail, __VA_ARGS__)
+#define df_debug_ret(ret, ...) df_log_ret_internal(ret, df_debug, __VA_ARGS__)
 
 #endif

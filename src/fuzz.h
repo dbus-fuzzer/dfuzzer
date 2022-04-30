@@ -73,8 +73,7 @@ struct df_sig_list {
  * it will be noted into log file
  * @return 0 on success, -1 on error
  */
-int df_fuzz_init(GDBusProxy *dproxy, const int statfd,
-                const int pid, const long mem_limit);
+int df_fuzz_init(GDBusProxy *dproxy);
 
 /**
  * @function Initializes the global variable df_list (struct df_sig_list)
@@ -114,7 +113,8 @@ int df_list_args_count(void);
  * function returning non-void value, 3 on warnings and 4 when executed
  * command finished unsuccessfuly
  */
-int df_fuzz_test_method(const int statfd, long buf_size, const char *name,
+int df_fuzz_test_method(
+                long buf_size, const char *name,
                 const char *obj, const char *intf, const int pid,
                 const int void_method, const char *execute_cmd);
 
