@@ -1026,7 +1026,8 @@ int df_load_suppressions(void)
         _cleanup_free_ char *line = NULL, *home_supp = NULL;
         char *env = NULL;
         int name_found = 0, i = 0;
-        size_t len = 0, n;
+        size_t len = 0;
+        ssize_t n;
 
         if (isempty(target_proc.name))
                 return 0;
@@ -1084,7 +1085,7 @@ int df_load_suppressions(void)
                         break;
 
                 /* The line contains only whitespace, skip it */
-                if (strspn(line, " \t\r\n") == n)
+                if (strspn(line, " \t\r\n") == (size_t) n)
                         continue;
 
                 /* The suppression description is optional, so let's accept such
