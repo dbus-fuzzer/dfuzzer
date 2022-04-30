@@ -169,7 +169,6 @@ static int df_fuzz_write_log(void)
 {
         struct df_signature *s = df_list.list;  // pointer on first signature
         int len = 0;
-        int str_len = 0;
 
         FULL_LOG("%s;", df_list.df_method_name);
 
@@ -185,147 +184,115 @@ static int df_fuzz_write_log(void)
                         FULL_LOG("%s;", s->sig);
 
                         switch (s->sig[0]) {
-                                case 'y':
-                                        ;
-                                        guint8 tmp;
-                                        g_variant_get(s->var, s->sig, &tmp);
-                                        df_fail("-- '%u'\n", tmp);
-                                        FULL_LOG("%u;", tmp);
+                                case 'y': {
+                                        guint8 u;
+
+                                        g_variant_get(s->var, s->sig, &u);
+                                        df_fail("-- '%u'\n", u);
+                                        FULL_LOG("%u;", u);
                                         break;
-                                case 'b':
-                                        ;
-                                        gboolean tmp1;
-                                        g_variant_get(s->var, s->sig, &tmp1);
-                                        df_fail("-- '%s'\n", ((tmp1 == 1) ? "true" : "false"));
-                                        FULL_LOG("%s", tmp1 ? "true" : "false");
+                                }
+                                case 'b': {
+                                        gboolean b;
+
+                                        g_variant_get(s->var, s->sig, &b);
+                                        df_fail("-- '%s'\n", b ? "true" : "false");
+                                        FULL_LOG("%s", b ? "true" : "false");
                                         break;
-                                case 'n':
-                                        ;
-                                        gint16 tmp2;
-                                        g_variant_get(s->var, s->sig, &tmp2);
-                                        df_fail("-- '%d'\n", tmp2);
-                                        FULL_LOG("%d;", tmp2);
+                                }
+                                case 'n': {
+                                        gint16 i;
+
+                                        g_variant_get(s->var, s->sig, &i);
+                                        df_fail("-- '%d'\n", i);
+                                        FULL_LOG("%d;", i);
                                         break;
-                                case 'q':
-                                        ;
-                                        guint16 tmp3;
-                                        g_variant_get(s->var, s->sig, &tmp3);
-                                        df_fail("-- '%u'\n", tmp3);
-                                        FULL_LOG("%u;", tmp3);
+                                }
+                                case 'q': {
+                                        guint16 u;
+
+                                        g_variant_get(s->var, s->sig, &u);
+                                        df_fail("-- '%u'\n", u);
+                                        FULL_LOG("%u;", u);
                                         break;
-                                case 'i':
-                                        ;
-                                        gint32 tmp4;
-                                        g_variant_get(s->var, s->sig, &tmp4);
-                                        df_fail("-- '%d'\n", tmp4);
-                                        FULL_LOG("%d;", tmp4);
+                                }
+                                case 'i': {
+                                        gint32 i;
+
+                                        g_variant_get(s->var, s->sig, &i);
+                                        df_fail("-- '%d'\n", i);
+                                        FULL_LOG("%d;", i);
                                         break;
-                                case 'u':
-                                        ;
-                                        guint32 tmp5;
-                                        g_variant_get(s->var, s->sig, &tmp5);
-                                        df_fail("-- '%u'\n", tmp5);
-                                        FULL_LOG("%u;", tmp5);
+                                }
+                                case 'h':
+                                case 'u': {
+                                        guint32 u;
+
+                                        g_variant_get(s->var, s->sig, &u);
+                                        df_fail("-- '%u'\n", u);
+                                        FULL_LOG("%u;", u);
                                         break;
-                                case 'x':
-                                        ;
-                                        gint64 tmp6;
-                                        g_variant_get(s->var, s->sig, &tmp6);
-                                        df_fail("-- '%" G_GINT64_FORMAT "'\n", tmp6);
-                                        FULL_LOG("%" G_GINT64_FORMAT, tmp6);
+                                }
+                                case 'x': {
+                                        gint64 i;
+
+                                        g_variant_get(s->var, s->sig, &i);
+                                        df_fail("-- '%" G_GINT64_FORMAT "'\n", i);
+                                        FULL_LOG("%" G_GINT64_FORMAT, i);
                                         break;
-                                case 't':
-                                        ;
-                                        guint64 tmp7;
-                                        g_variant_get(s->var, s->sig, &tmp7);
-                                        df_fail("-- '%" G_GUINT64_FORMAT "'\n", tmp7);
-                                        FULL_LOG("%" G_GUINT64_FORMAT, tmp7);
+                                }
+                                case 't': {
+                                        guint64 u;
+
+                                        g_variant_get(s->var, s->sig, &u);
+                                        df_fail("-- '%" G_GUINT64_FORMAT "'\n", u);
+                                        FULL_LOG("%" G_GUINT64_FORMAT, u);
                                         break;
-                                case 'd':
-                                        ;
-                                        gdouble tmp8;
-                                        g_variant_get(s->var, s->sig, &tmp8);
-                                        df_fail("-- '%lg'\n", tmp8);
-                                        FULL_LOG("%lg;", tmp8);
+                                }
+                                case 'd': {
+                                        gdouble d;
+
+                                        g_variant_get(s->var, s->sig, &d);
+                                        df_fail("-- '%lg'\n", d);
+                                        FULL_LOG("%lg;", d);
                                         break;
+                                }
                                 case 's':
-                                        ;
-                                        gchar *tmp9 = NULL, *tmp9cpy = NULL;
-                                        g_variant_get(s->var, s->sig, &tmp9);
-                                        str_len = strlen(tmp9);
-                                        tmp9cpy = tmp9;
-                                        if (tmp9 != NULL)
-                                                df_fail(" [length: %d B]-- '%s'\n", str_len, tmp9);
-                                        if (logfile) {
-                                                while((tmp9 != NULL) && (*tmp9)){
-                                                        FULL_LOG("%02x", *tmp9++ & 0xff);
-                                                }
-                                        }
-                                        FULL_LOG(";");
-                                        free(tmp9cpy);
-                                        break;
                                 case 'o':
-                                        ;
-                                        gchar *tmp10 = NULL, *tmp10cpy = NULL;
-                                        g_variant_get(s->var, s->sig, &tmp10);
-                                        str_len = strlen(tmp10);
-                                        tmp10cpy = tmp10;
-                                        if (tmp10 != NULL)
-                                                df_fail(" [length: %d B]-- '%s'\n", str_len, tmp10);
-                                        if (logfile) {
-                                                while((tmp10 != NULL) && (*tmp10)){
-                                                        FULL_LOG("%02x", *tmp10++ & 0xff);
-                                                }
+                                case 'g': {
+                                        _cleanup_(g_freep) gchar *str = NULL;
+                                        gchar *ptr;
+
+                                        g_variant_get(s->var, s->sig, &str);
+                                        if (str) {
+                                                df_fail(" [length: %zu B]-- '%s'\n", strlen(str), str);
+                                                ptr = str;
+                                                for (; ptr && *ptr; ptr++)
+                                                        FULL_LOG("%02x", *ptr & 0xff);
                                         }
                                         FULL_LOG(";");
-                                        free(tmp10cpy);
                                         break;
-                                case 'g':
-                                        ;
-                                        gchar *tmp11 = NULL, *tmp11cpy;
-                                        g_variant_get(s->var, s->sig, &tmp11);
-                                        str_len = strlen(tmp11);
-                                        tmp11cpy = tmp11;
-                                        if (tmp11 != NULL)
-                                                df_fail(" [length: %d B]-- '%s'\n", str_len, tmp11);
-                                        if (logfile) {
-                                                while((tmp11 != NULL) && (*tmp11)){
-                                                        FULL_LOG("%02x", *tmp11++ & 0xff);
-                                                }
-                                        }
-                                        FULL_LOG(";");
-                                        free(tmp11cpy);
-                                        break;
-                                case 'v':
-                                        ;
+                                }
+                                case 'v': {
+                                        _cleanup_(g_freep) gchar *str = NULL;
+                                        gchar *ptr;
                                         GVariant *var = NULL;
-                                        gchar *tmp12 = NULL, *tmp12cpy = NULL;
+
                                         g_variant_get(s->var, s->sig, var);
-                                        if (var != NULL &&
-                                                        g_variant_check_format_string(var, "s", FALSE)) {
-                                                g_variant_get(var, "s", &tmp12);
-                                                str_len = strlen(tmp12);
-                                                tmp12cpy = tmp12;
-                                                if (tmp12 != NULL)
-                                                        df_fail(" [length: %d B]-- '%s'\n", str_len, tmp12);
-                                                if (logfile) {
-                                                        while((tmp12 != NULL) && (*tmp12)){
-                                                                FULL_LOG("%02x", *tmp12++ & 0xff);
-                                                        }
+
+                                        if (var && g_variant_check_format_string(var, "s", FALSE)) {
+                                                g_variant_get(var, "s", &str);
+                                                if (str) {
+                                                        df_fail(" [length: %zu B]-- '%s'\n", strlen(str), str);
+                                                        ptr = str;
+                                                        for (; ptr && *ptr; ptr++)
+                                                                FULL_LOG("%02x", *ptr & 0xff);
                                                 }
                                                 FULL_LOG(";");
-                                                free(tmp12cpy);
-                                        } else {
+                                        } else
                                                 df_fail("-- 'unable to deconstruct GVariant instance'\n");
-                                        }
                                         break;
-                                case 'h':
-                                        ;
-                                        gint32 tmp13;
-                                        g_variant_get(s->var, s->sig, &tmp13);
-                                        FULL_LOG("%d;", tmp13);
-                                        df_fail("-- '%d'\n", tmp13);
-                                        break;
+                                }
                                 default:
                                         df_fail("Unknown argument signature '%s'\n", s->sig);
                                         return -1;

@@ -213,7 +213,6 @@ int df_list_bus_names(GDBusConnection *dcon)
         _cleanup_(g_dbus_proxy_unrefp) GDBusProxy *proxy = NULL;
         _cleanup_(g_variant_iter_freep) GVariantIter *iter = NULL;
         _cleanup_(g_variant_unrefp) GVariant *response = NULL;
-        _cleanup_(g_error_freep) GError *error = NULL;
         char *str;
 
         proxy = df_bus_new(dcon,
@@ -454,7 +453,6 @@ int df_traverse_node(GDBusConnection *dcon, const char *root_node)
 int df_fuzz(GDBusConnection *dcon, const char *name, const char *obj, const char *intf)
 {
         _cleanup_(g_dbus_proxy_unrefp) GDBusProxy *dproxy = NULL; // D-Bus interface proxy
-        _cleanup_(g_error_freep) GError *error = NULL;
         GDBusMethodInfo *m;
         GDBusArgInfo *in_arg;
         int ret = 0;
@@ -660,7 +658,6 @@ int df_is_valid_dbus(const char *name, const char *obj, const char *intf)
  */
 int df_get_pid(GDBusConnection *dcon, gboolean activate)
 {
-        _cleanup_(g_error_freep) GError *error = NULL;
         _cleanup_(g_dbus_proxy_unrefp) GDBusProxy *pproxy = NULL;
         _cleanup_(g_variant_unrefp) GVariant *variant_pid = NULL;
         int pid = -1;
