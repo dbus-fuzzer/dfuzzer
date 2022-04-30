@@ -29,6 +29,7 @@
 #include <errno.h>
 #include <getopt.h>
 
+#include "bus.h"
 #include "dfuzzer.h"
 #include "introspection.h"
 #include "fuzz.h"
@@ -137,29 +138,6 @@ cleanup:
         return ret;
 }
 
-GVariant *df_dbus_call(GDBusProxy *proxy, const char *method, GDBusCallFlags flags)
-{
-        _cleanup_(g_error_freep) GError *error = NULL;
-        GVariant *response = NULL;
-
-        response = g_dbus_proxy_call_sync(
-                        proxy,
-                        method,
-                        NULL,
-                        flags,
-                        -1,
-                        NULL,
-                        &error);
-        if (!response) {
-                g_dbus_error_strip_remote_error(error);
-                df_fail("Error while calling method '%s': %s.\n", method, error->message);
-                df_error("Error in g_dbus_proxy_call_sync()", error);
-                return NULL;
-        }
-
-        return response;
-}
-
 int df_process_bus(GBusType bus_type)
 {
         _cleanup_(g_dbus_connection_unrefp) GDBusConnection *dcon = NULL;
@@ -235,25 +213,17 @@ int df_list_bus_names(GDBusConnection *dcon)
         _cleanup_(g_dbus_proxy_unrefp) GDBusProxy *proxy = NULL;
         _cleanup_(g_variant_iter_freep) GVariantIter *iter = NULL;
         _cleanup_(g_variant_unrefp) GVariant *response = NULL;
-        _cleanup_(g_error_freep) GError *error = NULL;
         char *str;
 
-        proxy = g_dbus_proxy_new_sync(
-                        dcon,
-                        G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES|G_DBUS_PROXY_FLAGS_DO_NOT_CONNECT_SIGNALS,
-                        NULL,
-                        "org.freedesktop.DBus",
-                        "/org/freedesktop/DBus",
-                        "org.freedesktop.DBus",
-                        NULL,
-                        &error);
-        if (!proxy) {
-                df_fail("Error: Unable to create proxy for getting bus names.\n");
-                df_error("Error in g_dbus_proxy_new_sync()", error);
+        proxy = df_bus_new(dcon,
+                           "org.freedesktop.DBus",
+                           "/org/freedesktop/DBus",
+                           "org.freedesktop.DBus",
+                           G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES|G_DBUS_PROXY_FLAGS_DO_NOT_CONNECT_SIGNALS);
+        if (!proxy)
                 return -1;
-        }
 
-        response = df_dbus_call(proxy, "ListNames", G_DBUS_CALL_FLAGS_NONE);
+        response = df_bus_call(proxy, "ListNames", NULL, G_DBUS_CALL_FLAGS_NONE);
         if (!response)
                 return -1;
 
@@ -266,7 +236,7 @@ int df_list_bus_names(GDBusConnection *dcon)
         response = safe_g_variant_unref(response);
         iter = safe_g_variant_iter_free(iter);
 
-        response = df_dbus_call(proxy, "ListActivatableNames", G_DBUS_CALL_FLAGS_NONE);
+        response = df_bus_call(proxy, "ListActivatableNames", NULL, G_DBUS_CALL_FLAGS_NONE);
         if (!response)
                 return -1;
 
@@ -306,35 +276,15 @@ int df_is_object_on_bus(GDBusConnection *dcon, const char *root_node)
 
         if (!df_is_valid_dbus(target_proc.name, root_node, intro_iface))
                 return 0;
-        dproxy = g_dbus_proxy_new_sync(
-                        dcon,
-                        G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES|G_DBUS_PROXY_FLAGS_DO_NOT_CONNECT_SIGNALS,
-                        NULL,
-                        target_proc.name,
-                        root_node,
-                        intro_iface,
-                        NULL,
-                        &error);
-        if (!dproxy) {
-                df_fail("Error: Unable to create proxy for bus name '%s'.\n", target_proc.name);
-                df_error("Error in g_dbus_proxy_new_sync()", error);
+        dproxy = df_bus_new(dcon, target_proc.name, root_node, intro_iface,
+                            G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES|G_DBUS_PROXY_FLAGS_DO_NOT_CONNECT_SIGNALS);
+        if (!dproxy)
                 return 0;
-        }
 
-        response = g_dbus_proxy_call_sync(
-                        dproxy,
-                        intro_method,
-                        NULL,
-                        G_DBUS_CALL_FLAGS_NONE,
-                        -1,
-                        NULL,
-                        &error);
-        if (!response) {
-                g_dbus_error_strip_remote_error(error);
-                df_fail("Error: %s.\n", error->message);
-                df_error("Error in g_dbus_proxy_call_sync()", error);
+        response = df_bus_call(dproxy, intro_method, NULL, G_DBUS_CALL_FLAGS_NONE);
+        if (!response)
                 return 0;
-        }
+
         g_variant_get(response, "(s)", &introspection_xml);
         if (!introspection_xml) {
                 df_fail("Error: Unable to get introspection data from GVariant.\n");
@@ -403,29 +353,13 @@ int df_traverse_node(GDBusConnection *dcon, const char *root_node)
 
         if (!df_is_valid_dbus(target_proc.name, root_node, intro_iface))
                 return DF_BUS_ERROR;
-        dproxy = g_dbus_proxy_new_sync(
-                        dcon,
-                        G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES|G_DBUS_PROXY_FLAGS_DO_NOT_CONNECT_SIGNALS,
-                        NULL,
-                        target_proc.name,
-                        root_node,
-                        intro_iface,
-                        NULL,
-                        &error);
-        if (!dproxy) {
-                df_fail("Error: Unable to create proxy for bus name '%s'.\n", target_proc.name);
-                df_error("Error in g_dbus_proxy_new_sync()", error);
-                return DF_BUS_ERROR;
-        }
 
-        response = g_dbus_proxy_call_sync(
-                        dproxy,
-                        intro_method,
-                        NULL,
-                        G_DBUS_CALL_FLAGS_NONE,
-                        -1,
-                        NULL,
-                        &error);
+        dproxy = df_bus_new(dcon, target_proc.name, root_node, intro_iface,
+                            G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES|G_DBUS_PROXY_FLAGS_DO_NOT_CONNECT_SIGNALS);
+        if (!dproxy)
+                return DF_BUS_ERROR;
+
+        response = df_bus_call_full(dproxy, intro_method, NULL, G_DBUS_CALL_FLAGS_NONE, &error);
         if (!response) {
                 _cleanup_(g_freep) gchar *dbus_error = NULL;
                 // D-Bus exceptions
@@ -519,7 +453,6 @@ int df_traverse_node(GDBusConnection *dcon, const char *root_node)
 int df_fuzz(GDBusConnection *dcon, const char *name, const char *obj, const char *intf)
 {
         _cleanup_(g_dbus_proxy_unrefp) GDBusProxy *dproxy = NULL; // D-Bus interface proxy
-        _cleanup_(g_error_freep) GError *error = NULL;
         GDBusMethodInfo *m;
         GDBusArgInfo *in_arg;
         int ret = 0;
@@ -540,20 +473,11 @@ int df_fuzz(GDBusConnection *dcon, const char *name, const char *obj, const char
         // owned by name at dcon.
         if (!df_is_valid_dbus(name, obj, intf))
                 return DF_BUS_ERROR;
-        dproxy = g_dbus_proxy_new_sync(
-                        dcon,
-                        G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES|G_DBUS_PROXY_FLAGS_DO_NOT_CONNECT_SIGNALS,
-                        NULL,
-                        name,
-                        obj,
-                        intf,
-                        NULL,
-                        &error);
-        if (!dproxy) {
-                df_fail("Error: Unable to create proxy for bus name '%s'.\n", name);
-                df_error("Error in g_dbus_proxy_new_sync() on creating proxy", error);
+
+        dproxy = df_bus_new(dcon, name, obj, intf,
+                            G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES|G_DBUS_PROXY_FLAGS_DO_NOT_CONNECT_SIGNALS);
+        if (!dproxy)
                 return DF_BUS_ERROR;
-        }
 
         // Introspection of object through proxy.
         if (df_init_introspection(dproxy, intf) == -1) {
@@ -643,20 +567,12 @@ int df_fuzz(GDBusConnection *dcon, const char *name, const char *obj, const char
 
                         if (!df_is_valid_dbus(name, obj, intf))
                                 return DF_BUS_ERROR;
-                        dproxy = g_dbus_proxy_new_sync(
-                                        dcon,
-                                        G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES|G_DBUS_PROXY_FLAGS_DO_NOT_CONNECT_SIGNALS,
-                                        NULL,
-                                        name,
-                                        obj,
-                                        intf,
-                                        NULL,
-                                        &error);
+
+                        dproxy = df_bus_new(dcon, name, obj, intf,
+                                            G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES|G_DBUS_PROXY_FLAGS_DO_NOT_CONNECT_SIGNALS);
                         if (!dproxy) {
                                 df_fuzz_clean_method();
                                 df_unref_introspection();
-                                df_fail("Error: Unable to create proxy for bus name '%s'.\n", name);
-                                df_error("Error in g_dbus_proxy_new_sync() on creating proxy", error);
                                 return DF_BUS_ERROR;
                         }
 
@@ -742,27 +658,17 @@ int df_is_valid_dbus(const char *name, const char *obj, const char *intf)
  */
 int df_get_pid(GDBusConnection *dcon, gboolean activate)
 {
-        _cleanup_(g_error_freep) GError *error = NULL;
         _cleanup_(g_dbus_proxy_unrefp) GDBusProxy *pproxy = NULL;
         _cleanup_(g_variant_unrefp) GVariant *variant_pid = NULL;
         int pid = -1;
 
-        // Uses dcon (GDBusConnection *) to create proxy for accessing
-        // org.freedesktop.DBus (for calling its method GetConnectionUnixProcessID)
-        pproxy = g_dbus_proxy_new_sync(
-                        dcon,
-                        G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES|G_DBUS_PROXY_FLAGS_DO_NOT_CONNECT_SIGNALS,
-                        NULL,
-                        "org.freedesktop.DBus",
-                        "/org/freedesktop/DBus",
-                        "org.freedesktop.DBus",
-                        NULL,
-                        &error);
-        if (!pproxy) {
-                df_fail("Error: Unable to create proxy for getting process pid.\n");
-                df_error("Error on creating proxy for getting process pid", error);
+        pproxy = df_bus_new(dcon,
+                            "org.freedesktop.DBus",
+                            "/org/freedesktop/DBus",
+                            "org.freedesktop.DBus",
+                            G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES|G_DBUS_PROXY_FLAGS_DO_NOT_CONNECT_SIGNALS);
+        if (!pproxy)
                 return -1;
-        }
 
         /* Attempt to activate the remote side. Since we can't use any well-known
          * remote method for auto-activation, fall back to calling
@@ -776,37 +682,26 @@ int df_get_pid(GDBusConnection *dcon, gboolean activate)
                 _cleanup_(g_error_freep) GError *act_error = NULL;
                 _cleanup_(g_variant_unrefp) GVariant *act_res = NULL;
 
-                act_res = g_dbus_proxy_call_sync(
-                                pproxy,
-                                "StartServiceByName",
-                                g_variant_new("(su)", target_proc.name, 0),
-                                G_DBUS_CALL_FLAGS_NONE,
-                                -1,
-                                NULL,
-                                &act_error);
+                act_res = df_bus_call_full(pproxy,
+                                           "StartServiceByName",
+                                           g_variant_new("(su)", target_proc.name, 0),
+                                           G_DBUS_CALL_FLAGS_NONE,
+                                           &act_error);
                 if (!act_res) {
-                        /* Don't make this a hard fail */
                         g_dbus_error_strip_remote_error(act_error);
                         df_verbose("Error while activating '%s': %s.\n", target_proc.name, act_error->message);
                         df_error("Failed to activate the target", act_error);
+                        /* Don't make this a hard fail */
                 }
         }
 
-        // Synchronously invokes method GetConnectionUnixProcessID
-        variant_pid = g_dbus_proxy_call_sync(
-                        pproxy,
-                        "GetConnectionUnixProcessID",
-                        g_variant_new("(s)", target_proc.name),
-                        G_DBUS_CALL_FLAGS_NONE,
-                        -1,
-                        NULL,
-                        &error);
-        if (!variant_pid) {
-                g_dbus_error_strip_remote_error(error);
-                df_fail("Error: %s.\n", error->message);
-                df_error("Error in g_dbus_proxy_call_sync()", error);
+        variant_pid = df_bus_call(pproxy,
+                                  "GetConnectionUnixProcessID",
+                                  g_variant_new("(s)", target_proc.name),
+                                  G_DBUS_CALL_FLAGS_NONE);
+        if (!variant_pid)
                 return -1;
-        }
+
         g_variant_get(variant_pid, "(u)", &pid);
 
         return pid;
