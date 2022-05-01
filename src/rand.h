@@ -36,6 +36,8 @@
   * without string arguments) */
 #define MAX_FUZZ_COUNTER 1000
 
+#include "fuzz.h"
+
 
 /**
  * @function Initializes global flag variables and seeds pseudo-random
@@ -106,7 +108,7 @@ gdouble df_rand_gdouble(void);
  * @param nargs Number of arguments of the currently tested method
  * @return 1 when callee should continue, 0 otherwise
  */
-int df_rand_continue(const int fuzz_on_str_len, const int nargs);
+int df_rand_continue(const struct df_dbus_method *method);
 
 /**
  * @function Allocates memory for pseudo-random string of size counted

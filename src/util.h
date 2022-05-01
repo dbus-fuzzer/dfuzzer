@@ -69,6 +69,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(GDBusProxy*, g_dbus_proxy_unref, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(GVariantIter*, g_variant_iter_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(GError*, g_error_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(GVariant*, g_variant_unref, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(GVariantBuilder*, g_variant_builder_unref, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(GVariantType*, g_variant_type_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(GDBusNodeInfo*, g_dbus_node_info_unref, NULL);
 
 #define _cleanup_(x) __attribute__((__cleanup__(x)))
@@ -79,6 +81,12 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(GDBusNodeInfo*, g_dbus_node_info_unref, NULL);
 static inline int isempty(const char *s) {
         return !s || s[0] == '\0';
 }
+
+#define mfree(memory)                           \
+        ({                                      \
+                free(memory);                   \
+                (typeof(memory)) NULL;          \
+        })
 
 /* Takes inspiration from Rust's Option::take() method: reads and returns a pointer, but at the same time
  * resets it to NULL. See: https://doc.rust-lang.org/std/option/enum.Option.html#method.take */

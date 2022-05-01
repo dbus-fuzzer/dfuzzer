@@ -42,22 +42,8 @@ GDBusMethodInfo *df_get_method(void);
  */
 void df_next_method(void);
 
-/**
- * @return Pointer on GDBusArgInfo which contains information about argument
- * of current (df_get_method()) method (do not free it).
- */
-GDBusArgInfo *df_get_method_arg(void);
-
-/**
- * @function Function is used as "iterator" for interface current
- * (df_get_method()) method arguments.
- */
-void df_next_method_arg(void);
-
-/**
- * @return Returns 1 if method has out arguments (return value), 0 otherwise.
- */
-int df_method_has_out_args(void);
+gboolean df_method_has_out_args(const GDBusMethodInfo *method);
+char *df_method_get_full_signature(const GDBusMethodInfo *method);
 
 /**
  * @function Call when done with this module functions (only after

@@ -17,6 +17,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+#include <assert.h>
 #include <gio/gio.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -146,14 +147,39 @@ void df_next_method_arg(void)
         df_in_args++;
 }
 
-/**
- * @return Returns 1 if method has out arguments (return value), 0 otherwise.
- */
-int df_method_has_out_args(void)
+gboolean df_method_has_out_args(const GDBusMethodInfo *method)
 {
-        if (*df_out_args)
-                return 1;
-        return 0;
+        assert(method);
+
+        if (!*(method->out_args))
+                return FALSE;
+
+        return TRUE;
+}
+
+char *df_method_get_full_signature(const GDBusMethodInfo *method)
+{
+        char *r, *e;
+        size_t len = 0;
+
+        assert(method);
+
+        for (GDBusArgInfo **arg = method->in_args; *arg; arg++)
+                len += strlen((*arg)->signature);
+
+        /* '(' + signature + ')' + '\0' */
+        r = malloc(sizeof(*r) * (len + 3));
+        if (!r)
+                return NULL;
+
+        e = stpcpy(r, "(");
+        for (GDBusArgInfo **arg = method->in_args; *arg; arg++)
+                e = stpcpy(e, (*arg)->signature);
+
+        e = stpcpy(e, ")");
+        *e = 0;
+
+        return r;
 }
 
 /**
