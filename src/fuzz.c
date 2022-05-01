@@ -275,10 +275,10 @@ static int df_fuzz_write_log(void)
                                 }
                                 case 'v': {
                                         _cleanup_(g_freep) gchar *str = NULL;
+                                        _cleanup_(g_variant_unrefp) GVariant *var = NULL;
                                         gchar *ptr;
-                                        GVariant *var = NULL;
 
-                                        g_variant_get(s->var, s->sig, var);
+                                        g_variant_get(s->var, s->sig, &var);
 
                                         if (var && g_variant_check_format_string(var, "s", FALSE)) {
                                                 g_variant_get(var, "s", &str);
