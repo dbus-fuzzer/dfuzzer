@@ -18,6 +18,10 @@ set +e
 [[ $? == 2 ]] || exit 1
 set -e
 
+# Make sure we can process complex signatures without issues
+"${dfuzzer[@]}" -s -v -n org.freedesktop.dfuzzerServer -o /org/freedesktop/dfuzzerObject -i org.freedesktop.dfuzzerInterface -t df_complex_sig_1
+"${dfuzzer[@]}" -s -v -n org.freedesktop.dfuzzerServer -o /org/freedesktop/dfuzzerObject -i org.freedesktop.dfuzzerInterface -t df_complex_sig_2
+
 sudo systemctl stop dfuzzer-test-server
 
 # dfuzzer should return 0 by default when services it tests time out
