@@ -107,7 +107,7 @@ int df_traverse_node(GDBusConnection *dcon, const char *root_node);
  * @return 0 on success, 1 on error, 2 when testing detected any failures
  * or warnings, 3 on warnings
  */
-int df_fuzz(GDBusConnection *dcon, const char *name, const char *obj, const char *intf);
+int df_fuzz(GDBusConnection *dcon, const char *name, const char *object, const char *interface);
 
 /**
  * @function Checks if name is valid D-Bus name, obj is valid

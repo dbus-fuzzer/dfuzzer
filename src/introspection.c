@@ -25,39 +25,20 @@
 #include "introspection.h"
 #include "bus.h"
 #include "dfuzzer.h"
+#include "util.h"
 
 
-/** Information about nodes in a remote object hierarchy. */
-static GDBusNodeInfo *df_introspection_data;
-/** Information about a D-Bus interface. */
-static GDBusInterfaceInfo *df_interface_data;
-/** Pointer on methods, each contains information about itself. */
-static GDBusMethodInfo **df_methods;
-/** Pointer on input arguments, each contains information about itself. */
-static GDBusArgInfo **df_in_args;
-/** Pointer on output arguments */
-static GDBusArgInfo **df_out_args;
-
-
-/**
- * @function Gets introspection of object pointed by dproxy (in XML format),
- * then parses XML data and fills GDBusNodeInfo representing the data.
- * At the end looks up information about an interface and initializes module
- * global pointers on first method and its first argument.
- * @param dproxy Pointer on D-Bus interface proxy
- * @param interface D-Bus interface
- * @return 0 on success, -1 on error
- */
-int df_init_introspection(GDBusProxy *dproxy, const char *interface)
+GDBusNodeInfo *df_get_interface_info(GDBusProxy *dproxy, const char *interface, GDBusInterfaceInfo **ret_iinfo)
 {
-        if (!dproxy || !interface) {
-                df_debug("Passing NULL argument to function.\n");
-                return -1;
-        }
+        _cleanup_(g_error_freep) GError *error = NULL;
+        _cleanup_(g_freep) gchar *introspection_xml = NULL;
+        _cleanup_(g_variant_unrefp) GVariant *response = NULL;
+        GDBusNodeInfo *introspection_data = NULL;
+        GDBusInterfaceInfo *interface_info = NULL;
 
-        GError *error = NULL;
-        GVariant *response = NULL;
-        gchar *introspection_xml = NULL;
+        assert(dproxy);
+        assert(interface);
+        assert(ret_iinfo);
 
         // Synchronously invokes the org.freedesktop.DBus.Introspectable.Introspect
         // method on dproxy to get introspection data in XML format
@@ -66,95 +47,34 @@ int df_init_introspection(GDBusProxy *dproxy, const char *interface)
                                NULL,
                                G_DBUS_CALL_FLAGS_NONE);
         if (!response)
-                return -1;
+                return NULL;;
 
         g_variant_get(response, "(s)", &introspection_xml);
-        g_variant_unref(response);
         if (!introspection_xml) {
                 df_fail("Error: Unable to get introspection data from GVariant.\n");
-                return -1;
+                return NULL;
         }
 
         // Parses introspection_xml and returns a GDBusNodeInfo representing
         // the data.
-        df_introspection_data = g_dbus_node_info_new_for_xml(introspection_xml, &error);
-        g_free(introspection_xml);
-        if (!df_introspection_data) {
+        introspection_data = g_dbus_node_info_new_for_xml(introspection_xml, &error);
+        if (!introspection_data) {
                 df_fail("Error: Unable to get introspection data.\n");
                 df_error("Error in g_dbus_node_info_new_for_xml()", error);
-                return -1;
+                return NULL;
         }
 
         // Looks up information about an interface (methods, their arguments, etc).
-        df_interface_data = g_dbus_node_info_lookup_interface(df_introspection_data, interface);
-        if (!df_interface_data) {
+        interface_info = g_dbus_node_info_lookup_interface(introspection_data, interface);
+        if (!interface_info) {
                 df_fail("Error: Unable to get interface '%s' data.\n", interface);
                 df_debug("Error in g_dbus_node_info_lookup_interface()\n");
-                return -1;
+                return NULL;
         }
 
-        // *df_methods is a pointer on the GDBusMethodInfo structure (first method)
-        // of interface.
-        df_methods = df_interface_data->methods;
-        if (!*df_methods) {
-                df_debug("Interface '%s' has no methods to test - skipping\n", interface);
-                return 0;
-        }
+        *ret_iinfo = interface_info;
 
-        // sets pointer on args of current method
-        df_in_args = (*df_methods)->in_args;
-        df_out_args = (*df_methods)->out_args;
-        return 0;
-}
-
-/**
- * @return Pointer on GDBusMethodInfo which contains information about method
- * (do not free it).
- */
-GDBusMethodInfo *df_get_method(void)
-{
-        return *df_methods;
-}
-
-/**
- * @function Function is used as "iterator" for interface methods.
- */
-void df_next_method(void)
-{
-        df_methods++;
-        if (*df_methods) {
-                // sets pointer on args of current method
-                df_in_args = (*df_methods)->in_args;
-                df_out_args = (*df_methods)->out_args;
-        }
-}
-
-/**
- * @return Pointer on GDBusArgInfo which contains information about argument
- * of current (df_get_method()) method (do not free it).
- */
-GDBusArgInfo *df_get_method_arg(void)
-{
-        return *df_in_args;
-}
-
-/**
- * @function Function is used as "iterator" for interface current
- * (df_get_method()) method arguments.
- */
-void df_next_method_arg(void)
-{
-        df_in_args++;
-}
-
-gboolean df_method_has_out_args(const GDBusMethodInfo *method)
-{
-        assert(method);
-
-        if (!*(method->out_args))
-                return FALSE;
-
-        return TRUE;
+        return introspection_data;
 }
 
 char *df_method_get_full_signature(const GDBusMethodInfo *method)
@@ -182,13 +102,3 @@ char *df_method_get_full_signature(const GDBusMethodInfo *method)
         return r;
 }
 
-/**
- * @function Call when done with this module functions (only after
- * df_init_introspection() function call). It frees memory used
- * by df_introspection_data (GDBusNodeInfo *) which is used to look up
- * information about the interface (methods, their arguments, etc.).
- */
-void df_unref_introspection(void)
-{
-        g_dbus_node_info_unref(df_introspection_data);
-}

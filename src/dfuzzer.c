@@ -450,48 +450,45 @@ int df_traverse_node(GDBusConnection *dcon, const char *root_node)
  * @return 0 on success, 1 on error, 2 when testing detected any failures,
  * 3 on warnings
  */
-int df_fuzz(GDBusConnection *dcon, const char *name, const char *obj, const char *intf)
+int df_fuzz(GDBusConnection *dcon, const char *name, const char *object, const char *interface)
 {
-        _cleanup_(g_dbus_proxy_unrefp) GDBusProxy *dproxy = NULL; // D-Bus interface proxy
-        GDBusMethodInfo *m;
+        _cleanup_(g_dbus_proxy_unrefp) GDBusProxy *dproxy = NULL;
+        _cleanup_(g_dbus_node_info_unrefp) GDBusNodeInfo *node_info = NULL;
+        GDBusInterfaceInfo *interface_info = NULL;
         int ret = 0;
         int method_found = 0;   // If df_test_method is found in an interface,
         // method_found is set to 1, otherwise is 0.
         int rv = DF_BUS_OK;     // return value of function
         int i;
 
-
         // Sanity check fuzzing target
-        if (isempty(name) || isempty(obj) || isempty(intf)) {
+        if (isempty(name) || isempty(object) || isempty(interface)) {
                 df_fail("Error in target specification.\n");
                 return DF_BUS_ERROR;
         }
 
         // Creates a proxy for accessing intf on the remote object at path obj
         // owned by name at dcon.
-        if (!df_is_valid_dbus(name, obj, intf))
+        if (!df_is_valid_dbus(name, object, interface))
                 return DF_BUS_ERROR;
 
-        dproxy = df_bus_new(dcon, name, obj, intf,
+        dproxy = df_bus_new(dcon, name, object, interface,
                             G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES|G_DBUS_PROXY_FLAGS_DO_NOT_CONNECT_SIGNALS);
         if (!dproxy)
                 return DF_BUS_ERROR;
 
-        // Introspection of object through proxy.
-        if (df_init_introspection(dproxy, intf) == -1) {
-                df_debug("Error in df_init_introspection() on introspecting object\n");
+        node_info = df_get_interface_info(dproxy, interface, &interface_info);
+        if (!node_info)
                 return DF_BUS_ERROR;
-        }
 
         // tells fuzz module to call methods on dproxy, use FD statfd
         // for monitoring tested process and memory limit for process
         if (df_fuzz_init(dproxy) == -1) {
-                df_unref_introspection();
                 df_debug("Error in df_fuzz_add_proxy()\n");
                 return DF_BUS_ERROR;
         }
 
-        for (; (m = df_get_method()) != NULL; df_next_method()) {
+        for (GDBusMethodInfo **pm = interface_info->methods, *m = *pm; m; m = *(++pm)) {
                 _cleanup_(df_dbus_method_cleanup) struct df_dbus_method dbus_method = {0,};
 
                 // testing only one method with name df_test_method
@@ -524,7 +521,7 @@ int df_fuzz(GDBusConnection *dcon, const char *name, const char *obj, const char
 
                 dbus_method.name = strdup(m->name);
                 dbus_method.signature = df_method_get_full_signature(m);
-                dbus_method.returns_value = df_method_has_out_args(m);
+                dbus_method.returns_value = !!*(m->out_args);
                 dbus_method.fuzz_on_str_len = (strstr(dbus_method.signature, "s") || strstr(dbus_method.signature, "v"));
 
                 // tests for method
@@ -532,13 +529,12 @@ int df_fuzz(GDBusConnection *dcon, const char *name, const char *obj, const char
                                 &dbus_method,
                                 df_buf_size,
                                 name,
-                                obj,
-                                intf,
+                                object,
+                                interface,
                                 df_pid,
                                 df_execute_cmd);
                 if (ret == -1) {
                         // error during testing method
-                        df_unref_introspection();
                         df_debug("Error in df_fuzz_test_method()\n");
                         return DF_BUS_ERROR;
                 } else if (ret == 1 && df_test_method == NULL) {
@@ -547,22 +543,19 @@ int df_fuzz(GDBusConnection *dcon, const char *name, const char *obj, const char
                         g_object_unref(dproxy);
                         dproxy = NULL;
 
-                        if (!df_is_valid_dbus(name, obj, intf))
+                        if (!df_is_valid_dbus(name, object, interface))
                                 return DF_BUS_ERROR;
 
-                        dproxy = df_bus_new(dcon, name, obj, intf,
+                        dproxy = df_bus_new(dcon, name, object, interface,
                                             G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES|G_DBUS_PROXY_FLAGS_DO_NOT_CONNECT_SIGNALS);
-                        if (!dproxy) {
-                                df_unref_introspection();
+                        if (!dproxy)
                                 return DF_BUS_ERROR;
-                        }
 
                         sleep(5);       // wait for application to launch
 
                         // gets pid of tested process
                         df_pid = df_get_pid(dcon, FALSE);
                         if (df_pid < 0) {
-                                df_unref_introspection();
                                 df_debug("Error in df_get_pid() on getting pid of process\n");
                                 return DF_BUS_ERROR;
                         }
@@ -572,7 +565,6 @@ int df_fuzz(GDBusConnection *dcon, const char *name, const char *obj, const char
                         // tells fuzz module to call methods on different dproxy and to use
                         // new status file of process with PID df_pid
                         if (df_fuzz_init(dproxy) == -1) {
-                                df_unref_introspection();
                                 df_debug("Error in df_fuzz_add_proxy()\n");
                                 return DF_BUS_ERROR;
                         }
@@ -595,11 +587,10 @@ int df_fuzz(GDBusConnection *dcon, const char *name, const char *obj, const char
 
 
         if (method_found == 0 && df_test_method != NULL) {
-                df_fail("Error: Method '%s' is not in the interface '%s'.\n", df_test_method, intf);
-                df_unref_introspection();
+                df_fail("Error: Method '%s' is not in the interface '%s'.\n", df_test_method, interface);
                 return rv;
         }
-        df_unref_introspection();
+
         return rv;
 }
 
