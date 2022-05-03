@@ -63,7 +63,11 @@ grep "SKIP" "$log_out" && false
 # Test as an unprivileged user (short options)
 "${dfuzzer[@]}" -v -n org.freedesktop.systemd1
 # Test as root (long options + duplicate options)
+set +e
 sudo "${dfuzzer[@]}" --verbose --bus this.should.be.ignored --bus org.freedesktop.systemd1
+systemctl daemon-reload
+journalctl --no-pager -e
+set -e
 # Test logdir
 mkdir dfuzzer-logs
 "${dfuzzer[@]}" --log-dir dfuzzer-logs -v -n org.freedesktop.systemd1
