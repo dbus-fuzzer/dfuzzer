@@ -2,6 +2,19 @@
 
 set -ex
 
+sudo sed -i -e '/^#\s*deb-src.*\smain\s\+restricted/s/^#//' /etc/apt/sources.list
+sudo apt-get update
+sudo apt-get build-dep -y systemd
+sudo apt-get install -y python3-jinja2
+
+git clone https://github.com/systemd/systemd
+pushd systemd
+meson build
+ninja -C ./build
+sudo ninja -C ./build install
+sudo systemctl daemon-reexec
+popd
+
 dfuzzer=("dfuzzer")
 if [[ "$TYPE" == valgrind ]]; then
         dfuzzer=("valgrind" "--leak-check=full" "--show-leak-kinds=definite" "--errors-for-leak-kinds=definite" "--error-exitcode=42" "dfuzzer")
