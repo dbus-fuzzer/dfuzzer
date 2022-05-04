@@ -66,7 +66,7 @@ static const gchar introspection_xml[] =
 "               <method name='df_complex_sig_1'>"
 "                       <arg type='i' name='in1' direction='in'/>"
 "                       <arg type='u' name='in2' direction='in'/>"
-"                       <arg type='s' name='in3' direction='in'/>"
+"                       <arg type='g' name='in3' direction='in'/>"
 "                       <arg type='a{ss}' name='what' direction='in'/>"
 "                       <arg type='a(uiyo)' name='also_what' direction='in'/>"
 "                       <arg type='s' name='response' direction='out'/>"
@@ -74,9 +74,9 @@ static const gchar introspection_xml[] =
 "               <method name='df_complex_sig_2'>"
 "                       <arg type='i' name='in1' direction='in'/>"
 "                       <arg type='s' name='in2' direction='in'/>"
-"                       <arg type='aaaaaaaaaai' name='in3' direction='in'/>"
+"                       <arg type='aaai' name='in3' direction='in'/>"
 "                       <arg type='(y(b(n(q(iua{ov})v)o))x(dh))' name='in4' direction='in'/>"
-"                       <arg type='a{i(bov)}' name='in5' direction='in'/>"
+"                       <arg type='a{t(bov)}' name='in5' direction='in'/>"
 "                       <arg type='i' name='response' direction='out'/>"
 "               </method>"
 "       </interface>"
@@ -123,13 +123,8 @@ static void handle_method_call(
                 unsigned u;
                 int i;
 
-                g_variant_get(parameters, "(iu&s@a{ss}@a(uiyo))", &i, &u, &str, NULL, NULL);
-                if (strlen(str) <= 0) {
-                        g_printf("Got unexpected data for method %s\n", method_name);
-                        abort();
-                }
-
-                g_printf("%s: string size: %zu\n", method_name, strlen(str));
+                g_variant_get(parameters, "(iu&g@a{ss}@a(uiyo))", &i, &u, &str, NULL, NULL);
+                g_printf("%s: signature size: %zu\n", method_name, strlen(str));
 
                 response = g_strdup_printf("%s", str);
                 g_dbus_method_invocation_return_value(invocation, g_variant_new("(s)", response));

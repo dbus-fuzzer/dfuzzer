@@ -114,6 +114,7 @@ static inline int isempty(const char *s) {
                 sizeof(x)/sizeof((x)[0]),                               \
                 (void*)0))
 
+int safe_strtoull(const gchar *p, guint64 *ret);
 char *strjoin_real(const char *x, ...) __attribute__((__sentinel__));
 #define strjoin(a, ...) strjoin_real((a), __VA_ARGS__, NULL)
 

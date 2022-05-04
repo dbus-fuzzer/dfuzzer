@@ -26,7 +26,7 @@
 
 /** Maximum amount of unimportant exceptions for one method; if reached
   * testing continues with a next method */
-#define MAX_EXCEPTIONS 10
+#define MAX_EXCEPTIONS 50
 
 struct df_dbus_method {
         char *name;
@@ -43,8 +43,8 @@ static inline void df_dbus_method_cleanup(struct df_dbus_method *p)
         memset(p, 0, sizeof(*p));
 }
 
-GVariant *df_generate_random_basic(const GVariantType *type);
-GVariant *df_generate_random_from_signature(const char *signature);
+GVariant *df_generate_random_basic(const GVariantType *type, guint64 iteration);
+GVariant *df_generate_random_from_signature(const char *signature, guint64 iteration);
 /**
  * @function Saves pointer on D-Bus interface proxy for this module to be
  * able to call methods through this proxy during fuzz testing. Also saves
@@ -93,10 +93,9 @@ int df_fuzz_add_method_arg(const char *signature);
  * command finished unsuccessfuly
  */
 int df_fuzz_test_method(
-                const struct df_dbus_method *method,
-                long buf_size, const char *name,
-                const char *obj, const char *intf, const int pid,
-                const char *execute_cmd);
+                const struct df_dbus_method *method, long buf_size, const char *name,
+                const char *obj, const char *intf, const int pid, const char *execute_cmd,
+                guint64 min_iterations, guint64 max_iterations);
 
 extern FILE* logfile;
 

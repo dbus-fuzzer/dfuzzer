@@ -50,6 +50,9 @@ sudo systemctl start dfuzzer-test-server
 "${dfuzzer[@]}" -v -n org.freedesktop.dfuzzerServer -o /org/freedesktop/dfuzzerObject -i org.freedesktop.dfuzzerInterface -t df_hello
 sudo systemctl stop dfuzzer-test-server
 
+# Make the tests a bit faster in CI, since it takes a while to go through all systemd methods
+dfuzzer+=("--max-iterations=10")
+
 "${dfuzzer[@]}" -V
 "${dfuzzer[@]}" --version
 "${dfuzzer[@]}" -l
@@ -70,7 +73,7 @@ grep "SKIP" "$log_out" && false
 sudo "${dfuzzer[@]}" --verbose --bus this.should.be.ignored --bus org.freedesktop.systemd1
 # Test logdir
 mkdir dfuzzer-logs
-"${dfuzzer[@]}" --log-dir dfuzzer-logs -v -n org.freedesktop.systemd1
+"${dfuzzer[@]}" --log-dir dfuzzer-logs -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i org.freedesktop.systemd1.Manager
 # Test a non-existent bus
 if sudo "${dfuzzer[@]}" --log-dir "" --bus this.should.not.exist; then false; fi
 # Test object & interface options

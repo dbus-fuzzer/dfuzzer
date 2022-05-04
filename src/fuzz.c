@@ -49,12 +49,78 @@ static void df_fuzz_write_log(const struct df_dbus_method *method, GVariant *val
 static int df_exec_cmd_check(const char *cmd);
 static int df_fuzz_call_method(const struct df_dbus_method *method, GVariant *value);
 
+guint64 df_get_number_of_iterations(const char *signature) {
+        guint64 iterations = 0;
+        guint32 multiplier = 1, current_nest_level = 0;
+
+        for (size_t i = 0; i < strlen(signature); i++) {
+                switch (signature[i]) {
+                case 'y':
+                        /* BYTE */
+                        iterations = MAX(iterations, 8);
+                        break;
+                case 'b':
+                        /* BOOLEAN */
+                        iterations = MAX(iterations, 2);
+                        break;
+                case 'n':
+                case 'q':
+                        /* INT/UINT 16 */
+                        iterations = MAX(iterations, 16);
+                        break;
+                case 'i':
+                case 'u':
+                case 'h':
+                        /* INT/UINT 32, UNIX_FD */
+                        iterations = MAX(iterations, 24);
+                        break;
+                case 'x':
+                case 't':
+                case 'd':
+                        /* INT/UINT 64, DOUBLE */
+                        iterations = MAX(iterations, 32);
+                        break;
+                case 's':
+                case 'o':
+                case 'g':
+                        /* STRING, OBJECT_PATH, SIGNATURE */
+                        iterations = MAX(iterations, 64);
+                        break;
+                case 'v':
+                        /* VARIANT */
+                        iterations = MAX(iterations, 64);
+                        break;
+                case 'a':
+                        /* ARRAY */
+                        current_nest_level++;
+                        continue;
+                case '(':
+                case ')':
+                case '{':
+                case '}':
+                        /* Ignore container-specific characters */
+                        break;
+                default:
+                        df_fail("Unexpected character '%c' in signature '%s'\n", signature[i], signature);
+                        g_assert_not_reached();
+                }
+
+                multiplier = MAX(multiplier, current_nest_level);
+                current_nest_level = 0;
+        }
+
+        iterations *= multiplier;
+
+        /* Do at least 10 iterations to cover void methods as well */
+        return CLAMP(iterations, 10, G_MAXUINT64);
+}
+
 /* Generate a GVariant with random data for a basic (non-compound) type
  *
  * Note: variant itself is treated as a basic type, since it's a bit special and
  *       cannot be iterated on
  */
-GVariant *df_generate_random_basic(const GVariantType *type) {
+GVariant *df_generate_random_basic(const GVariantType *type, guint64 iteration) {
         _cleanup_free_ char *ssig = NULL;
 
         if (!type) {
@@ -65,29 +131,29 @@ GVariant *df_generate_random_basic(const GVariantType *type) {
         ssig = g_variant_type_dup_string(type);
 
         if (g_variant_type_equal(type, G_VARIANT_TYPE_BOOLEAN))
-                return g_variant_new(ssig, df_rand_gboolean());
+                return g_variant_new(ssig, df_rand_gboolean(iteration));
         else if (g_variant_type_equal(type, G_VARIANT_TYPE_BYTE))
-                return g_variant_new(ssig, df_rand_guint8());
+                return g_variant_new(ssig, df_rand_guint8(iteration));
         else if (g_variant_type_equal(type, G_VARIANT_TYPE_INT16))
-                return g_variant_new(ssig, df_rand_gint16());
+                return g_variant_new(ssig, df_rand_gint16(iteration));
         else if (g_variant_type_equal(type, G_VARIANT_TYPE_UINT16))
-                return g_variant_new(ssig, df_rand_guint16());
+                return g_variant_new(ssig, df_rand_guint16(iteration));
         else if (g_variant_type_equal(type, G_VARIANT_TYPE_INT32))
-                return g_variant_new(ssig, df_rand_gint32());
+                return g_variant_new(ssig, df_rand_gint32(iteration));
         else if (g_variant_type_equal(type, G_VARIANT_TYPE_UINT32))
-                return g_variant_new(ssig, df_rand_guint32());
+                return g_variant_new(ssig, df_rand_guint32(iteration));
         else if (g_variant_type_equal(type, G_VARIANT_TYPE_INT64))
-                return g_variant_new(ssig, df_rand_gint64());
+                return g_variant_new(ssig, df_rand_gint64(iteration));
         else if (g_variant_type_equal(type, G_VARIANT_TYPE_UINT64))
-                return g_variant_new(ssig, df_rand_guint64());
+                return g_variant_new(ssig, df_rand_guint64(iteration));
         else if (g_variant_type_equal(type, G_VARIANT_TYPE_HANDLE))
-                return g_variant_new(ssig, df_rand_unixFD());
+                return g_variant_new(ssig, df_rand_unixFD(iteration));
         else if (g_variant_type_equal(type, G_VARIANT_TYPE_DOUBLE))
-                return g_variant_new(ssig, df_rand_gdouble());
+                return g_variant_new(ssig, df_rand_gdouble(iteration));
         else if (g_variant_type_equal(type, G_VARIANT_TYPE_STRING)) {
                 _cleanup_free_ char *str = NULL;
 
-                if (df_rand_string(&str) < 0) {
+                if (df_rand_string(&str, iteration) < 0) {
                         df_fail("Failed to generate a random string\n");
                         return NULL;
                 }
@@ -96,7 +162,7 @@ GVariant *df_generate_random_basic(const GVariantType *type) {
         } else if (g_variant_type_equal(type, G_VARIANT_TYPE_OBJECT_PATH)) {
                 _cleanup_free_ char *obj_path = NULL;
 
-                if (df_rand_dbus_objpath_string(&obj_path) < 0) {
+                if (df_rand_dbus_objpath_string(&obj_path, iteration) < 0) {
                         df_fail("Failed to generate a random object path\n");
                         return NULL;
                 }
@@ -105,7 +171,7 @@ GVariant *df_generate_random_basic(const GVariantType *type) {
         } else if (g_variant_type_equal(type, G_VARIANT_TYPE_SIGNATURE)) {
                 _cleanup_free_ char *sig_str = NULL;
 
-                if (df_rand_dbus_signature_string(&sig_str) < 0) {
+                if (df_rand_dbus_signature_string(&sig_str, iteration) < 0) {
                         df_fail("Failed to generate a random signature string\n");
                         return NULL;
                 }
@@ -114,7 +180,7 @@ GVariant *df_generate_random_basic(const GVariantType *type) {
         } else if (g_variant_type_equal(type, G_VARIANT_TYPE_VARIANT)) {
                 GVariant *variant = NULL;
 
-                if (df_rand_GVariant(&variant) < 0) {
+                if (df_rand_GVariant(&variant, iteration) < 0) {
                         df_fail("Failed to generate a random GVariant\n");
                         return NULL;
                 }
@@ -128,7 +194,7 @@ GVariant *df_generate_random_basic(const GVariantType *type) {
         return NULL;
 }
 
-GVariant *df_generate_random_from_signature(const char *signature)
+GVariant *df_generate_random_from_signature(const char *signature, guint64 iteration)
 {
         _cleanup_(g_variant_type_freep) GVariantType *type = NULL;
         _cleanup_(g_variant_builder_unrefp) GVariantBuilder *builder = NULL;
@@ -143,7 +209,7 @@ GVariant *df_generate_random_from_signature(const char *signature)
         type = g_variant_type_new(signature);
         /* Leaf nodes */
         if (g_variant_type_is_basic(type) || g_variant_type_is_variant(type))
-                return df_generate_random_basic(type);
+                return df_generate_random_basic(type, iteration);
 
         builder = g_variant_builder_new(type);
 
@@ -162,7 +228,7 @@ GVariant *df_generate_random_from_signature(const char *signature)
                          */
                         GVariant *basic;
 
-                        basic = df_generate_random_basic(iter);
+                        basic = df_generate_random_basic(iter, iteration);
                         if (!basic)
                                 return NULL;
 
@@ -171,7 +237,7 @@ GVariant *df_generate_random_from_signature(const char *signature)
                         /* Tuple */
                         GVariant *tuple = NULL;
 
-                        tuple = df_generate_random_from_signature(ssig);
+                        tuple = df_generate_random_from_signature(ssig, iteration);
                         if (!tuple)
                                 return NULL;
 
@@ -201,7 +267,7 @@ GVariant *df_generate_random_from_signature(const char *signature)
                         for (int i = 0; i < rand() % 10; i++) {
                                 GVariant *array_item = NULL;
 
-                                array_item = df_generate_random_from_signature(array_signature);
+                                array_item = df_generate_random_from_signature(array_signature, iteration);
                                 if (!array_item)
                                         return NULL;
 
@@ -374,17 +440,15 @@ static int df_check_if_exited(const int pid) {
  * command finished unsuccessfuly
  */
 int df_fuzz_test_method(
-                const struct df_dbus_method *method,
-                long buf_size, const char *name,
-                const char *obj, const char *intf, const int pid,
-                const char *execute_cmd)
+                const struct df_dbus_method *method, long buf_size, const char *name,
+                const char *obj, const char *intf, const int pid, const char *execute_cmd,
+                guint64 min_iterations, guint64 max_iterations)
 {
         _cleanup_(g_variant_unrefp) GVariant *value = NULL;
+        guint64 iterations;
         int ret = 0;            // return value from df_fuzz_call_method()
         int execr = 0;          // return value from execution of execute_cmd
         int buf_size_flg = 0;
-
-        df_debug("  Method: %s%s %s%s\n", ansi_bold(), method->name, method->signature, ansi_normal());
 
         if (buf_size != 0)
                 buf_size_flg = 1;
@@ -392,16 +456,21 @@ int df_fuzz_test_method(
                 buf_size = MAX_BUF_LEN;
         // initialization of random module
         df_rand_init(buf_size);
+        iterations = df_get_number_of_iterations(method->signature);
+        iterations = CLAMP(iterations, min_iterations, max_iterations);
+
+        df_debug("  Method: %s%s %s => %"G_GUINT64_FORMAT" iterations%s\n", ansi_bold(),
+                 method->name, method->signature, iterations, ansi_normal());
 
         df_verbose("  %s...", method->name);
 
-        while (df_rand_continue(method)) {
+        for (guint64 i = 0; i < iterations; i++) {
                 int r;
 
                 value = safe_g_variant_unref(value);
 
                 // creates variant containing all (fuzzed) method arguments
-                value = df_generate_random_from_signature(method->signature);
+                value = df_generate_random_from_signature(method->signature, i);
                 if (!value) {
                         return df_debug_ret(-1, "Failed to generate a variant for signature '%s'\n", method->signature);
                 }
