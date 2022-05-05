@@ -78,3 +78,5 @@ sudo "${dfuzzer[@]}" -v --bus org.freedesktop.systemd1 --object / --interface or
 # - test error paths
 if "${dfuzzer[@]}" -v --bus org.freedesktop.systemd1 --object aaa; then false; fi
 if "${dfuzzer[@]}" -v --bus org.freedesktop.systemd1 --interface aaa; then false; fi
+
+sudo systemctl stop dfuzzer-test-server
