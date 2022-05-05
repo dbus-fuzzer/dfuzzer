@@ -53,6 +53,7 @@ sudo systemctl stop dfuzzer-test-server
 # Make the tests a bit faster in CI, since it takes a while to go through all systemd methods
 dfuzzer+=("--max-iterations=10")
 
+"${dfuzzer[@]}" -h
 "${dfuzzer[@]}" -V
 "${dfuzzer[@]}" --version
 "${dfuzzer[@]}" -l
@@ -62,6 +63,19 @@ dfuzzer+=("--max-iterations=10")
 perl -e 'print "[org.freedesktop.systemd1]\n"; print "Reboot destructive\n" x 250; print "Reboot\n" x 250' >dfuzzer.conf
 "${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i org.freedesktop.systemd1.Manager -t Reboot
 rm -f dfuzzer.conf
+
+# Test a couple of error paths
+"${dfuzzer[@]}" && false
+"${dfuzzer[@]}" -v -n "$(perl -e 'print "x" x 256')" && false
+"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o "$(perl -e 'print "x" x 256')" && false
+"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o / -i "$(perl -e 'print "x" x 256')" && false
+"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -L "$(perl -e 'print "x" x 256')" && false
+"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -b 0 && false
+"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -x 0 && false
+"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o aaaaaaaaa && false
+"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o / -i aaaaaaaaaa && false
+"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o / -i aaaaaaaaaa && false
+
 # Check if we probe void methods
 log_out="$(mktemp)"
 sudo "${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i org.freedesktop.systemd1.Manager -t ListUnits |& tee "$log_out"
