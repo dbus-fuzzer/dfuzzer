@@ -61,6 +61,8 @@ struct fuzzing_target {
 };
 
 struct suppression_item {
+        char *object;
+        char *interface;
         char *method;
         char *description;
 };
