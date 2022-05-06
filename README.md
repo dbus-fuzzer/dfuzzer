@@ -26,16 +26,15 @@ Manual installation:
 Requirements:
 
     glib2-devel  (2.34 or higher)
-    libffi-devel (3.0 or higher)
     meson
 
 Fedora:
 
-    $ dnf install glib2-devel libffi-devel meson
+    $ dnf install glib2-devel meson
 
 Debian:
 
-    $ apt-get install libglib2.0-dev libffi-dev meson
+    $ apt-get install libglib2.0-dev meson
 
 
 Using valgrind with _GLib_:

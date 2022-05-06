@@ -8,14 +8,13 @@ project('dfuzzer', 'c',
 )
 
 libgio = dependency('gio-2.0', required : true)
-libffi = dependency('libffi', required : true)
 
 subdir('src')
 
 executable(
         'dfuzzer',
         dfuzzer_sources,
-        dependencies : [libgio, libffi],
+        dependencies : [libgio],
         install : true
 )
 

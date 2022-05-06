@@ -63,6 +63,22 @@ static const gchar introspection_xml[] =
 "               <method name='df_variant_crash'>"
 "                       <arg type='v' name='variant' direction='in'/>"
 "               </method>"
+"               <method name='df_complex_sig_1'>"
+"                       <arg type='i' name='in1' direction='in'/>"
+"                       <arg type='u' name='in2' direction='in'/>"
+"                       <arg type='g' name='in3' direction='in'/>"
+"                       <arg type='a{ss}' name='what' direction='in'/>"
+"                       <arg type='a(uiyo)' name='also_what' direction='in'/>"
+"                       <arg type='s' name='response' direction='out'/>"
+"               </method>"
+"               <method name='df_complex_sig_2'>"
+"                       <arg type='i' name='in1' direction='in'/>"
+"                       <arg type='s' name='in2' direction='in'/>"
+"                       <arg type='aaai' name='in3' direction='in'/>"
+"                       <arg type='(y(b(n(q(iua{ov})v)o))x(dh))' name='in4' direction='in'/>"
+"                       <arg type='a{t(bov)}' name='in5' direction='in'/>"
+"                       <arg type='i' name='response' direction='out'/>"
+"               </method>"
 "       </interface>"
 "</node>";
 
@@ -73,10 +89,11 @@ static void handle_method_call(
                 const gchar *method_name, GVariant *parameters,
                 GDBusMethodInvocation *invocation, gpointer user_data)
 {
+        _cleanup_(g_freep) gchar *response = NULL;
+
         g_printf("->[handle_method_call]\n");
 
         if (g_strcmp0(method_name, "df_hello") == 0) {
-                _cleanup_(g_freep) gchar *response = NULL;
                 gchar *msg;
                 int n;
 
@@ -101,6 +118,18 @@ static void handle_method_call(
                 pause();
         else if (g_strcmp0(method_name, "df_noreply") == 0)
                 return;
+        else if (g_strcmp0(method_name, "df_complex_sig_1") == 0) {
+                gchar *str = NULL;
+                unsigned u;
+                int i;
+
+                g_variant_get(parameters, "(iu&g@a{ss}@a(uiyo))", &i, &u, &str, NULL, NULL);
+                g_printf("%s: signature size: %zu\n", method_name, strlen(str));
+
+                response = g_strdup_printf("%s", str);
+                g_dbus_method_invocation_return_value(invocation, g_variant_new("(s)", response));
+        } else if (g_strcmp0(method_name, "df_complex_sig_2") == 0)
+                g_dbus_method_invocation_return_value(invocation, g_variant_new("(i)", 0));
 }
 
 // Virtual table for handling properties and method calls for a D-Bus interface.

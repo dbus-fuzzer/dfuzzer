@@ -26,61 +26,12 @@
 #include <stdint.h>
 
 #include "rand.h"
+#include "dfuzzer.h"
+#include "util.h"
 
 
 /** Maximum buffer size for generated strings (in Bytes) */
-static long df_buf_size;
-
-/** Counter for fuzzing methods which have only numbers as their parameters.
-  * Every call for some number generation increments this counter.
-  * See function df_rand_continue() how this counter is used. */
-static unsigned int df_num_fuzz_counter;
-
-/* Flag variables for controlling pseudo-random numbers generation */
-static unsigned short df_gu8f;
-static unsigned short df_gi16f;
-static unsigned short df_gu16f;
-static unsigned short df_gi32f;
-static unsigned short df_gu32f;
-static unsigned short df_gi64f;
-static unsigned short df_gu64f;
-static unsigned short df_gdouf;
-
-/** Length of  pseudo-random strings */
-static long df_str_len;
-
-/**
-  * Array of strings, which will be send to tested process if it has any string
-  * parameters. Feel free to include any strings here (only valid UTF-8).
-  * Array must be terminated by NULL string.
-  */
-static const char *df_str_def[] = {
-        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-        "%s%s%s%s%s%s%s%s%s%n%s%n%n%n%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s",
-        "%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n" \
-        "%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n",
-        "bomb(){ bomb|bomb & }; bomb",
-        ":1.285",
-        "org.freedesktop.foo",
-        "/org/freedesktop/foo",
-        NULL
-};
-
-/** Index into df_str_def array for function df_rand_string() */
-static unsigned df_index_str;
-/** Index into df_str_def array for function df_rand_GVariant() */
-static unsigned df_index_var;
-
-/**
-  * Array of signature definitions, which will be send to tested process if it
-  * has any signature parameters.
-  */
-static const char df_sig_def[16] = "ybnqiuxtdsogavh";
-
-
-/* Module static functions */
-static void df_rand_random_string(char *buf, const long size);
-
+static size_t df_buf_size;
 
 /**
  * @function Initializes global flag variables and seeds pseudo-random
@@ -96,318 +47,184 @@ void df_rand_init(const long buf_size)
                 df_buf_size = MAX_BUF_LEN;
         else
                 df_buf_size = buf_size;
-
-        df_gu8f = 0;
-        df_gi16f = 0;
-        df_gu16f = 0;
-        df_gi32f = 0;
-        df_gu32f = 0;
-        df_gi64f = 0;
-        df_gu64f = 0;
-        df_gdouf = 0;
-
-        df_num_fuzz_counter = 0;
-        df_str_len = 0;
-        df_index_str = 0;
-        df_index_var = 0;
 }
 
 /**
  * @return Generated pseudo-random 8-bit unsigned integer value
  */
-guint8 df_rand_guint8(void)
+guint8 df_rand_guint8(guint64 iteration)
 {
-        guint8 gu8;
-
-        if (df_gu8f < 100)
-                gu8 = G_MAXUINT8;
-        else if (df_gu8f < 200)
-                gu8 = G_MAXUINT8 / 2;
-        else if (df_gu8f < 250)
-                gu8 = 0;
-        else {
-                gu8 = rand() % G_MAXUINT8;
-                if ((rand() % 2) == 0)
-                        gu8++;
+        switch (iteration) {
+        case 0:
+                return 0;
+        case 1:
+                return G_MAXUINT8;
+        case 2:
+                return G_MAXUINT8 / 2;
+        default:
+                return rand() % G_MAXUINT8;
         }
-
-        if (df_gu8f < USHRT_MAX)
-                df_gu8f++;
-        else
-                df_gu8f = 0;
-
-        if (df_num_fuzz_counter < MAX_FUZZ_COUNTER)
-                df_num_fuzz_counter++;
-        return gu8;
 }
 
 /**
  * @return Generated pseudo-random boolean value
  */
-gboolean df_rand_gboolean(void)
+gboolean df_rand_gboolean(guint64 iteration)
 {
-        if (df_num_fuzz_counter < MAX_FUZZ_COUNTER)
-                df_num_fuzz_counter++;
-        return ((gboolean) (rand() % 2));
+        return ((gboolean) (iteration % 2));
 }
 
 /**
  * @return Generated pseudo-random 16-bit integer value
  */
-gint16 df_rand_gint16(void)
+gint16 df_rand_gint16(guint64 iteration)
 {
         gint16 gi16;
 
-        if (df_gi16f < 100)
-                gi16 = G_MAXINT16;
-        else if (df_gi16f < 200)
-                gi16 = G_MAXINT16 / 2;
-        else if (df_gi16f < 250)
-                gi16 = 0;
-        else {
+        switch (iteration) {
+        case 0:
+                return G_MININT16;
+        case 1:
+                return G_MAXINT16;
+        case 2:
+                return 0;
+        case 3:
+                return G_MAXINT16 / 2;
+        default:
                 gi16 = rand() % G_MAXINT16;
-                if ((rand() % 2) == 0)
-                        gi16++;
+                if (rand() % 2 == 0)
+                        return (gi16 * -1) - 1;
+
+                return gi16;
         }
-
-        // makes sure to test negative numbers
-        if ((rand() % 2) == 0)
-                gi16 = (gi16 * -1) - 1;
-
-        if (df_gi16f < USHRT_MAX)
-                df_gi16f++;
-        else
-                df_gi16f = 0;
-
-        if (df_num_fuzz_counter < MAX_FUZZ_COUNTER)
-                df_num_fuzz_counter++;
-        return gi16;
 }
 
 /**
  * @return Generated pseudo-random 16-bit unsigned integer value
  */
-guint16 df_rand_guint16(void)
+guint16 df_rand_guint16(guint64 iteration)
 {
-        guint16 gu16;
-
-        if (df_gu16f < 100)
-                gu16 = G_MAXUINT16;
-        else if (df_gu16f < 200)
-                gu16 = G_MAXUINT16 / 2;
-        else if (df_gu16f < 250)
-                gu16 = 0;
-        else {
-                gu16 = rand() % G_MAXUINT16;
-                if ((rand() % 2) == 0)
-                        gu16++;
+        switch (iteration) {
+        case 0:
+                return 0;
+        case 1:
+                return G_MAXUINT16;
+        case 2:
+                return G_MAXUINT16 / 2;
+        default:
+                return rand() % G_MAXUINT16;
         }
-
-        if (df_gu16f < USHRT_MAX)
-                df_gu16f++;
-        else
-                df_gu16f = 0;
-
-        if (df_num_fuzz_counter < MAX_FUZZ_COUNTER)
-                df_num_fuzz_counter++;
-        return gu16;
 }
 
 /**
  * @return Generated pseudo-random 32-bit integer value
  */
-gint32 df_rand_gint32(void)
+gint32 df_rand_gint32(guint64 iteration)
 {
         gint32 gi32;
 
-        if (df_gi32f < 100)
-                gi32 = G_MAXINT32;
-        else if (df_gi32f < 200)
-                gi32 = G_MAXINT32 / 2;
-        else if (df_gi32f < 250)
-                gi32 = 0;
-        else {
+        switch (iteration) {
+        case 0:
+                return G_MININT32;
+        case 1:
+                return G_MAXINT32;
+        case 2:
+                return 0;
+        case 3:
+                return G_MAXINT32 / 2;
+        default:
                 gi32 = rand() % G_MAXINT32;
-                if ((rand() % 2) == 0)
-                        gi32++;
+                if (rand() % 2 == 0)
+                        return (gi32 * -1) - 1;
+
+                return gi32;
         }
-
-        // makes sure to test negative numbers
-        if ((rand() % 2) == 0)
-                gi32 = (gi32 * -1) - 1;
-
-        if (df_gi32f < USHRT_MAX)
-                df_gi32f++;
-        else
-                df_gi32f = 0;
-
-        if (df_num_fuzz_counter < MAX_FUZZ_COUNTER)
-                df_num_fuzz_counter++;
-        return gi32;
 }
 
 /**
  * @return Generated pseudo-random 32-bit unsigned integer value
  */
-guint32 df_rand_guint32(void)
+guint32 df_rand_guint32(guint64 iteration)
 {
-        guint32 gu32;
-
-        if (df_gu32f < 100)
-                gu32 = G_MAXUINT32;
-        else if (df_gu32f < 200)
-                gu32 = G_MAXUINT32 / 2;
-        else if (df_gu32f < 250)
-                gu32 = 0;
-        else {
-                gu32 = random() % G_MAXUINT32;
-                if ((rand() % 2) == 0)
-                        gu32++;
+        switch (iteration) {
+        case 0:
+                return 0;
+        case 1:
+                return G_MAXUINT32;
+        case 2:
+                return G_MAXUINT32 / 2;
+        default:
+                return rand() % G_MAXUINT32;
         }
-
-        if (df_gu32f < USHRT_MAX)
-                df_gu32f++;
-        else
-                df_gu32f = 0;
-
-        if (df_num_fuzz_counter < MAX_FUZZ_COUNTER)
-                df_num_fuzz_counter++;
-        return gu32;
 }
 
 /**
  * @return Generated pseudo-random 64-bit (long) integer value
  */
-gint64 df_rand_gint64(void)
+gint64 df_rand_gint64(guint64 iteration)
 {
         gint64 gi64;
 
-        if (df_gi64f < 100)
-                gi64 = G_MAXINT64;
-        else if (df_gi64f < 200)
-                gi64 = G_MAXINT64 / 2;
-        else if (df_gi64f < 250)
-                gi64 = 0;
-        else {
-                gi64 = random() % G_MAXINT64;
-                if ((rand() % 2) == 0)
-                        gi64++;
+        switch (iteration) {
+        case 0:
+                return G_MININT64;
+        case 1:
+                return G_MAXINT64;
+        case 2:
+                return 0;
+        case 3:
+                return G_MAXINT64 / 2;
+        default:
+                gi64 = rand() % G_MAXINT64;
+                if (rand() % 2 == 0)
+                        return (gi64 * -1) - 1;
+
+                return gi64;
         }
-
-        // makes sure to test negative numbers
-        if ((rand() % 2) == 0)
-                gi64 = (gi64 * -1) - 1;
-
-        if (df_gi64f < USHRT_MAX)
-                df_gi64f++;
-        else
-                df_gi64f = 0;
-
-        if (df_num_fuzz_counter < MAX_FUZZ_COUNTER)
-                df_num_fuzz_counter++;
-        return gi64;
 }
 
 /**
  * @return Generated pseudo-random 64-bit (long) unsigned integer value
  */
-guint64 df_rand_guint64(void)
+guint64 df_rand_guint64(guint64 iteration)
 {
-        guint64 gu64;
-
-        if (df_gu64f < 100)
-                gu64 = G_MAXUINT64;
-        else if (df_gu64f < 200)
-                gu64 = G_MAXUINT64 / 2;
-        else if (df_gu64f < 250)
-                gu64 = 0;
-        else {
-                gu64 = random() % G_MAXUINT64;
-                if ((rand() % 2) == 0)
-                        gu64++;
+        switch (iteration) {
+        case 0:
+                return 0;
+        case 1:
+                return G_MAXUINT64;
+        case 2:
+                return G_MAXUINT64 / 2;
+        default:
+                return rand() % G_MAXUINT64;
         }
-
-        if (df_gu64f < USHRT_MAX)
-                df_gu64f++;
-        else
-                df_gu64f = 0;
-
-        if (df_num_fuzz_counter < MAX_FUZZ_COUNTER)
-                df_num_fuzz_counter++;
-        return gu64;
 }
 
 /**
  * @return Generated pseudo-random double precision floating point number
  */
-gdouble df_rand_gdouble(void)
+gdouble df_rand_gdouble(guint64 iteration)
 {
-        gdouble gdou;
+        gdouble gdbl;
 
-        if (df_gdouf < 100)
-                gdou = G_MAXDOUBLE;
-        else if (df_gdouf < 200)
-                gdou = G_MAXDOUBLE / 2.0;
-        else if (df_gdouf < 250)
-                gdou = 0.0;
-        else if (df_gdouf < 350)
-                gdou = G_MINDOUBLE;
-        else {
-                gdou = (double)random();
-                gdou += drand();
-                if ((rand() % 2) == 0)
-                        gdou++;
+        switch (iteration) {
+        case 0:
+                return G_MAXDOUBLE;
+        case 1:
+                return G_MINDOUBLE;
+        case 2:
+                return 0;
+        case 3:
+                return G_MAXDOUBLE / 2.0;
+        default:
+                gdbl = (gdouble) random();
+                gdbl += ((gdouble) rand() / RAND_MAX);
+
+                if (rand() % 2 == 0)
+                        return gdbl * -1.0;
+
+                return gdbl;
         }
-
-        if (gdou != 0.0 && (rand() % 2) == 0)
-                gdou *= -1.0;
-
-        if (df_gdouf < USHRT_MAX)
-                df_gdouf++;
-        else
-                df_gdouf = 0;
-
-        if (df_num_fuzz_counter < MAX_FUZZ_COUNTER)
-                df_num_fuzz_counter++;
-        return gdou;
-}
-
-/**
- * @function Tells callee whether to continue testing according to current size
- * of generated strings not to exceed df_buf_size length.
- * @param fuzz_on_str_len If 1, fuzzing will be controlled by generated random
- * strings lengths
- * @return 1 when callee should continue, 0 otherwise
- */
-int df_rand_continue(const int fuzz_on_str_len, const int nargs)
-{
-        static int counter = 0; // makes sure to test biggest strings more times
-
-       if (nargs == 0) {
-               if (df_num_fuzz_counter == 10) {
-                       df_num_fuzz_counter = 0;
-                       return 0;
-               }
-               df_num_fuzz_counter++;
-               return 1;
-       }
-
-        if (fuzz_on_str_len) {
-                if (df_str_len >= df_buf_size) {
-                        if (counter >= 10) {
-                                counter = 0;
-                                return 0;
-                        }
-                        counter++;
-                }
-        } else {
-                if (df_num_fuzz_counter == MAX_FUZZ_COUNTER) {
-                        df_num_fuzz_counter = 0;
-                        return 0;
-                }
-        }
-
-        return 1;
 }
 
 /**
@@ -440,28 +257,46 @@ static void df_rand_random_string(char *buf, const long size)
  * will be stored
  * @return 0 on success, -1 on error
  */
-int df_rand_string(gchar **buf)
+int df_rand_string(gchar **buf, guint64 iteration)
 {
-        df_str_len += (rand() % CHAR_MAX) + 1;
-        if (df_str_len > df_buf_size)
-                df_str_len = df_buf_size;
+        /* List of strings that are used before we start generating random stuff */
+        static const char *test_strings[] = {
+                "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                "%s%s%s%s%s%s%s%s%s%n%s%n%n%n%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s",
+                "%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n" \
+                "%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n%n",
+                "bomb(){ bomb|bomb & }; bomb",
+                ":1.285",
+                "org.freedesktop.foo",
+                "/org/freedesktop/foo",
+                "",
+                "\0",
+                "systemd-localed.service",
+                "/tmp/test",
+                "verify-active",
+                "IPAddressDeny",
+                "Description",
+                "127.0.0.1",
+        };
+        _cleanup_(g_freep) gchar *ret = NULL;
+        size_t len;
 
-        if (df_str_def[df_index_str] != NULL)
-                df_str_len = strlen(df_str_def[df_index_str]) + 1;
-
-        *buf = malloc(sizeof(gchar) * df_str_len);
-        if (*buf == NULL) {
-                fprintf(stderr, "Error: Could not allocate memory for rand. string.\n");
-                return -1;
+        if (iteration < G_N_ELEMENTS(test_strings)) {
+                ret = strdup(test_strings[iteration]);
+                if (!ret)
+                        return df_fail_ret(-1, "Could not allocate memory for the random string\n");
+        } else {
+                /* Genearate a pseudo-random string length in interval <0, df_buf_size) */
+                len = (rand() * iteration) % df_buf_size;
+                len = CLAMP(len, 1, df_buf_size);
+                ret = g_try_new(gchar, len);
+                if (!ret)
+                        return df_fail_ret(-1, "Could not allocate memory for the random string\n");
+                df_rand_random_string(ret, len);
         }
 
-        if (df_str_def[df_index_str] != NULL) {
-                strcpy(*buf, df_str_def[df_index_str]);
-                df_index_str++;
-                return 0;
-        }
+        *buf = TAKE_PTR(ret);
 
-        df_rand_random_string(*buf, df_str_len);
         return 0;
 }
 
@@ -476,53 +311,65 @@ int df_rand_string(gchar **buf)
  * will be stored
  * @return 0 on success, -1 on error
  */
-int df_rand_dbus_objpath_string(gchar **buf)
+int df_rand_dbus_objpath_string(gchar **buf, guint64 iteration)
 {
-        static short size = 9;
-        size++;
+        /* List of object paths that are used before we start generating random stuff */
+        static const char *test_object_paths[] = {
+                "/",
+                "/a",
+                "/0",
+                "/_",
+                "/\0/\0\0",
+                "/a/a/a",
+                "/0/0/0",
+                "/_/_/_",
+        };
+        _cleanup_(g_freep) gchar *ret = NULL;
+        guint16 size;
         int i, j, beg;
 
-        if (size > MAXLEN)
-                size = MAXLEN;
+        if (iteration < G_N_ELEMENTS(test_object_paths)) {
+                ret = strdup(test_object_paths[iteration]);
+                if (!ret)
+                        return df_fail_ret(-1, "Could not allocate memory for the random string\n");
+        } else {
+                size = (iteration % MAXLEN) + 9;
 
-        *buf = malloc(sizeof(gchar) * size + 1);
-        if (*buf == NULL) {
-                fprintf(stderr, "Error: Could not allocate memory for random D-Bus object path.\n");
-                return -1;
+                // TODO: simplify
+                ret = g_try_new(gchar, size + 1);
+                if (!ret)
+                        return df_fail_ret(-1, "Could not allocate memory for the random string\n");
+
+                i = (size - 3) / 3;
+                ret[0] = '/';
+                beg = 1;
+                for (j = 1; j <= i; j++) {
+                        if (j == beg)   // objpath can begin only with character
+                                ret[j] = rand() % (91 - 65) + 65;
+                        else
+                                ret[j] = rand() % (123 - 97) + 97;
+                }
+                ret[j++] = '/';
+                beg = j;
+                for (; j <= (i * 2); j++) {
+                        if (j == beg)   // objpath can begin only with character
+                                ret[j] = rand() % (91 - 65) + 65;
+                        else
+                                ret[j] = rand() % (123 - 97) + 97;
+                }
+                ret[j++] = '/';
+                beg = j;
+                for (; j <= (i * 3); j++) {
+                        if (j == beg)   // objpath can begin only with character
+                                ret[j] = rand() % (91 - 97) + 97;
+                        else
+                                ret[j] = rand() % (123 - 97) + 97;
+                }
+                ret[j] = '\0';
         }
 
-        i = (size - 3) / 3;
-        (*buf)[0] = '/';
-        beg = 1;
-        for (j = 1; j <= i; j++) {
-                if (j == beg)   // objpath can begin only with character
-                        (*buf)[j] = rand() % (91 - 65) + 65;
-                else
-                        (*buf)[j] = rand() % (123 - 97) + 97;
-        }
-        (*buf)[j++] = '/';
-        beg = j;
-        for (; j <= (i * 2); j++) {
-                if (j == beg)   // objpath can begin only with character
-                        (*buf)[j] = rand() % (91 - 65) + 65;
-                else
-                        (*buf)[j] = rand() % (123 - 97) + 97;
-        }
-        (*buf)[j++] = '/';
-        beg = j;
-        for (; j <= (i * 3); j++) {
-                if (j == beg)   // objpath can begin only with character
-                        (*buf)[j] = rand() % (91 - 97) + 97;
-                else
-                        (*buf)[j] = rand() % (123 - 97) + 97;
-        }
-        (*buf)[j] = '\0';
+        *buf = TAKE_PTR(ret);
 
-        if (size == MAXLEN)
-                size = 9;
-
-        if (df_num_fuzz_counter < MAX_FUZZ_COUNTER)
-                df_num_fuzz_counter++;
         return 0;
 }
 
@@ -538,32 +385,25 @@ int df_rand_dbus_objpath_string(gchar **buf)
  * will be stored
  * @return 0 on success, -1 on error
  */
-int df_rand_dbus_signature_string(gchar **buf)
+int df_rand_dbus_signature_string(gchar **buf, guint64 iteration)
 {
-        static uint16_t size = 1;
-        size++;
-        int i, j;
+        /* TODO: support arrays ('a') and other complex types */
+        static const char valid_signature_chars[] = "ybnqiuxtdsogvh";
+        _cleanup_(g_freep) gchar *ret = NULL;
+        uint16_t size, i = 0;
 
-        if (size > MAXSIG)
-                size = MAXSIG;
+        size = (iteration % MAXSIG) + 1;
 
-        *buf = malloc(sizeof(gchar) * size + 1);
-        if (*buf == NULL) {
-                fprintf(stderr, "Error: Could not allocate memory for random signature.\n");
-                return -1;
-        }
+        ret = g_try_new(gchar, size + 1);
+        if (!ret)
+                return df_fail_ret(-1, "Could not allocate memory for the random string\n");
 
-        for (j = 0; j < size; j++) {
-                i = rand() % 15;
-                (*buf)[j] = df_sig_def[i];
-        }
-        (*buf)[j] = '\0';
+        for (i = 0; i < size; i++)
+                ret[i] = valid_signature_chars[rand() % G_N_ELEMENTS(valid_signature_chars)];
 
-        if (size == MAXSIG)
-                size = 1;
+        ret[i] = '\0';
+        *buf = TAKE_PTR(ret);
 
-        if (df_num_fuzz_counter < MAX_FUZZ_COUNTER)
-                df_num_fuzz_counter++;
         return 0;
 }
 
@@ -574,50 +414,39 @@ int df_rand_dbus_signature_string(gchar **buf)
  * will be stored
  * @return 0 on success, -1 on error
  */
-int df_rand_GVariant(GVariant **var)
+int df_rand_GVariant(GVariant **var, guint64 iteration)
 {
-        gchar *buf;
+        _cleanup_(g_freep) gchar *str = NULL;
+        int r;
 
-        df_str_len += (rand() % CHAR_MAX) + 1;
-        if (df_str_len > df_buf_size)
-                df_str_len = df_buf_size;
+        r = df_rand_string(&str, iteration);
+        if (r < 0)
+                return r;
 
-        if (df_str_def[df_index_var] != NULL)
-                df_str_len = strlen(df_str_def[df_index_var]) + 1;
+        *var = g_variant_new("s", str);
 
-        buf = malloc(sizeof(gchar) * df_str_len);
-        if (buf == NULL) {
-                fprintf(stderr, "Error: Could not allocate memory for random GVariant.\n");
-                return -1;
-        }
-
-        if (df_str_def[df_index_var] != NULL) {
-                strcpy(buf, df_str_def[df_index_var]);
-                df_index_var++;
-                *var = g_variant_new("s", buf);
-                free(buf);
-                return 0;
-        }
-
-        df_rand_random_string(buf, df_str_len);
-        *var = g_variant_new("s", buf);
-        free(buf);
         return 0;
 }
 
 /**
  * @return Generated pseudo-random FD number from interval <-1, INT_MAX)
  */
-int df_rand_unixFD(void)
+int df_rand_unixFD(guint64 iteration)
 {
-        if ((rand() % 10) == 0)
+        int fd;
+
+        switch (iteration) {
+        case 0:
+        case 1:
+        case 2:
+                return (int) iteration;
+        case 3:
                 return -1;
+        default:
+                fd = rand () % INT_MAX;
+                if (rand () % 10 == 0)
+                        fd *= -1;
 
-        int fd = rand() % INT_MAX;
-        if (fd < 0)
-                fd *= -1;
-
-        if (df_num_fuzz_counter < MAX_FUZZ_COUNTER)
-                df_num_fuzz_counter++;
-        return fd;
+                return fd;
+        }
 }

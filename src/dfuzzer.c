@@ -45,7 +45,7 @@ static int df_debug_flag;
 /** Option for listing names on the bus */
 static int df_list_names;
 /** Maximum buffer size for generated strings by rand module (in Bytes) */
-static long df_buf_size;
+static guint64 df_buf_size;
 /** Contains method name or NULL. When not NULL, only method with this name
   * will be tested (do not free - points to argv) */
 static char *df_test_method;
@@ -70,6 +70,8 @@ static char *df_execute_cmd;
 static int df_full_log_flag;
 /** Path to directory containing output logs */
 static char *log_dir_name;
+static guint64 df_max_iterations = G_MAXUINT32;
+static guint64 df_min_iterations = 10;
 /** Pointer to a file for full logging  */
 FILE* logfile;
 
@@ -450,55 +452,47 @@ int df_traverse_node(GDBusConnection *dcon, const char *root_node)
  * @return 0 on success, 1 on error, 2 when testing detected any failures,
  * 3 on warnings
  */
-int df_fuzz(GDBusConnection *dcon, const char *name, const char *obj, const char *intf)
+int df_fuzz(GDBusConnection *dcon, const char *name, const char *object, const char *interface)
 {
-        _cleanup_(g_dbus_proxy_unrefp) GDBusProxy *dproxy = NULL; // D-Bus interface proxy
-        GDBusMethodInfo *m;
-        GDBusArgInfo *in_arg;
+        _cleanup_(g_dbus_proxy_unrefp) GDBusProxy *dproxy = NULL;
+        _cleanup_(g_dbus_node_info_unrefp) GDBusNodeInfo *node_info = NULL;
+        GDBusInterfaceInfo *interface_info = NULL;
         int ret = 0;
         int method_found = 0;   // If df_test_method is found in an interface,
         // method_found is set to 1, otherwise is 0.
-        int void_method;        // If method has out args 1, 0 otherwise.
         int rv = DF_BUS_OK;     // return value of function
         int i;
 
-
         // Sanity check fuzzing target
-        if (isempty(name) || isempty(obj) || isempty(intf)) {
+        if (isempty(name) || isempty(object) || isempty(interface)) {
                 df_fail("Error in target specification.\n");
                 return DF_BUS_ERROR;
         }
 
-        // Creates a proxy for accessing intf on the remote object at path obj
-        // owned by name at dcon.
-        if (!df_is_valid_dbus(name, obj, intf))
+        if (!df_is_valid_dbus(name, object, interface))
                 return DF_BUS_ERROR;
 
-        dproxy = df_bus_new(dcon, name, obj, intf,
+        dproxy = df_bus_new(dcon, name, object, interface,
                             G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES|G_DBUS_PROXY_FLAGS_DO_NOT_CONNECT_SIGNALS);
         if (!dproxy)
                 return DF_BUS_ERROR;
 
-        // Introspection of object through proxy.
-        if (df_init_introspection(dproxy, intf) == -1) {
-                df_debug("Error in df_init_introspection() on introspecting object\n");
+        node_info = df_get_interface_info(dproxy, interface, &interface_info);
+        if (!node_info)
                 return DF_BUS_ERROR;
-        }
 
-        // tells fuzz module to call methods on dproxy, use FD statfd
-        // for monitoring tested process and memory limit for process
         if (df_fuzz_init(dproxy) == -1) {
-                df_unref_introspection();
                 df_debug("Error in df_fuzz_add_proxy()\n");
                 return DF_BUS_ERROR;
         }
 
-        for (; (m = df_get_method()) != NULL; df_next_method()) {
+        for (GDBusMethodInfo **pm = interface_info->methods, *m = *pm; m; m = *(++pm)) {
+                _cleanup_(df_dbus_method_cleanup) struct df_dbus_method dbus_method = {0,};
+
                 // testing only one method with name df_test_method
                 if (df_test_method != NULL) {
-                        if (strcmp(df_test_method, m->name) != 0) {
+                        if (strcmp(df_test_method, m->name) != 0)
                                 continue;
-                        }
                         method_found = 1;
                 }
 
@@ -523,40 +517,24 @@ int df_fuzz(GDBusConnection *dcon, const char *name, const char *obj, const char
                         }
                 }
 
-                // adds method name to the fuzzing module
-                if (df_fuzz_add_method(m->name) == -1) {
-                        df_unref_introspection();
-                        df_debug("Error in df_fuzz_add_method()\n");
-                        return DF_BUS_ERROR;
-                }
-
-                for (; (in_arg = df_get_method_arg()) != NULL; df_next_method_arg()) {
-                        // adds method argument signature to the fuzzing module
-                        if (df_fuzz_add_method_arg(in_arg->signature) == -1) {
-                                df_unref_introspection();
-                                df_debug("Error in df_fuzz_add_method_arg()\n");
-                                return DF_BUS_ERROR;
-                        }
-                }
-
-                if (df_method_has_out_args())
-                        void_method = 0;
-                else
-                        void_method = 1;
+                dbus_method.name = strdup(m->name);
+                dbus_method.signature = df_method_get_full_signature(m);
+                dbus_method.returns_value = !!*(m->out_args);
+                dbus_method.fuzz_on_str_len = (strstr(dbus_method.signature, "s") || strstr(dbus_method.signature, "v"));
 
                 // tests for method
                 ret = df_fuzz_test_method(
+                                &dbus_method,
                                 df_buf_size,
                                 name,
-                                obj,
-                                intf,
+                                object,
+                                interface,
                                 df_pid,
-                                void_method,
-                                df_execute_cmd);
+                                df_execute_cmd,
+                                df_min_iterations,
+                                df_max_iterations);
                 if (ret == -1) {
                         // error during testing method
-                        df_fuzz_clean_method();
-                        df_unref_introspection();
                         df_debug("Error in df_fuzz_test_method()\n");
                         return DF_BUS_ERROR;
                 } else if (ret == 1 && df_test_method == NULL) {
@@ -565,24 +543,19 @@ int df_fuzz(GDBusConnection *dcon, const char *name, const char *obj, const char
                         g_object_unref(dproxy);
                         dproxy = NULL;
 
-                        if (!df_is_valid_dbus(name, obj, intf))
+                        if (!df_is_valid_dbus(name, object, interface))
                                 return DF_BUS_ERROR;
 
-                        dproxy = df_bus_new(dcon, name, obj, intf,
+                        dproxy = df_bus_new(dcon, name, object, interface,
                                             G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES|G_DBUS_PROXY_FLAGS_DO_NOT_CONNECT_SIGNALS);
-                        if (!dproxy) {
-                                df_fuzz_clean_method();
-                                df_unref_introspection();
+                        if (!dproxy)
                                 return DF_BUS_ERROR;
-                        }
 
                         sleep(5);       // wait for application to launch
 
                         // gets pid of tested process
                         df_pid = df_get_pid(dcon, FALSE);
                         if (df_pid < 0) {
-                                df_fuzz_clean_method();
-                                df_unref_introspection();
                                 df_debug("Error in df_get_pid() on getting pid of process\n");
                                 return DF_BUS_ERROR;
                         }
@@ -592,8 +565,6 @@ int df_fuzz(GDBusConnection *dcon, const char *name, const char *obj, const char
                         // tells fuzz module to call methods on different dproxy and to use
                         // new status file of process with PID df_pid
                         if (df_fuzz_init(dproxy) == -1) {
-                                df_fuzz_clean_method();
-                                df_unref_introspection();
                                 df_debug("Error in df_fuzz_add_proxy()\n");
                                 return DF_BUS_ERROR;
                         }
@@ -612,16 +583,14 @@ int df_fuzz(GDBusConnection *dcon, const char *name, const char *obj, const char
                         rv = DF_BUS_FAIL;
                 }
 
-                df_fuzz_clean_method();     // cleaning up after testing method
         }
 
 
         if (method_found == 0 && df_test_method != NULL) {
-                df_fail("Error: Method '%s' is not in the interface '%s'.\n", df_test_method, intf);
-                df_unref_introspection();
+                df_fail("Error: Method '%s' is not in the interface '%s'.\n", df_test_method, interface);
                 return rv;
         }
-        df_unref_introspection();
+
         return rv;
 }
 
@@ -792,6 +761,7 @@ void df_print_process_info(int pid)
 void df_parse_parameters(int argc, char **argv)
 {
         int c = 0;
+        int r;
 
         static const struct option options[] = {
                 { "buffer-limit",       required_argument,  NULL,   'b' },
@@ -808,10 +778,13 @@ void df_parse_parameters(int argc, char **argv)
                 { "verbose",            no_argument,        NULL,   'v' },
                 { "log-dir",            required_argument,  NULL,   'L' },
                 { "version",            no_argument,        NULL,   'V' },
+                { "max-iterations",     required_argument,  NULL,   'x' },
+                { "min-iterations",     required_argument,  NULL,   'y' },
+                { "iterations",         required_argument,  NULL,   'I' },
                 {}
         };
 
-        while ((c = getopt_long(argc, argv, "n:o:i:m:b:t:e:L:sdvlhV", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "n:o:i:m:b:t:e:L:x:y:I:sdvlhV", options, NULL)) >= 0) {
                 switch (c) {
                         case 'n':
                                 if (strlen(optarg) >= MAXLEN) {
@@ -841,12 +814,17 @@ void df_parse_parameters(int argc, char **argv)
                                 df_verbose("Option -m has no effect anymore");
                                 break;
                         case 'b':
-                                df_buf_size = strtol(optarg, NULL, 10);
-                                if (df_buf_size < MINLEN || errno == ERANGE || errno == EINVAL) {
-                                        df_fail("%s: invalid value for option -- 'b'\n"
-                                                " -- at least %d B are required\n", argv[0], MINLEN);
+                                r = safe_strtoull(optarg, &df_buf_size);
+                                if (r < 0) {
+                                        df_fail("Error: invalid value for option -%c: %s\n", c, strerror(-r));
                                         exit(1);
                                 }
+
+                                if (df_buf_size < MINLEN) {
+                                        df_fail("Error: at least %d bytes required for the -%c option\n", MINLEN, c);
+                                        exit(1);
+                                }
+
                                 break;
                         case 't':
                                 df_test_method = optarg;
@@ -884,6 +862,50 @@ void df_parse_parameters(int argc, char **argv)
                                 log_dir_name = optarg;
                                 df_full_log_flag = 1;
                                 break;
+                        case 'x':
+                                r = safe_strtoull(optarg, &df_max_iterations);
+                                if (r < 0) {
+                                        df_fail("Error: invalid value for option -%c: %s\n", c, strerror(-r));
+                                        exit(1);
+                                }
+
+                                if (df_max_iterations <= 0) {
+                                        df_fail("Error: -%c: at least 1 iteration required\n", c);
+                                        exit(1);
+                                }
+
+                                if (df_min_iterations > df_max_iterations)
+                                        df_min_iterations = df_max_iterations;
+
+                                break;
+                        case 'y':
+                                r = safe_strtoull(optarg, &df_min_iterations);
+                                if (r < 0) {
+                                        df_fail("Error: invalid value for option -%c: %s\n", c, strerror(-r));
+                                        exit(1);
+                                }
+
+                                if (df_min_iterations <= 0) {
+                                        df_fail("Error: -%c: at least 1 iteration required\n", c);
+                                        exit(1);
+                                }
+
+                                break;
+                        case 'I':
+                                r = safe_strtoull(optarg, &df_min_iterations);
+                                if (r < 0) {
+                                        df_fail("Error: invalid value for option -%c: %s\n", c, strerror(-r));
+                                        exit(1);
+                                }
+
+                                if (df_min_iterations <= 0) {
+                                        df_fail("Error: -%c: at least 1 iteration required\n", c);
+                                        exit(1);
+                                }
+
+                                df_max_iterations = df_min_iterations;
+
+                                break;
                         default:    // '?'
                                 exit(1);
                                 break;
@@ -897,6 +919,11 @@ void df_parse_parameters(int argc, char **argv)
 
         if (!isempty(target_proc.interface) && isempty(target_proc.obj_path)) {
                 df_fail("Error: Object path is required if interface specified!\nSee -h for help.\n");
+                exit(1);
+        }
+
+        if (df_min_iterations > df_max_iterations) {
+                df_fail("Error: minimal # of iterations can't be larger that the max one\n");
                 exit(1);
         }
 }
@@ -1041,6 +1068,13 @@ void df_print_help(const char *name)
          "                              Requires -o and -i to be set as well.\n"
          "  -b --buffer-limit=SIZE      Maximum buffer size for generated strings in bytes.\n"
          "                              Default: 50K, minimum: 256B.\n"
+         "  -x --max-iterations=ITER    Maximum number of iterations done for each method.\n"
+         "                              By default this value is dynamically calculated from each\n"
+         "                              method's signature; minimum is 1 iteration.\n"
+         "  -y --min-iterations=ITER    Minimum number of iterations done for each method.\n"
+         "                              Default: 10 iterations; minimum: 1 iteration.\n"
+         "  -I --iterations=ITER        Set both the minimum and maximum number of iterations to ITER\n"
+         "                              See --max-iterations= and --min-iterations= above\n"
          "  -e --command=COMMAND        Command/script to execute after each method call.\n"
          "\nExamples:\n\n"
          "Test all methods of GNOME Shell. Be verbose.\n"

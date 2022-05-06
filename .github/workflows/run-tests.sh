@@ -18,6 +18,10 @@ set +e
 [[ $? == 2 ]] || exit 1
 set -e
 
+# Make sure we can process complex signatures without issues
+"${dfuzzer[@]}" -s -v -n org.freedesktop.dfuzzerServer -o /org/freedesktop/dfuzzerObject -i org.freedesktop.dfuzzerInterface -t df_complex_sig_1
+"${dfuzzer[@]}" -s -v -n org.freedesktop.dfuzzerServer -o /org/freedesktop/dfuzzerObject -i org.freedesktop.dfuzzerInterface -t df_complex_sig_2
+
 sudo systemctl stop dfuzzer-test-server
 
 # dfuzzer should return 0 by default when services it tests time out
@@ -46,6 +50,10 @@ sudo systemctl start dfuzzer-test-server
 "${dfuzzer[@]}" -v -n org.freedesktop.dfuzzerServer -o /org/freedesktop/dfuzzerObject -i org.freedesktop.dfuzzerInterface -t df_hello
 sudo systemctl stop dfuzzer-test-server
 
+# Make the tests a bit faster in CI, since it takes a while to go through all systemd methods
+dfuzzer+=("--max-iterations=10")
+
+"${dfuzzer[@]}" -h
 "${dfuzzer[@]}" -V
 "${dfuzzer[@]}" --version
 "${dfuzzer[@]}" -l
@@ -55,6 +63,19 @@ sudo systemctl stop dfuzzer-test-server
 perl -e 'print "[org.freedesktop.systemd1]\n"; print "Reboot destructive\n" x 250; print "Reboot\n" x 250' >dfuzzer.conf
 "${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i org.freedesktop.systemd1.Manager -t Reboot
 rm -f dfuzzer.conf
+
+# Test a couple of error paths
+"${dfuzzer[@]}" && false
+"${dfuzzer[@]}" -v -n "$(perl -e 'print "x" x 256')" && false
+"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o "$(perl -e 'print "x" x 256')" && false
+"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o / -i "$(perl -e 'print "x" x 256')" && false
+"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -L "$(perl -e 'print "x" x 256')" && false
+"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -b 0 && false
+"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -x 0 && false
+"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o aaaaaaaaa && false
+"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o / -i aaaaaaaaaa && false
+"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o / -i aaaaaaaaaa && false
+
 # Check if we probe void methods
 log_out="$(mktemp)"
 sudo "${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i org.freedesktop.systemd1.Manager -t ListUnits |& tee "$log_out"
@@ -66,7 +87,7 @@ grep "SKIP" "$log_out" && false
 sudo "${dfuzzer[@]}" --verbose --bus this.should.be.ignored --bus org.freedesktop.systemd1
 # Test logdir
 mkdir dfuzzer-logs
-"${dfuzzer[@]}" --log-dir dfuzzer-logs -v -n org.freedesktop.systemd1
+"${dfuzzer[@]}" --log-dir dfuzzer-logs -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i org.freedesktop.systemd1.Manager
 # Test a non-existent bus
 if sudo "${dfuzzer[@]}" --log-dir "" --bus this.should.not.exist; then false; fi
 # Test object & interface options

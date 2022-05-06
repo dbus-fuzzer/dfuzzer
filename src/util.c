@@ -1,5 +1,8 @@
 /** @file util.c */
 
+#include <assert.h>
+#include <errno.h>
+#include <gio/gio.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -35,4 +38,25 @@ char *strjoin_real(const char *x, ...) {
         *p = 0;
 
         return r;
+}
+
+int safe_strtoull(const gchar *p, guint64 *ret)
+{
+        gchar *e = NULL;
+        guint32 l;
+
+        assert(ret);
+
+        errno = 0;
+        l = g_ascii_strtoull(p, &e, 10);
+        if (errno > 0)
+                return -errno;
+        if (!e || e == p || *e != 0)
+                return -EINVAL;
+        if (*p == '-')
+                return -ERANGE;
+
+        *ret = l;
+
+        return 0;
 }

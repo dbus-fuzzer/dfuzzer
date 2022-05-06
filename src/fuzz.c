@@ -22,7 +22,6 @@
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <ffi.h>
 #include <gio/gio.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -40,27 +39,256 @@
 
 /** Pointer on D-Bus interface proxy for calling methods. */
 static GDBusProxy *df_dproxy;
-/** Structure containing information about the linked list. */
-static struct df_sig_list df_list;
-/** Pointer on the last item of the linked list in the global var. df_list. */
-static struct df_signature *df_last;
-/** Flag for unsupported method signature, 1 means signature is unsupported */
-static int df_unsupported_sig;
-/** Pointer on unsupported signature string (do not free it) */
-static char *df_unsupported_sig_str;
 /** Exceptions counter; if MAX_EXCEPTIONS is reached testing continues
   * with a next method */
 static char df_except_counter = 0;
 
 
 /* Module static functions */
-static int df_fuzz_write_log(void);
+static void df_fuzz_write_log(const struct df_dbus_method *method, GVariant *value);
 static int df_exec_cmd_check(const char *cmd);
-static GVariant *df_fuzz_create_variant(void);
-static int df_fuzz_create_list_variants(void);
-static int df_fuzz_create_fmt_string(char **fmt, const int n);
-static int df_fuzz_call_method(GVariant *value, const int void_method);
+static int df_fuzz_call_method(const struct df_dbus_method *method, GVariant *value);
 
+guint64 df_get_number_of_iterations(const char *signature) {
+        guint64 iterations = 0;
+        guint32 multiplier = 1, current_nest_level = 0;
+
+        for (size_t i = 0; i < strlen(signature); i++) {
+                switch (signature[i]) {
+                case 'y':
+                        /* BYTE */
+                        iterations = MAX(iterations, 8);
+                        break;
+                case 'b':
+                        /* BOOLEAN */
+                        iterations = MAX(iterations, 2);
+                        break;
+                case 'n':
+                case 'q':
+                        /* INT/UINT 16 */
+                        iterations = MAX(iterations, 16);
+                        break;
+                case 'i':
+                case 'u':
+                case 'h':
+                        /* INT/UINT 32, UNIX_FD */
+                        iterations = MAX(iterations, 24);
+                        break;
+                case 'x':
+                case 't':
+                case 'd':
+                        /* INT/UINT 64, DOUBLE */
+                        iterations = MAX(iterations, 32);
+                        break;
+                case 's':
+                case 'o':
+                case 'g':
+                        /* STRING, OBJECT_PATH, SIGNATURE */
+                        iterations = MAX(iterations, 64);
+                        break;
+                case 'v':
+                        /* VARIANT */
+                        iterations = MAX(iterations, 64);
+                        break;
+                case 'a':
+                        /* ARRAY */
+                        current_nest_level++;
+                        continue;
+                case '(':
+                case ')':
+                case '{':
+                case '}':
+                        /* Ignore container-specific characters */
+                        break;
+                default:
+                        df_fail("Unexpected character '%c' in signature '%s'\n", signature[i], signature);
+                        g_assert_not_reached();
+                }
+
+                multiplier = MAX(multiplier, current_nest_level);
+                current_nest_level = 0;
+        }
+
+        iterations *= multiplier;
+
+        /* Do at least 10 iterations to cover void methods as well */
+        return CLAMP(iterations, 10, G_MAXUINT64);
+}
+
+/* Generate a GVariant with random data for a basic (non-compound) type
+ *
+ * Note: variant itself is treated as a basic type, since it's a bit special and
+ *       cannot be iterated on
+ */
+GVariant *df_generate_random_basic(const GVariantType *type, guint64 iteration) {
+        _cleanup_free_ char *ssig = NULL;
+
+        if (!type) {
+                g_assert_not_reached();
+                return NULL;
+        }
+
+        ssig = g_variant_type_dup_string(type);
+
+        if (g_variant_type_equal(type, G_VARIANT_TYPE_BOOLEAN))
+                return g_variant_new(ssig, df_rand_gboolean(iteration));
+        else if (g_variant_type_equal(type, G_VARIANT_TYPE_BYTE))
+                return g_variant_new(ssig, df_rand_guint8(iteration));
+        else if (g_variant_type_equal(type, G_VARIANT_TYPE_INT16))
+                return g_variant_new(ssig, df_rand_gint16(iteration));
+        else if (g_variant_type_equal(type, G_VARIANT_TYPE_UINT16))
+                return g_variant_new(ssig, df_rand_guint16(iteration));
+        else if (g_variant_type_equal(type, G_VARIANT_TYPE_INT32))
+                return g_variant_new(ssig, df_rand_gint32(iteration));
+        else if (g_variant_type_equal(type, G_VARIANT_TYPE_UINT32))
+                return g_variant_new(ssig, df_rand_guint32(iteration));
+        else if (g_variant_type_equal(type, G_VARIANT_TYPE_INT64))
+                return g_variant_new(ssig, df_rand_gint64(iteration));
+        else if (g_variant_type_equal(type, G_VARIANT_TYPE_UINT64))
+                return g_variant_new(ssig, df_rand_guint64(iteration));
+        else if (g_variant_type_equal(type, G_VARIANT_TYPE_HANDLE))
+                return g_variant_new(ssig, df_rand_unixFD(iteration));
+        else if (g_variant_type_equal(type, G_VARIANT_TYPE_DOUBLE))
+                return g_variant_new(ssig, df_rand_gdouble(iteration));
+        else if (g_variant_type_equal(type, G_VARIANT_TYPE_STRING)) {
+                _cleanup_free_ char *str = NULL;
+
+                if (df_rand_string(&str, iteration) < 0) {
+                        df_fail("Failed to generate a random string\n");
+                        return NULL;
+                }
+
+                return g_variant_new(ssig, str);
+        } else if (g_variant_type_equal(type, G_VARIANT_TYPE_OBJECT_PATH)) {
+                _cleanup_free_ char *obj_path = NULL;
+
+                if (df_rand_dbus_objpath_string(&obj_path, iteration) < 0) {
+                        df_fail("Failed to generate a random object path\n");
+                        return NULL;
+                }
+
+                return g_variant_new(ssig, obj_path);
+        } else if (g_variant_type_equal(type, G_VARIANT_TYPE_SIGNATURE)) {
+                _cleanup_free_ char *sig_str = NULL;
+
+                if (df_rand_dbus_signature_string(&sig_str, iteration) < 0) {
+                        df_fail("Failed to generate a random signature string\n");
+                        return NULL;
+                }
+
+                return g_variant_new(ssig, sig_str);
+        } else if (g_variant_type_equal(type, G_VARIANT_TYPE_VARIANT)) {
+                GVariant *variant = NULL;
+
+                if (df_rand_GVariant(&variant, iteration) < 0) {
+                        df_fail("Failed to generate a random GVariant\n");
+                        return NULL;
+                }
+
+                return g_variant_new(ssig, variant);
+        } else {
+                df_fail("Invalid basic type: %s\n", ssig);
+                g_assert_not_reached();
+        }
+
+        return NULL;
+}
+
+GVariant *df_generate_random_from_signature(const char *signature, guint64 iteration)
+{
+        _cleanup_(g_variant_type_freep) GVariantType *type = NULL;
+        _cleanup_(g_variant_builder_unrefp) GVariantBuilder *builder = NULL;
+
+        if (!signature ||
+            !g_variant_is_signature(signature) ||
+            !g_variant_type_string_is_valid(signature)) {
+                df_fail("Invalid signature: %s\n", signature);
+                return NULL;
+        }
+
+        type = g_variant_type_new(signature);
+        /* Leaf nodes */
+        if (g_variant_type_is_basic(type) || g_variant_type_is_variant(type))
+                return df_generate_random_basic(type, iteration);
+
+        builder = g_variant_builder_new(type);
+
+        for (const GVariantType *iter = g_variant_type_first(type);
+             iter;
+             iter = g_variant_type_next(iter)) {
+
+                _cleanup_free_ char *ssig = NULL;
+
+                ssig = g_variant_type_dup_string(iter);
+
+                if (g_variant_type_is_basic(iter) || g_variant_type_is_variant(iter)) {
+                        /* Basic type, generate a random value
+                         * Note: treat 'variant' as a basic type, since it can't
+                         *       be iterated on by g_variant_type_{first,next}()
+                         */
+                        GVariant *basic;
+
+                        basic = df_generate_random_basic(iter, iteration);
+                        if (!basic)
+                                return NULL;
+
+                        g_variant_builder_add_value(builder, basic);
+                } else if (g_variant_type_is_tuple(iter)) {
+                        /* Tuple */
+                        GVariant *tuple = NULL;
+
+                        tuple = df_generate_random_from_signature(ssig, iteration);
+                        if (!tuple)
+                                return NULL;
+
+                        g_variant_builder_add_value(builder, tuple);
+                } else if (g_variant_type_is_array(iter)) {
+                        /* Array */
+                        _cleanup_free_ char *array_signature = NULL;
+                        const GVariantType *array_type = NULL;
+                        int nest_level = 0;
+
+                        /* Open the "main" array container */
+                        g_variant_builder_open(builder, iter);
+
+                        /* Resolve all levels of arrays (e.g. aaaai) */
+                        for (array_type = g_variant_type_element(iter);
+                             g_variant_type_is_array(array_type);
+                             array_type = g_variant_type_element(array_type)) {
+
+                                /* Open an container for each nested array */
+                                g_variant_builder_open(builder, array_type);
+                                nest_level++;
+                        }
+
+                        array_signature = g_variant_type_dup_string(array_type);
+
+                        /* Create a pseudo-randomly sized array */
+                        for (int i = 0; i < rand() % 10; i++) {
+                                GVariant *array_item = NULL;
+
+                                array_item = df_generate_random_from_signature(array_signature, iteration);
+                                if (!array_item)
+                                        return NULL;
+
+                                g_variant_builder_add_value(builder, array_item);
+                        }
+
+                        /* Close container of each array level */
+                        for (int i = 0; i < nest_level; i++)
+                                g_variant_builder_close(builder);
+
+                        /* Close the "main" array container */
+                        g_variant_builder_close(builder);
+                } else {
+                        /* TODO: maybe */
+                        df_fail("Not implemented: %s\n", ssig);
+                        return NULL;
+                }
+        }
+
+        return g_variant_builder_end(builder);
+}
 
 /**
  * @function Saves pointer on D-Bus interface proxy for this module to be
@@ -81,231 +309,29 @@ int df_fuzz_init(GDBusProxy *dproxy)
 }
 
 /**
- * @function Initializes the global variable df_list (struct df_sig_list)
- * including allocationg memory for method name inside df_list.
- * @param name Name of method which will be tested
- * @return 0 on success, -1 on error
- */
-int df_fuzz_add_method(const char *name)
-{
-        if (!name) {
-                df_debug("Passing NULL argument to function.\n");
-                return -1;
-        }
-
-        df_list.df_method_name = strdup(name);
-        if (!df_list.df_method_name) {
-                df_fail("Error: Could not allocate memory for method name.\n");
-                return -1;
-        }
-
-        // must be initialized because after df_fuzz_clean_method() memory
-        // of df_list contains junk
-        df_list.list = NULL;    // no arguments so far
-        df_list.args = 0;
-        df_list.fuzz_on_str_len = 0;
-
-        return 0;
-}
-
-/**
- * @function Adds item (struct df_signature) at the end of the linked list
- * in the global variable df_list (struct df_sig_list). This includes
- * allocating memory for item and for signature string.
- * @param signature D-Bus signature of the argument
- * @return 0 on success, -1 on error
- */
-int df_fuzz_add_method_arg(const char *signature)
-{
-        struct df_signature *s;
-
-        if (!signature)
-                return 0;
-
-        s = malloc(sizeof(*s));
-        if (!s) {
-                df_fail("Error: Could not allocate memory for struct df_signature.\n");
-                return -1;
-        }
-
-        df_list.args++;
-        s->next = NULL;
-        s->var = NULL;
-        s->sig = strdup(signature);
-        if (!s->sig) {
-                df_fail("Error: Could not allocate memory for argument signature.\n");
-                free(s);
-                return -1;
-        }
-
-        // fuzzing controlled by generated random strings lengths
-        if (strstr(s->sig, "s") || strstr(s->sig, "v"))
-                df_list.fuzz_on_str_len = 1;
-
-        if (!df_list.list) {
-                df_list.list = s;
-                df_last = s;
-        } else {
-                df_last->next = s;
-                df_last = s;
-        }
-
-        return 0;
-}
-
-/**
- * @return Number of arguments of tested method
- */
-int df_list_args_count(void)
-{
-        return df_list.args;
-}
-
-/**
  * @function Prints all method signatures and their values on the output.
  * @return 0 on success, -1 on error
  */
-static int df_fuzz_write_log(void)
+static void df_fuzz_write_log(const struct df_dbus_method *method, GVariant *value)
 {
-        struct df_signature *s = df_list.list;  // pointer on first signature
-        int len = 0;
+        _cleanup_free_ char *variant_value = NULL;
 
-        FULL_LOG("%s;", df_list.df_method_name);
+        assert(method);
+        assert(value);
 
-        while (s != NULL) {
-                len = strlen(s->sig);
-                if (len <= 0) {
-                        df_fail("No argument signature\n");
-                        FULL_LOG("\n");
-                        return -1;
-                } else if (len == 1) {  // one character argument
-                        df_fail("    --");
-                        df_fail("%s", s->sig);
-                        FULL_LOG("%s;", s->sig);
-
-                        switch (s->sig[0]) {
-                                case 'y': {
-                                        guint8 u;
-
-                                        g_variant_get(s->var, s->sig, &u);
-                                        df_fail("-- '%u'\n", u);
-                                        FULL_LOG("%u;", u);
-                                        break;
-                                }
-                                case 'b': {
-                                        gboolean b;
-
-                                        g_variant_get(s->var, s->sig, &b);
-                                        df_fail("-- '%s'\n", b ? "true" : "false");
-                                        FULL_LOG("%s", b ? "true" : "false");
-                                        break;
-                                }
-                                case 'n': {
-                                        gint16 i;
-
-                                        g_variant_get(s->var, s->sig, &i);
-                                        df_fail("-- '%d'\n", i);
-                                        FULL_LOG("%d;", i);
-                                        break;
-                                }
-                                case 'q': {
-                                        guint16 u;
-
-                                        g_variant_get(s->var, s->sig, &u);
-                                        df_fail("-- '%u'\n", u);
-                                        FULL_LOG("%u;", u);
-                                        break;
-                                }
-                                case 'i': {
-                                        gint32 i;
-
-                                        g_variant_get(s->var, s->sig, &i);
-                                        df_fail("-- '%d'\n", i);
-                                        FULL_LOG("%d;", i);
-                                        break;
-                                }
-                                case 'h':
-                                case 'u': {
-                                        guint32 u;
-
-                                        g_variant_get(s->var, s->sig, &u);
-                                        df_fail("-- '%u'\n", u);
-                                        FULL_LOG("%u;", u);
-                                        break;
-                                }
-                                case 'x': {
-                                        gint64 i;
-
-                                        g_variant_get(s->var, s->sig, &i);
-                                        df_fail("-- '%" G_GINT64_FORMAT "'\n", i);
-                                        FULL_LOG("%" G_GINT64_FORMAT, i);
-                                        break;
-                                }
-                                case 't': {
-                                        guint64 u;
-
-                                        g_variant_get(s->var, s->sig, &u);
-                                        df_fail("-- '%" G_GUINT64_FORMAT "'\n", u);
-                                        FULL_LOG("%" G_GUINT64_FORMAT, u);
-                                        break;
-                                }
-                                case 'd': {
-                                        gdouble d;
-
-                                        g_variant_get(s->var, s->sig, &d);
-                                        df_fail("-- '%lg'\n", d);
-                                        FULL_LOG("%lg;", d);
-                                        break;
-                                }
-                                case 's':
-                                case 'o':
-                                case 'g': {
-                                        _cleanup_(g_freep) gchar *str = NULL;
-                                        gchar *ptr;
-
-                                        g_variant_get(s->var, s->sig, &str);
-                                        if (str) {
-                                                df_fail(" [length: %zu B]-- '%s'\n", strlen(str), str);
-                                                ptr = str;
-                                                for (; ptr && *ptr; ptr++)
-                                                        FULL_LOG("%02x", *ptr & 0xff);
-                                        }
-                                        FULL_LOG(";");
-                                        break;
-                                }
-                                case 'v': {
-                                        _cleanup_(g_freep) gchar *str = NULL;
-                                        _cleanup_(g_variant_unrefp) GVariant *var = NULL;
-                                        gchar *ptr;
-
-                                        g_variant_get(s->var, s->sig, &var);
-
-                                        if (var && g_variant_check_format_string(var, "s", FALSE)) {
-                                                g_variant_get(var, "s", &str);
-                                                if (str) {
-                                                        df_fail(" [length: %zu B]-- '%s'\n", strlen(str), str);
-                                                        ptr = str;
-                                                        for (; ptr && *ptr; ptr++)
-                                                                FULL_LOG("%02x", *ptr & 0xff);
-                                                }
-                                                FULL_LOG(";");
-                                        } else
-                                                df_fail("-- 'unable to deconstruct GVariant instance'\n");
-                                        break;
-                                }
-                                default:
-                                        df_fail("Unknown argument signature '%s'\n", s->sig);
-                                        return -1;
-                        }
-                } else {    // advanced argument (array of something, dictionary, ...)
-                        df_debug("Not yet implemented in df_fuzz_write_log()\n");
-                        return 0;
-                }
-
-                s = s->next;
+        if (!method->signature) {
+                df_fail("No method signature\n");
+                return;
         }
 
-        return 0;
+        df_fail("   -- Signature: %s\n", method->signature);
+        FULL_LOG("%s;", method->signature);
+
+        variant_value = g_variant_print(value, TRUE);
+        if (variant_value) {
+                df_fail("   -- Value: %s\n", variant_value);
+                FULL_LOG("%s;", variant_value);
+        }
 }
 
 /**
@@ -414,25 +440,15 @@ static int df_check_if_exited(const int pid) {
  * command finished unsuccessfuly
  */
 int df_fuzz_test_method(
-                long buf_size, const char *name,
-                const char *obj, const char *intf, const int pid,
-                const int void_method, const char *execute_cmd)
+                const struct df_dbus_method *method, long buf_size, const char *name,
+                const char *obj, const char *intf, const int pid, const char *execute_cmd,
+                guint64 min_iterations, guint64 max_iterations)
 {
-        struct df_signature *s = df_list.list;  // pointer on the first signature
         _cleanup_(g_variant_unrefp) GVariant *value = NULL;
+        guint64 iterations;
         int ret = 0;            // return value from df_fuzz_call_method()
         int execr = 0;          // return value from execution of execute_cmd
-        int buf_size_flg = 0;               // if set to 1, buf_size was specified
-        // by option -b
-
-        // DEBUG:
-        int j = 0;
-        df_debug("  Method: %s%s", ansi_bold(), df_list.df_method_name);
-        df_debug("(");
-        for (; j < df_list.args; j++, s = s->next)
-                df_debug(((j < df_list.args - 1) ? "%s, " : "%s"), s->sig);
-        df_debug(")%s\n", ansi_normal());
-
+        int buf_size_flg = 0;
 
         if (buf_size != 0)
                 buf_size_flg = 1;
@@ -440,40 +456,35 @@ int df_fuzz_test_method(
                 buf_size = MAX_BUF_LEN;
         // initialization of random module
         df_rand_init(buf_size);
+        iterations = df_get_number_of_iterations(method->signature);
+        iterations = CLAMP(iterations, min_iterations, max_iterations);
 
+        df_debug("  Method: %s%s %s => %"G_GUINT64_FORMAT" iterations%s\n", ansi_bold(),
+                 method->name, method->signature, iterations, ansi_normal());
 
-        df_verbose("  %s...", df_list.df_method_name);
+        df_verbose("  %s...", method->name);
 
-        while (df_rand_continue(df_list.fuzz_on_str_len, df_list.args)) {
+        for (guint64 i = 0; i < iterations; i++) {
                 int r;
 
                 value = safe_g_variant_unref(value);
 
                 // creates variant containing all (fuzzed) method arguments
-                value = df_fuzz_create_variant();
+                value = df_generate_random_from_signature(method->signature, i);
                 if (!value) {
-                        if (df_unsupported_sig) {
-                                df_unsupported_sig = 0;
-                                df_debug("  unsupported argument by dfuzzer: ");
-                                df_debug("%s\n", df_unsupported_sig_str);
-                                df_unsupported_sig_str = NULL;
-                                df_verbose("%s  %sSKIP%s %s - advanced signatures not yet implemented\n",
-                                           ansi_cr(), ansi_blue(), ansi_normal(), df_list.df_method_name);
-                                return 0;
-                        }
-
-                        return df_debug_ret(-1, "Call of df_fuzz_create_variant() returned NULL pointer\n");
+                        return df_debug_ret(-1, "Failed to generate a variant for signature '%s'\n", method->signature);
                 }
 
-
-                ret = df_fuzz_call_method(value, void_method);
+                /* Convert the floating variant reference into a full one */
+                value = g_variant_ref_sink(value);
+                ret = df_fuzz_call_method(method, value);
                 execr = df_exec_cmd_check(execute_cmd);
 
                 if (execr < 0)
                         return df_fail_ret(-1, "df_exec_cmd_check() failed: %m");
                 else if (execr > 0) {
                         df_fail("%s  %sFAIL%s %s - '%s' returned %s%d%s\n",
-                                ansi_cr(), ansi_red(), ansi_normal(), df_list.df_method_name,
+                                ansi_cr(), ansi_red(), ansi_normal(), method->name,
                                 execute_cmd, ansi_red(), execr, ansi_normal());
                         break;
                 }
@@ -484,7 +495,7 @@ int df_fuzz_test_method(
                 else if (r == 0) {
                         ret = -1;
                         df_fail("%s  %sFAIL%s %s - process %d exited\n",
-                                ansi_cr(), ansi_red(), ansi_normal(), df_list.df_method_name, pid);
+                                ansi_cr(), ansi_red(), ansi_normal(), method->name, pid);
                         break;
                 }
 
@@ -497,7 +508,7 @@ int df_fuzz_test_method(
                 FULL_LOG("%s;%s;", intf, obj);
 
                 if (logfile)
-                        df_fuzz_write_log();
+                        df_fuzz_write_log(method, value);
                 FULL_LOG("Success\n");
                 if (df_except_counter == MAX_EXCEPTIONS) {
                         df_except_counter = 0;
@@ -509,7 +520,7 @@ int df_fuzz_test_method(
                 goto fail_label;
 
         df_verbose("%s  %sPASS%s %s\n",
-                   ansi_cr(), ansi_green(), ansi_normal(), df_list.df_method_name);
+                   ansi_cr(), ansi_green(), ansi_normal(), method->name);
         return 0;
 
 
@@ -517,11 +528,11 @@ fail_label:
         if (ret != 1) {
                 df_fail("   on input:\n");
                 FULL_LOG("%s;%s;", intf, obj);
-                df_fuzz_write_log();
+                df_fuzz_write_log(method, value);
         }
 
         df_fail("   reproducer: %sdfuzzer -v -n %s -o %s -i %s -t %s",
-                ansi_yellow(), name, obj, intf, df_list.df_method_name);
+                ansi_yellow(), name, obj, intf, method->name);
         if (buf_size_flg)
                 df_fail(" -b %ld", buf_size);
         if (execute_cmd != NULL)
@@ -541,241 +552,6 @@ fail_label:
 }
 
 /**
- * @function Creates GVariant tuple variable which contains all the signatures
- * of method arguments including their values. This tuple is constructed
- * from each signature of method argument by one call of g_variant_new()
- * function. This call is constructed dynamically (using libffi) as we don't
- * know number of function parameters on compile time.
- * @return Pointer on a new GVariant variable containing tuple with method
- * arguments
- */
-static GVariant *df_fuzz_create_variant(void)
-{
-        struct df_signature *s = df_list.list;  // pointer on first signature
-        // libffi part, to construct dynamic call of g_variant_new() on runtime
-        GVariant *val = NULL;
-        ffi_cif cif;
-        // MAXSIG = max. amount of D-Bus signatures + 1 (format string)
-        ffi_type *args[MAXSIG + 1];
-        void *values[MAXSIG + 1];
-        _cleanup_free_ char *fmt = NULL;
-        int ret;
-
-        // creates GVariant for every item signature in linked list
-        ret = df_fuzz_create_list_variants();
-        if (ret == -1) {
-                df_debug("Error in df_fuzz_create_list_variants()\n");
-                return NULL;
-        } else if (ret == 1) {      // unsupported method signature
-                df_unsupported_sig++;
-                return NULL;
-        }
-
-        fmt = malloc(MAXFMT + 1);
-        if (!fmt) {
-                df_fail("Error: Could not allocate memory for format string.\n");
-                return NULL;
-        }
-        // creates the format string for g_variant_new() function call
-        if (df_fuzz_create_fmt_string(&fmt, MAXFMT + 1) == -1) {
-                df_fail("Error: Unable to create format string.\n");
-                df_debug("Error in df_fuzz_create_fmt_string()\n");
-                return NULL;
-        }
-
-        // Initialize the argument info vectors
-        args[0] = &ffi_type_pointer;
-        values[0] = &fmt;
-        for (int i = 1; i <= df_list.args && s; i++) {
-                args[i] = &ffi_type_pointer;
-                values[i] = &(s->var);
-                s = s->next;
-        }
-
-        // Initialize the cif
-        if (ffi_prep_cif(&cif, FFI_DEFAULT_ABI, df_list.args + 1,
-                                &ffi_type_pointer, args) == FFI_OK) {
-                ffi_call(&cif, FFI_FN(g_variant_new), &val, values);
-                // val now holds the result of the call to g_variant_new().
-                // When val will be freed, all the floating Gvariants which
-                // was used to create it will be freed too, because val is
-                // their owner
-        } else {
-                df_fail("ffi_prep_cif() failed on initializing cif.\n");
-                return NULL;
-        }
-
-        // GVariant containing method parameters must not be floating, because
-        // it would be consumed by g_dbus_proxy_call_sync() function and as
-        // result we couldn't have get GVariant values from items of linked list
-        // (needed for loging)
-        val = g_variant_ref_sink(val);  // converts floating to normal reference
-        // so val cannot be consumed
-        // by g_dbus_proxy_call_sync() function
-        if (g_variant_is_floating(val)) {
-                df_fail("Error: Unable to convert GVariant from floating to normal"
-                        " reference\n(for method '%s()'.\n", df_list.df_method_name);
-                return NULL;
-        }
-
-        return val;
-}
-
-/**
- * @function Generates data for each method argument according to argument
- * signature and stores it into Gvariant variable in items of linked list.
- * @return 0 on success, 1 on unsupported method signature, -1 on error
- */
-static int df_fuzz_create_list_variants(void)
-{
-        struct df_signature *s = df_list.list;  // pointer on first signature
-        int len;
-
-        while (s != NULL) {
-                len = strlen(s->sig);
-                if (len <= 0) {
-                        df_debug("df_fuzz_create_list_variants(): No argument signature\n");
-                        return -1;
-                } else if (len == 1) {      // one character argument
-                        switch (s->sig[0]) {
-                                case 'y':
-                                        s->var = g_variant_new(s->sig, df_rand_guint8());
-                                        break;
-                                case 'b':
-                                        s->var = g_variant_new(s->sig, df_rand_gboolean());
-                                        break;
-                                case 'n':
-                                        s->var = g_variant_new(s->sig, df_rand_gint16());
-                                        break;
-                                case 'q':
-                                        s->var = g_variant_new(s->sig, df_rand_guint16());
-                                        break;
-                                case 'i':
-                                        s->var = g_variant_new(s->sig, df_rand_gint32());
-                                        break;
-                                case 'u':
-                                        s->var = g_variant_new(s->sig, df_rand_guint32());
-                                        break;
-                                case 'x':
-                                        s->var = g_variant_new(s->sig, df_rand_gint64());
-                                        break;
-                                case 't':
-                                        s->var = g_variant_new(s->sig, df_rand_guint64());
-                                        break;
-                                case 'd':
-                                        s->var =
-                                                g_variant_new(s->sig, df_rand_gdouble());
-                                        break;
-                                case 's': {
-                                        _cleanup_(g_freep) gchar *buf = NULL;
-                                        if (df_rand_string(&buf) == -1) {
-                                                df_debug("In df_rand_string()\n");
-                                                return -1;
-                                        }
-                                        s->var = g_variant_new(s->sig, buf);
-                                        break;
-                                }
-                                case 'o': {
-                                        _cleanup_(g_freep) gchar *obj = NULL;
-                                        if (df_rand_dbus_objpath_string(&obj) == -1) {
-                                                df_debug("In df_rand_dbus_objpath_string()\n");
-                                                return -1;
-                                        }
-                                        s->var = g_variant_new(s->sig, obj);
-                                        break;
-                                }
-                                case 'g': {
-                                        _cleanup_(g_freep) gchar *sig = NULL;
-                                        if (df_rand_dbus_signature_string(&sig) == -1) {
-                                                df_debug("In df_rand_dbus_signature_string()\n");
-                                                return -1;
-                                        }
-                                        s->var = g_variant_new(s->sig, sig);
-                                        break;
-                                }
-                                case 'v': {
-                                        GVariant *var;
-                                        if (df_rand_GVariant(&var) == -1) {
-                                                df_debug("In df_rand_GVariant()\n");
-                                                return -1;
-                                        }
-                                        s->var = g_variant_new(s->sig, var);
-                                        break;
-                                }
-                                case 'h':
-                                        s->var = g_variant_new(s->sig, df_rand_unixFD());
-                                        break;
-                                default:
-                                        df_debug("Unknown argument signature '%s'\n", s->sig);
-                                        return -1;
-                        }
-                } else {    // advanced argument (array of something, dictionary, ...)
-                        // fprintf(stderr, "Advanced signatures not yet implemented\n");
-                        df_unsupported_sig_str = s->sig;
-                        for (s = df_list.list; s && s->var; s = s->next) {
-                                g_variant_unref(s->var);
-                                s->var = NULL;
-                        }
-                        return 1;   // unsupported method signature
-                }
-
-                if (s->var == NULL) {
-                        df_fail("Error: Failed to construct GVariant for '%s' signature"
-                                "of method '%s'\n", s->sig, df_list.df_method_name);
-                        return -1;
-                }
-                s = s->next;
-        }
-
-        return 0;
-}
-
-/**
- * @function Creates format string (tuple) from method arguments signatures
- * with maximum length of n-1. The final string is saved in parameter fmt.
- * @param fmt Pointer on buffer where format string should be stored
- * @param n Size of buffer
- * @return 0 on success, -1 on error
- */
-static int df_fuzz_create_fmt_string(char **fmt, const int n)
-{
-        struct df_signature *s = df_list.list;  // pointer on first signature
-        int total_len = 0;
-        int len = 0;
-        char *ptr = *fmt;
-
-        // final fmt string, for example may look like this: "(@s@i)"
-        *ptr = '(';
-        total_len++;
-        ptr++;
-
-        while (s != NULL) {
-                len = strlen(s->sig);
-                total_len += len + 1;   // including '@' character
-                if (total_len > (n - 3)) {
-                        df_debug("Format string is too small to consume all signatures\n");
-                        return -1;
-                }
-                *ptr = '@';
-                ptr++;
-                memcpy(ptr, s->sig, len);
-                ptr += len;
-                len = 0;
-                s = s->next;
-        }
-
-        if (total_len > (n - 3)) {
-                df_debug("Format string is too small to consume all signatures\n");
-                return -1;
-        }
-        *ptr = ')';
-        ptr++;
-        *ptr = '\0';
-
-        return 0;
-}
-
-/**
  * @function Calls method from df_list (using its name) with its arguments.
  * @param value GVariant tuple containing all method arguments signatures and
  * their values
@@ -783,7 +559,7 @@ static int df_fuzz_create_fmt_string(char **fmt, const int n)
  * @return 0 on success, -1 on error, 1 if void method returned non-void
  * value or 2 when tested method raised exception (so it should be skipped)
  */
-static int df_fuzz_call_method(GVariant *value, const int void_method)
+static int df_fuzz_call_method(const struct df_dbus_method *method, GVariant *value)
 {
         _cleanup_(g_error_freep) GError *error = NULL;
         _cleanup_(g_variant_unrefp) GVariant *response = NULL;
@@ -794,7 +570,7 @@ static int df_fuzz_call_method(GVariant *value, const int void_method)
         // on df_dproxy.
         response = g_dbus_proxy_call_sync(
                         df_dproxy,
-                        df_list.df_method_name,
+                        method->name,
                         value,
                         G_DBUS_CALL_FLAGS_NONE,
                         -1,
@@ -815,7 +591,7 @@ static int df_fuzz_call_method(GVariant *value, const int void_method)
                                    (strcmp(dbus_error, "org.freedesktop.DBus.Error.AuthFailed") == 0)) {
                                 df_verbose("%s  %sSKIP%s %s - raised exception '%s'\n",
                                            ansi_cr(), ansi_blue(), ansi_normal(),
-                                           df_list.df_method_name, dbus_error);
+                                           method->name, dbus_error);
                                 return 2;
                         }
                 }
@@ -823,45 +599,26 @@ static int df_fuzz_call_method(GVariant *value, const int void_method)
                 g_dbus_error_strip_remote_error(error);
                 if (strstr(error->message, "Timeout")) {
                         df_verbose("%s  %sSKIP%s %s - timeout reached\n",
-                                   ansi_cr(), ansi_blue(), ansi_normal(), df_list.df_method_name);
+                                   ansi_cr(), ansi_blue(), ansi_normal(), method->name);
                         return 2;
                 }
 
                 df_debug("%s  EXCE %s - D-Bus exception thrown: %.60s\n",
-                         ansi_cr(), df_list.df_method_name, error->message);
+                         ansi_cr(), method->name, error->message);
                 df_except_counter++;
                 return 0;
         } else {
-                if (void_method) {
+                if (!method->returns_value) {
                         // fmt points to GVariant, do not free it
                         fmt = g_variant_get_type_string(response);
                         // void function can only return empty tuple
                         if (strcmp(fmt, "()") != 0) {
                                 df_fail("%s  %sFAIL%s %s - void method returns '%s' instead of '()'\n",
-                                        ansi_cr(), ansi_red(), ansi_normal(), df_list.df_method_name, fmt);
+                                        ansi_cr(), ansi_red(), ansi_normal(), method->name, fmt);
                                 return 1;
                         }
                 }
         }
 
         return 0;
-}
-
-/**
- * @function Releases memory used by this module. This function must be called
- * after df_fuzz_add_method() and df_fuzz_add_method_arg() functions calls
- * after the end of fuzz testing of each method.
- */
-void df_fuzz_clean_method(void)
-{
-        free(df_list.df_method_name);
-
-        // frees the linked list
-        struct df_signature *tmp;
-        while (df_list.list != NULL) {
-                tmp = df_list.list->next;
-                free(df_list.list->sig);
-                free(df_list.list);
-                df_list.list = tmp;
-        }
 }
