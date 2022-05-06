@@ -30,36 +30,38 @@
  * --method org.freedesktop.DBus.ListNames | grep org.freedesktop.dfuzzerServer
  */
 #include <gio/gio.h>
-#include <glib/gstdio.h>        // g_printf() function
+#include <glib/gstdio.h>
+#include <glib-unix.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "util.h"
 
 
+static GMainLoop *loop;
 static GDBusNodeInfo *introspection_data = NULL;
 
 
 // Introspection data for the service we are exporting.
 static const gchar introspection_xml[] =
 "<node>"
-"       <interface name=\"org.freedesktop.dfuzzerInterface\">"
-"               <method name=\"df_hello\">"
-"                       <arg type=\"s\" name=\"msg\" direction=\"in\"/>"
-"                       <arg type=\"i\" name=\"lol\" direction=\"in\"/>"
-"                       <arg type=\"s\" name=\"response\" direction=\"out\"/>"
+"       <interface name='org.freedesktop.dfuzzerInterface'>"
+"               <method name='df_hello'>"
+"                       <arg type='s' name='msg' direction='in'/>"
+"                       <arg type='i' name='lol' direction='in'/>"
+"                       <arg type='s' name='response' direction='out'/>"
 "               </method>"
-"               <method name=\"df_crash\">"
-"                       <arg type=\"o\" name=\"lol\" direction=\"in\"/>"
+"               <method name='df_crash'>"
+"                       <arg type='o' name='lol' direction='in'/>"
 "               </method>"
-"               <method name=\"df_hang\">"
-"                       <arg type=\"t\" name=\"lol\" direction=\"in\"/>"
+"               <method name='df_hang'>"
+"                       <arg type='t' name='lol' direction='in'/>"
 "               </method>"
-"               <method name=\"df_noreply\">"
-"                       <arg type=\"t\" name=\"lol\" direction=\"in\"/>"
+"               <method name='df_noreply'>"
+"                       <arg type='t' name='lol' direction='in'/>"
 "               </method>"
-"               <method name=\"df_variant_crash\">"
-"                       <arg type=\"v\" name=\"variant\" direction=\"in\"/>"
+"               <method name='df_variant_crash'>"
+"                       <arg type='v' name='variant' direction='in'/>"
 "               </method>"
 "       </interface>"
 "</node>";
@@ -134,15 +136,26 @@ static void name_lost(GDBusConnection *connection, const gchar *name, gpointer u
         exit(1);
 }
 
+gboolean handle_signal(gpointer userdata)
+{
+        if (loop)
+                g_main_loop_quit(loop);
+
+        return FALSE;
+}
+
 int main(int argc, char **argv)
 {
         guint name_id;
-        GMainLoop *loop;
 
         // Parses introspection_xml and returns a GDBusNodeInfo representing the data.
         // The introspection XML must contain exactly one top-level <node> element.
         introspection_data = g_dbus_node_info_new_for_xml(introspection_xml, NULL);
         g_assert(introspection_data != NULL);
+
+        /* Handle SIGTERM/SIGINT cleanly, mainly to collect code coverage */
+        g_unix_signal_add(SIGTERM, handle_signal, NULL);
+        g_unix_signal_add(SIGINT, handle_signal, NULL);
 
         // Starts acquiring name on the bus (G_BUS_TYPE_SESSION) and calls
         // name_acquired handler and name_lost when the name is acquired
@@ -162,5 +175,7 @@ int main(int argc, char **argv)
 
         g_bus_unown_name(name_id);
         g_dbus_node_info_unref(introspection_data);
+        g_main_loop_unref(loop);
+
         return 0;
 }

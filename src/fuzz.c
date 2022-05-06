@@ -374,7 +374,7 @@ static int df_check_if_exited(const int pid) {
 
         f = fopen(proc_pid, "r");
         if (!f) {
-                if (errno == ENOENT || errno == ENOTDIR)
+                if (errno == ENOENT || errno == ENOTDIR || errno == ESRCH)
                         return 0;
 
                 return -1;
@@ -480,7 +480,7 @@ int df_fuzz_test_method(
 
                 r = df_check_if_exited(pid);
                 if (r < 0)
-                        return df_fail_ret(-1, "Error while reading process' stat file: %m");
+                        return df_fail_ret(-1, "Error while reading process' stat file: %m\n");
                 else if (r == 0) {
                         ret = -1;
                         df_fail("%s  %sFAIL%s %s - process %d exited\n",
