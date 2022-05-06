@@ -39,9 +39,6 @@
 
 /** Pointer on D-Bus interface proxy for calling methods. */
 static GDBusProxy *df_dproxy;
-/** Exceptions counter; if MAX_EXCEPTIONS is reached testing continues
-  * with a next method */
-static char df_except_counter = 0;
 
 
 /* Module static functions */
@@ -510,10 +507,6 @@ int df_fuzz_test_method(
                 if (logfile)
                         df_fuzz_write_log(method, value);
                 FULL_LOG("Success\n");
-                if (df_except_counter == MAX_EXCEPTIONS) {
-                        df_except_counter = 0;
-                        break;
-                }
         }
 
         if (ret != 0 || execr != 0)
@@ -605,7 +598,6 @@ static int df_fuzz_call_method(const struct df_dbus_method *method, GVariant *va
 
                 df_debug("%s  EXCE %s - D-Bus exception thrown: %.60s\n",
                          ansi_cr(), method->name, error->message);
-                df_except_counter++;
                 return 0;
         } else {
                 if (!method->returns_value) {

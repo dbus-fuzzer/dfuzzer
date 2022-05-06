@@ -24,10 +24,6 @@
 /** Maximum length of D-Bus signature string */
 #define MAXSIG 255
 
-/** Maximum amount of unimportant exceptions for one method; if reached
-  * testing continues with a next method */
-#define MAX_EXCEPTIONS 50
-
 struct df_dbus_method {
         char *name;
         char *signature;
