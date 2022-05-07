@@ -59,9 +59,38 @@ dfuzzer+=("--max-iterations=10")
 "${dfuzzer[@]}" -l
 "${dfuzzer[@]}" -s -l
 "${dfuzzer[@]}" --no-suppressions --list
+
+# Suppression file tests
 # Test a long suppression file
 perl -e 'print "[org.freedesktop.systemd1]\n"; print "Reboot destructive\n" x 250; print "Reboot\n" x 250' >dfuzzer.conf
 "${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i org.freedesktop.systemd1.Manager -t Reboot
+# Test various suppression definitions
+printf "[org.freedesktop.systemd1]\nPing" >dfuzzer.conf
+"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i org.freedesktop.DBus.Peer -t Ping |& grep "SKIP Ping"
+printf "[org.freedesktop.systemd1]\n::Ping" >dfuzzer.conf
+"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i org.freedesktop.DBus.Peer -t Ping |& grep "SKIP Ping"
+printf "[org.freedesktop.systemd1]\n/org/freedesktop/systemd1:org.freedesktop.DBus.Peer:Ping" >dfuzzer.conf
+"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i org.freedesktop.DBus.Peer -t Ping |& grep "SKIP Ping"
+printf "[org.freedesktop.systemd1]\n/org/freedesktop/systemd1::Ping" >dfuzzer.conf
+"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i org.freedesktop.DBus.Peer -t Ping |& grep "SKIP Ping"
+printf "[org.freedesktop.systemd1]\norg.freedesktop.DBus.Peer:Ping" >dfuzzer.conf
+"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i org.freedesktop.DBus.Peer -t Ping |& grep "SKIP Ping"
+printf "[org.freedesktop.systemd1]\n:" >dfuzzer.conf
+"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i org.freedesktop.DBus.Peer -t Ping |& grep "SKIP Ping"
+printf "[org.freedesktop.systemd1]\n::" >dfuzzer.conf
+"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i org.freedesktop.DBus.Peer -t Ping |& grep "SKIP Ping"
+printf "[org.freedesktop.systemd1]\naaaaaaa:Ping" >dfuzzer.conf
+"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i org.freedesktop.DBus.Peer -t Ping |& grep "PASS Ping"
+printf "[org.freedesktop.systemd1]\naaaaaaa::Ping" >dfuzzer.conf
+"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i org.freedesktop.DBus.Peer -t Ping |& grep "PASS Ping"
+printf "[org.freedesktop.systemd1]\n/org/freedesktop/systemd1:nope:Ping" >dfuzzer.conf
+"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i org.freedesktop.DBus.Peer -t Ping |& grep "PASS Ping"
+# Invalid definitions
+printf "[org.freedesktop.systemd1]\n:::Ping" >dfuzzer.conf
+"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i org.freedesktop.DBus.Peer -t Ping && false
+printf "[org.freedesktop.systemd1]\n:::" >dfuzzer.conf
+"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i org.freedesktop.DBus.Peer -t Ping && false
+# Cleanup
 rm -f dfuzzer.conf
 
 # Test a couple of error paths

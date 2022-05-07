@@ -19,6 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+#include <assert.h>
 #include <gio/gio.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -132,6 +133,8 @@ int main(int argc, char **argv)
 cleanup:
         // free all suppressions and their descriptions
         for (int i = 0; suppressions[i]; i++) {
+                free(suppressions[i]->object);
+                free(suppressions[i]->interface);
                 free(suppressions[i]->method);
                 free(suppressions[i]->description);
                 free(suppressions[i]);
@@ -442,6 +445,30 @@ int df_traverse_node(GDBusConnection *dcon, const char *root_node)
         return ret;
 }
 
+static int df_path_is_suppressed(const char *object, const char *interface, const char *method,
+                                   char **ret_description_ptr)
+{
+        if (!suppressions[0])
+                return 0;
+
+        for (struct suppression_item **p = suppressions, *i; (i = *p) && i; p++) {
+                /* If the method name is set but doesn't match, continue */
+                if (!isempty(method) && !isempty(i->method) && strcmp(method, i->method) != 0)
+                        continue;
+                /* If the interface name is set but doesn't match, continue */
+                if (!isempty(interface) && !isempty(i->interface) && strcmp(interface, i->interface) != 0)
+                        continue;
+                /* If the object name is set but doesn't match, continue */
+                if (!isempty(object) && !isempty(i->object) && strcmp(object, i->object) != 0)
+                        continue;
+                /* Everything that should match matches, so the method is suppressed */
+                *ret_description_ptr = i->description;
+                return 1;
+        }
+
+        return 0;
+}
+
 /**
  * @function Controls fuzz testing of all methods of specified interface (intf)
  * and reports results.
@@ -461,7 +488,6 @@ int df_fuzz(GDBusConnection *dcon, const char *name, const char *object, const c
         int method_found = 0;   // If df_test_method is found in an interface,
         // method_found is set to 1, otherwise is 0.
         int rv = DF_BUS_OK;     // return value of function
-        int i;
 
         // Sanity check fuzzing target
         if (isempty(name) || isempty(object) || isempty(interface)) {
@@ -486,8 +512,9 @@ int df_fuzz(GDBusConnection *dcon, const char *name, const char *object, const c
                 return DF_BUS_ERROR;
         }
 
-        for (GDBusMethodInfo **pm = interface_info->methods, *m = *pm; m; m = *(++pm)) {
+        for (GDBusMethodInfo **p = interface_info->methods, *m; (m = *p) && m; p++) {
                 _cleanup_(df_dbus_method_cleanup) struct df_dbus_method dbus_method = {0,};
+                char *description;
 
                 // testing only one method with name df_test_method
                 if (df_test_method != NULL) {
@@ -496,25 +523,10 @@ int df_fuzz(GDBusConnection *dcon, const char *name, const char *object, const c
                         method_found = 1;
                 }
 
-                // if method name is in the suppressions array, skip it
-                if (suppressions[0] != NULL) {
-                        int skipflg = 0;
-                        for (i = 0; suppressions[i] != NULL; i++) {
-                                if (strcmp(suppressions[i]->method, m->name) == 0) {
-                                        skipflg++;
-                                        break;
-                                }
-                        }
-                        if (skipflg) {
-                                if (suppressions[i]->description) {
-                                        df_verbose("%s  %sSKIP%s %s - %s\n",
-                                                   ansi_cr(), ansi_blue(), ansi_normal(),
-                                                   suppressions[i]->method, suppressions[i]->description);
-                                } else
-                                        df_verbose("%s  %sSKIP%s %s - suppressed method\n",
-                                                   ansi_cr(), ansi_blue(), ansi_normal(), suppressions[i]->method);
-                                continue;
-                        }
+                if (df_path_is_suppressed(object, interface, m->name, &description) != 0) {
+                        df_verbose("%s  %sSKIP%s %s - %s\n", ansi_cr(), ansi_blue(), ansi_normal(),
+                                   m->name, description ?: "suppressed method");
+                        continue;
                 }
 
                 dbus_method.name = strdup(m->name);
@@ -1003,6 +1015,8 @@ int df_load_suppressions(void)
         i = 0;
         while (i < (MAXLEN - 1) && (n = getline(&line, &len, f)) > 0) {
                 _cleanup_free_ char *suppression = NULL, *description = NULL;
+                char *p;
+
                 if (line[0] == '[')
                         break;
 
@@ -1010,20 +1024,67 @@ int df_load_suppressions(void)
                 if (strspn(line, " \t\r\n") == (size_t) n)
                         continue;
 
+                /* Drop the newline character for nices error messages */
+                if (line[n - 1] == '\n')
+                        line[n - 1] = 0;
+
                 /* The suppression description is optional, so let's accept such
                  * lines as well */
-                if (sscanf(line, "%ms %m[^\n]", &suppression, &description) < 1) {
-                        df_fail("Failed to parse line '%s'\n", line);
-                        return -1;
-                }
+                if (sscanf(line, "%ms %m[^\n]", &suppression, &description) < 1)
+                        return df_fail_ret(-1, "Failed to parse line '%s'\n", line);
 
-                suppressions[i] = malloc(sizeof(struct suppression_item));
+                suppressions[i] = calloc(sizeof(struct suppression_item), 1);
                 if (!suppressions[i])
                         return df_oom();
 
-                suppressions[i]->method = TAKE_PTR(suppression);
+                /* Break down the suppression string, which should be in format:
+                 *      [object_path]:[interface_name]:method_name
+                 * where everything except 'method_name' is optional
+                 */
+
+                /* Extract method name */
+                p = strrchr(suppression, ':');
+                if (!p)
+                        suppressions[i]->method = TAKE_PTR(suppression);
+                else {
+                        suppressions[i]->method = strdup(p + 1);
+                        *p = 0;
+                }
+
+                if (!suppressions[i]->method)
+                        return df_oom();
+
+                /* Extract interface name */
+                if (p) {
+                        p = strrchr(suppression, ':');
+                        if (!p)
+                                suppressions[i]->interface = strdup(suppression);
+                        else {
+                                suppressions[i]->interface = strdup(p + 1);
+                                *p = 0;
+                        }
+
+                        if (!suppressions[i]->interface)
+                                return df_oom();
+                }
+
+                /* Extract object name */
+                if (p) {
+                        p = strrchr(suppression, ':');
+                        if (!p)
+                                suppressions[i]->object = strdup(suppression);
+                        else
+                                /* Found another ':'? Bail out! */
+                                return df_fail_ret(-1, "Invalid suppression string '%s'\n", line);
+
+                        if (!suppressions[i]->object)
+                                return df_oom();
+                }
+
                 suppressions[i]->description = TAKE_PTR(description);
-                df_verbose("Loaded suppression for method: %s (%s)\n",
+                df_verbose("Loaded suppression for method: %s:%s:%s (%s)\n",
+                           isempty(suppressions[i]->object) ? "*" : suppressions[i]->object,
+                           isempty(suppressions[i]->interface) ? "*" : suppressions[i]->interface,
                            suppressions[i]->method,
                            suppressions[i]->description ?: "n/a");
                 i++;
