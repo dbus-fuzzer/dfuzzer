@@ -27,14 +27,16 @@ Requirements:
 
     glib2-devel  (2.34 or higher)
     meson
+    xsltproc
+    docbook-style-xsl
 
 Fedora:
 
-    $ dnf install glib2-devel meson
+    $ dnf install docbook-style-xsl glib2-devel libxslt meson
 
 Debian:
 
-    $ apt-get install libglib2.0-dev meson
+    $ apt-get install docbook-xsl libglib2.0-dev xsltproc meson
 
 
 Using valgrind with _GLib_:

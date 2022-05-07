@@ -1,0 +1,285 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<refentry id="dfuzzer" xmlns:xi="http://www.w3.org/2001/XInclude">
+    <refentryinfo>
+        <title>dfuzzer</title>
+        <productname>dfuzzer</productname>
+    </refentryinfo>
+
+    <refmeta>
+        <refentrytitle>dfuzzer</refentrytitle>
+        <manvolnum>1</manvolnum>
+    </refmeta>
+
+    <refnamediv>
+        <refname>dfuzzer</refname>
+        <refpurpose>Tool for fuzz testing processes communicating through D-Bus</refpurpose>
+    </refnamediv>
+
+    <refsynopsisdiv>
+        <cmdsynopsis>
+            <command>dfuzzer</command>
+            <arg choice="req">--bus=BUS_NAME</arg>
+            <arg choice="opt" rep="repeat">OPTIONS</arg>
+        </cmdsynopsis>
+    </refsynopsisdiv>
+
+    <refsect1>
+        <title>Description</title>
+        <para><command>dfuzzer</command> is the D-Bus fuzzer, the tool for fuzz testing processes communicating
+        through D-Bus. It can be used to test processes connected to both, the session bus and the system bus
+        daemon. The fuzzer works as a client, it first connects to the bus daemon and then it traverses and
+        fuzz tests all the methods provided by a D-Bus service (specified by the <option>-n/--bus-name=</option>
+        option). By default only failures and warnings are printed. Use <option>-v/--verbose</option>
+        for verbose mode.</para>
+
+        <para>Fuzz tests are performed on methods of a chosen interface(s) and an object(s) for the given bus
+        name. Fuzzer generates random arguments for each method of an interface and calls these methods everytime
+        with different generated arguments.</para>
+
+        <para><command>dfuzzer</command> is monitoring tested process state during fuzz testing. In case tested
+        process crashed it is printed on the output of <command>dfuzzer</command>. Fuzzer always prints exit
+        status (see section "Exit status") before exiting.</para>
+
+        <para>If you are getting exceptions (printed only in verbose mode: <option>-v/--verbose</option> option)
+        like <literal>org.freedesktop.DBus.Error.AccessDenied</literal> or
+        <literal>org.freedesktop.DBus.Error.AuthFailed</literal> during testing, try to run dfuzzer as root
+        (warning: this is dangerous, proceed with caution).</para>
+    </refsect1>
+
+    <refsect1>
+        <title>Options</title>
+
+        <para>The following options are understood:</para>
+
+        <variablelist>
+            <varlistentry>
+                <term><option>-b <replaceable>NAME</replaceable></option></term>
+                <term><option>--bus-name=<replaceable>NAME</replaceable></option></term>
+
+                <listitem><para>D-Bus name to test.</para></listitem>
+            </varlistentry>
+
+            <varlistentry>
+                <term><option>-o <replaceable>PATH</replaceable></option></term>
+                <term><option>--object=<replaceable>PATH</replaceable></option></term>
+
+                <listitem><para>D-Bus object path to test. All children objects are traversed.</para></listitem>
+            </varlistentry>
+
+            <varlistentry>
+                <term><option>-i <replaceable>NAME</replaceable></option></term>
+                <term><option>--interface=<replaceable>NAME</replaceable></option></term>
+
+                <listitem><para>D-Bus interface name to test. Requires <option>-o/--object=</option>
+                to be set as well.</para></listitem>
+            </varlistentry>
+
+            <varlistentry>
+                <term><option>-t <replaceable>NAME</replaceable></option></term>
+                <term><option>--method=<replaceable>NAME</replaceable></option></term>
+
+                <listitem><para>If provided, only method named <replaceable>NAME</replaceable> is tested.
+                Requires <option>-o/--object=</option> and <option>-i/--interface=</option> to be set as well.
+                </para></listitem>
+            </varlistentry>
+
+            <varlistentry>
+                <term><option>-e <replaceable>COMMAND</replaceable></option></term>
+                <term><option>--command=<replaceable>COMMAND</replaceable></option></term>
+
+                <listitem><para>Command to execute after each method call. If given command finishes
+                unsuccessfully, fail message is printed with its return value.</para></listitem>
+            </varlistentry>
+
+            <varlistentry>
+                <term><option>-x <replaceable>ITERATIONS</replaceable></option></term>
+                <term><option>--max-iterations=<replaceable>ITERATIONS</replaceable></option></term>
+
+                <listitem><para>Set the upper limit for number of iterations done for each method. This
+                limit comes into effect only if the automatically calculated number of iterations would
+                exceed this limit. At least <constant>1</constant> iteration is required.</para></listitem>
+            </varlistentry>
+
+            <varlistentry>
+                <term><option>-y <replaceable>ITERATIONS</replaceable></option></term>
+                <term><option>--min-iterations=<replaceable>ITERATIONS</replaceable></option></term>
+
+                <listitem><para>Same as <option>-x/--max-iterations=</option> but for the lower limit. Again,
+                the limit comes into effect only if the number of automatically calculated iterations would
+                fall below <replaceable>ITERATIONS</replaceable>.</para></listitem>
+            </varlistentry>
+
+            <varlistentry>
+                <term><option>-I <replaceable>ITERATIONS</replaceable></option></term>
+                <term><option>--iterations=<replaceable>ITERATIONS</replaceable></option></term>
+
+                <listitem><para>Set both <option>-y/--min-iterations=</option> and
+                <option>-x/--max-iterations=</option> to <replaceable>ITERATIONS</replaceable> effectively
+                setting the number of iterations for each method to <replaceable>ITERATIONS</replaceable>.
+                </para></listitem>
+            </varlistentry>
+
+            <varlistentry>
+                <term><option>-L <replaceable>DIRNAME</replaceable></option></term>
+                <term><option>--log-dir=<replaceable>DIRNAME</replaceable></option></term>
+
+                <listitem><para>If set, <command>dfuzzer</command> writes a machine-readable CSV log
+                into <replaceable>DIRNAME/BUSNAME</replaceable>. The directory must exist.</para></listitem>
+            </varlistentry>
+
+            <varlistentry>
+                <term><option>-b <replaceable>SIZE</replaceable></option></term>
+                <term><option>--buffer-limit=<replaceable>DIRNAME</replaceable></option></term>
+
+                <listitem><para>Maximum buffer size for generated strings in bytes. Defaults to
+                <constant>50000</constant>. Minimal accepted value is <constant>256</constant>.</para></listitem>
+            </varlistentry>
+
+            <varlistentry>
+                <term><option>-l</option></term>
+                <term><option>--list</option></term>
+
+                <listitem><para>List all available services on both the system and the session buses.</para></listitem>
+            </varlistentry>
+
+            <varlistentry>
+                <term><option>-s</option></term>
+                <term><option>--no-suppressions</option></term>
+
+                <listitem><para>Do not load suppression file(s). Default behavior is to locate and load
+                suppression files in standard locations in the following order:</para>
+                <variablelist>
+                    <varlistentry><term>./dfuzzer.conf</term></varlistentry>
+                    <varlistentry><term>~/.dfuzzer.conf</term></varlistentry>
+                    <varlistentry><term>/etc/dfuzzer.conf</term></varlistentry>
+                </variablelist>
+                <para>For information about the format of the suppression file see the section
+                "Suppression file format".</para></listitem>
+            </varlistentry>
+
+            <varlistentry>
+                <term><option>-v</option></term>
+                <term><option>--verbose</option></term>
+
+                <listitem><para>Enable verbose logging.</para></listitem>
+            </varlistentry>
+
+            <varlistentry>
+                <term><option>-d</option></term>
+                <term><option>--debug</option></term>
+
+                <listitem><para>Enable debug logging. Implies <option>-v/--verbose</option>. This option should
+                not be normally used during testing.</para></listitem>
+            </varlistentry>
+
+            <varlistentry>
+                <term><option>-V</option></term>
+                <term><option>--version</option></term>
+
+                <listitem><para>Print <command>dfuzzer</command> version and exit.</para></listitem>
+            </varlistentry>
+
+            <varlistentry>
+                <term><option>-h</option></term>
+                <term><option>--help</option></term>
+
+                <listitem><para>Print a short help text and exit.</para></listitem>
+            </varlistentry>
+        </variablelist>
+    </refsect1>
+
+    <refsect1>
+        <title>Exit status</title>
+
+        <para><command>dfuzzer</command> may return these codes:</para>
+        <variablelist>
+            <varlistentry><para><constant>0</constant> testing ended successfully</para></varlistentry>
+            <varlistentry><para><constant>1</constant> an error occured (either an internall error, or a D-Bus related error)</para></varlistentry>
+            <varlistentry><para><constant>2</constant> testing detected failures (including warnings)</para></varlistentry>
+            <varlistentry><para><constant>3</constant> testing detected only warnings</para></varlistentry>
+        </variablelist>
+    </refsect1>
+
+    <refsect1>
+        <title>Suppression file format</title>
+
+        <para>Suppression file is divided into sections for each service, where each section contains a path
+        to the suppressed method and an optional description, which is printed to the output when such
+        method is suppressed:</para>
+
+        <programlisting>
+[org.foo.bar]
+hello   potentially destructive
+world   also destructive
+        </programlisting>
+
+        <para>In this example methods <literal>hello</literal> and <literal>world</literal> will be suppressed on the <literal>org.foo.bar</literal> bus, no matter under which object/interface they appear.</para>
+
+        <para>For more granular suppression, the method name can be given in format</para>
+        <programlisting>object_path:interface_name:method</programlisting>
+
+        <para>where each part can be omited (omitted parts behave like a wildcard, i.e. they match any object/interface/method). For example:</para>
+
+        <programlisting>
+[org.foo.baz]
+hello                   suppress the method 'hello' on any interface
+::hello                 ditto, since object and interface are empty
+:hello                  ditto
+
+/org::world             suppress the method 'world' on any interface under the object '/org'
+/org:boo:world          suppress the methdo 'world' on interface 'boo' and under object '/org'
+:org.freedesktop.Foo:   suppress all methods on interface 'org.freedesktop.Foo' under any object
+/org::                  suppress all methods on any interface under object '/org'
+        </programlisting>
+    </refsect1>
+
+    <refsect1>
+        <title>Examples</title>
+
+        <para>List all services on system/session bus:</para>
+
+        <programlisting>dfuzzer -l</programlisting>
+
+        <para>Test all methods of GNOME Shell. Be verbose:</para>
+
+        <programlisting>dfuzzer -v -n org.gnome.Shell</programlisting>
+
+        <para>Test only a specific method on given bus name, object path, and interface:</para>
+
+        <programlisting>dfuzzer -n org.freedesktop.Avahi -o / -i org.freedesktop.Avahi.Server -t GetAlternativeServiceName</programlisting>
+
+        <para>Test all methods of Avahi and be verbose. Redirect all log messages including failures
+        and warnings into <literal>avahi.log</literal>:</para>
+
+        <programlisting>dfuzzer -v -n org.freedesktop.Avahi |&amp; tee avahi.log</programlisting>
+
+        <para>Test name org.freedesktop.Avahi, be verbose, and do not use suppression file:</para>
+
+        <programlisting>dfuzzer -v -s -n org.freedesktop.Avahi</programlisting>
+    </refsect1>
+
+    <refsect1>
+        <title>Author</title>
+
+        <para>Matus Marhefka (mmarhefk@redhat.com)</para>
+    </refsect1>
+
+    <refsect1>
+        <title>Bugs</title>
+
+        <para>Please report all bugs to the upstream tracker at <ulink>https://github.com/matusmarhefka/dfuzzer</ulink>.</para>
+    </refsect1>
+
+    <refsect1>
+        <title>See also</title>
+        <para>
+            <citerefentry><refentrytitle>gdbus</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        </para>
+    </refsect1>
+
+</refentry>
+
+<!-- vi: set ts=4 sw=4 et: -->
