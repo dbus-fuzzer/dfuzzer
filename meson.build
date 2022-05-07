@@ -8,6 +8,7 @@ project('dfuzzer', 'c',
 )
 
 libgio = dependency('gio-2.0', required : true)
+xsltproc = find_program('xsltproc', required: false)
 
 subdir('src')
 
@@ -17,6 +18,26 @@ executable(
         dependencies : [libgio],
         install : true
 )
+
+if xsltproc.found()
+        xsltproc_cmd = [
+                xsltproc,
+                '--nonet',
+                '--xinclude',
+                '--output', '@OUTPUT@',
+                'http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl',
+                '@INPUT@',
+        ]
+
+        custom_target(
+                'dfuzzer.1',
+                input: 'man/dfuzzer.xml',
+                output: 'dfuzzer.1',
+                command: xsltproc_cmd,
+                install: true,
+                install_dir: get_option('mandir') / 'man1',
+        )
+endif
 
 if get_option('dfuzzer-test-server')
         executable(
@@ -35,4 +56,3 @@ if get_option('dfuzzer-test-server')
 endif
 
 install_data('src/dfuzzer.conf', install_dir : get_option('sysconfdir'))
-install_man('man/dfuzzer.1')

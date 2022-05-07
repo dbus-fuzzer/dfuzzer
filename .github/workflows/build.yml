@@ -57,7 +57,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt -y update
-          sudo apt -y install gcc libglib2.0-dev libffi-dev meson clang valgrind
+          sudo apt -y install docbook-xsl gcc libglib2.0-dev xsltproc meson clang valgrind
 
       - name: Build
         run: |
@@ -80,7 +80,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt -y update
-          sudo apt -y install gcc libglib2.0-dev libffi-dev meson lcov
+          sudo apt -y install docbook-xsl gcc libglib2.0-dev xsltproc meson lcov
 
       - name: Build
         run: |
