@@ -319,6 +319,8 @@ static void df_fuzz_write_log(const struct df_dbus_method *method, GVariant *val
         assert(method);
         assert(value);
 
+        FULL_LOG("%s;", method->name);
+
         if (!method->signature) {
                 df_fail("No method signature\n");
                 return;
