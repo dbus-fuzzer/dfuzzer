@@ -319,6 +319,8 @@ static void df_fuzz_write_log(const struct df_dbus_method *method, GVariant *val
         assert(method);
         assert(value);
 
+        FULL_LOG("%s;", method->name);
+
         if (!method->signature) {
                 df_fail("No method signature\n");
                 return;
@@ -539,10 +541,11 @@ fail_label:
                 df_fail(" -e '%s'", execute_cmd);
         df_fail("%s\n", ansi_normal());
 
-        if (ret == 1){  // method returning void is returning illegal value
+        /* Method with a void return type returned a non-void value */
+        if (ret == 1)
                 return 2;
-        }
-        if (execr > 0){ // command/script execution ended with error
+        /* Command specified via -e/--command returned a non-zero exit code */
+        if (execr > 0) {
                 FULL_LOG("Command execution error\n");
                 return 4;
         }
