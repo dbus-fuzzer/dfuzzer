@@ -63,6 +63,9 @@ static const gchar introspection_xml[] =
 "               <method name='df_variant_crash'>"
 "                       <arg type='v' name='variant' direction='in'/>"
 "               </method>"
+"               <method name='df_crash_on_leeroy'>"
+"                       <arg type='s' name='string' direction='in'/>"
+"               </method>"
 "               <method name='df_complex_sig_1'>"
 "                       <arg type='i' name='in1' direction='in'/>"
 "                       <arg type='u' name='in2' direction='in'/>"
@@ -114,7 +117,15 @@ static void handle_method_call(
                 g_printf("Sending response to Client: [%s]\n", response);
         } else if (g_strcmp0(method_name, "df_crash") == 0 || g_strcmp0(method_name, "df_variant_crash") == 0)
                 abort();
-        else if (g_strcmp0(method_name, "df_hang") == 0)
+        else if (g_strcmp0(method_name, "df_crash_on_leeroy") == 0) {
+                gchar *str = NULL;
+
+                g_variant_get(parameters, "(&s)", &str);
+                if (g_strcmp0(str, "Leeroy Jenkins") == 0)
+                        abort();
+
+                g_dbus_method_invocation_return_value(invocation, g_variant_new("()"));
+        } else if (g_strcmp0(method_name, "df_hang") == 0)
                 pause();
         else if (g_strcmp0(method_name, "df_noreply") == 0)
                 return;

@@ -34,6 +34,7 @@
 #include "dfuzzer.h"
 #include "introspection.h"
 #include "fuzz.h"
+#include "rand.h"
 #include "util.h"
 
 
@@ -779,6 +780,7 @@ void df_parse_parameters(int argc, char **argv)
                 { "buffer-limit",       required_argument,  NULL,   'b' },
                 { "debug",              no_argument,        NULL,   'd' },
                 { "command",            required_argument,  NULL,   'e' },
+                { "string-file",        required_argument,  NULL,   'f' },
                 { "help",               no_argument,        NULL,   'h' },
                 { "interface",          required_argument,  NULL,   'i' },
                 { "list",               no_argument,        NULL,   'l' },
@@ -796,7 +798,7 @@ void df_parse_parameters(int argc, char **argv)
                 {}
         };
 
-        while ((c = getopt_long(argc, argv, "n:o:i:m:b:t:e:L:x:y:I:sdvlhV", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "n:o:i:m:b:t:e:L:x:y:f:I:sdvlhV", options, NULL)) >= 0) {
                 switch (c) {
                         case 'n':
                                 if (strlen(optarg) >= MAXLEN) {
@@ -916,6 +918,14 @@ void df_parse_parameters(int argc, char **argv)
                                 }
 
                                 df_max_iterations = df_min_iterations;
+
+                                break;
+                        case 'f':
+                                r = df_rand_load_external_dictionary(optarg);
+                                if (r < 0) {
+                                        df_fail("Error: failed to load dictionary from file '%s'\n", optarg);
+                                        exit(1);
+                                }
 
                                 break;
                         default:    // '?'
@@ -1137,6 +1147,8 @@ void df_print_help(const char *name)
          "  -I --iterations=ITER        Set both the minimum and maximum number of iterations to ITER\n"
          "                              See --max-iterations= and --min-iterations= above\n"
          "  -e --command=COMMAND        Command/script to execute after each method call.\n"
+         "  -f --dictionary=FILENAME    Name of a file with custom dictionary which is used as input\n"
+         "                              for fuzzed methods before generating random data.\n"
          "\nExamples:\n\n"
          "Test all methods of GNOME Shell. Be verbose.\n"
          "# %1$s -v -n org.gnome.Shell\n\n"

@@ -95,6 +95,14 @@
             </varlistentry>
 
             <varlistentry>
+                <term><option>-f <replaceable>FILENAME</replaceable></option></term>
+                <term><option>--dictionary=<replaceable>FILENAME</replaceable></option></term>
+
+                <listitem><para>Name of a file with custom dictionary whhich is used as input for fuzzed methods
+                before generating random data. Currently supports only strings (one per line).</para></listitem>
+            </varlistentry>
+
+            <varlistentry>
                 <term><option>-x <replaceable>ITERATIONS</replaceable></option></term>
                 <term><option>--max-iterations=<replaceable>ITERATIONS</replaceable></option></term>
 
