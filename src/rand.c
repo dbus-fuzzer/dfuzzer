@@ -69,7 +69,7 @@ int df_rand_load_external_dictionary(const char *filename)
                 /* Extend the array if we're out of space */
                 if (i >= allocated) {
                         allocated += 10;
-                        array = realloc(array, sizeof(array) * allocated);
+                        array = realloc(array, sizeof(*array) * allocated);
                         if (!array)
                                 return df_oom();
                 }
