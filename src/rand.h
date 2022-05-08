@@ -34,6 +34,10 @@
 /** Maximum length of D-Bus signature string */
 #define MAXSIG 255
 
+struct external_dictionary {
+        size_t size;
+        char **strings;
+};
 
 /**
  * @function Initializes global flag variables and seeds pseudo-random
@@ -41,6 +45,7 @@
  * @param buf_size Maximum buffer size for generated strings (in Bytes)
  */
 void df_rand_init(const long buf_size);
+int df_rand_load_external_dictionary(const char *filename);
 
 /**
  * @return Generated pseudo-random 8-bit unsigned integer value

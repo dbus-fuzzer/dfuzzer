@@ -17,6 +17,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+#include <assert.h>
 #include <gio/gio.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -32,6 +33,7 @@
 
 /** Maximum buffer size for generated strings (in Bytes) */
 static size_t df_buf_size;
+static struct external_dictionary df_external_dictionary;
 
 /**
  * @function Initializes global flag variables and seeds pseudo-random
@@ -49,6 +51,41 @@ void df_rand_init(const long buf_size)
                 df_buf_size = buf_size;
 }
 
+int df_rand_load_external_dictionary(const char *filename)
+{
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *line = NULL;
+        char **array = NULL;
+        size_t allocated = 0, len = 0, i = 0;
+        ssize_t n;
+
+        assert(filename);
+
+        f = fopen(filename, "r");
+        if (!f)
+                return df_fail_ret(-errno, "Failed to open file '%s': %m\n", filename);
+
+        while ((n = getline(&line, &len, f)) > 0) {
+                /* Extend the array if we're out of space */
+                if (i >= allocated) {
+                        allocated += 10;
+                        array = realloc(array, sizeof(array) * allocated);
+                        if (!array)
+                                return df_oom();
+                }
+
+                /* Drop the newline */
+                if (line[n - 1] == '\n')
+                        line[n - 1] = 0;
+
+                array[i++] = TAKE_PTR(line);
+        }
+
+        df_external_dictionary.strings = TAKE_PTR(array);
+        df_external_dictionary.size = i;
+
+        return 0;
+}
 /**
  * @return Generated pseudo-random 8-bit unsigned integer value
  */
@@ -281,11 +318,21 @@ int df_rand_string(gchar **buf, guint64 iteration)
         _cleanup_(g_freep) gchar *ret = NULL;
         size_t len;
 
-        if (iteration < G_N_ELEMENTS(test_strings)) {
+        /* If -f/--string-file= was used, use the loaded strings instead of the
+         * pre-defined ones, before generating random ones. */
+        if (df_external_dictionary.size > 0) {
+                if (iteration < df_external_dictionary.size) {
+                        ret = strdup(df_external_dictionary.strings[iteration]);
+                        if (!ret)
+                                return df_fail_ret(-1, "Could not allocate memory for the random string\n");
+                }
+        } else if (iteration < G_N_ELEMENTS(test_strings)) {
                 ret = strdup(test_strings[iteration]);
                 if (!ret)
                         return df_fail_ret(-1, "Could not allocate memory for the random string\n");
-        } else {
+        }
+
+        if (!ret) {
                 /* Genearate a pseudo-random string length in interval <0, df_buf_size) */
                 len = (rand() * iteration) % df_buf_size;
                 len = CLAMP(len, 1, df_buf_size);
