@@ -39,8 +39,11 @@
 
 
 static GMainLoop *loop;
-static GDBusNodeInfo *introspection_data = NULL;
+static GDBusNodeInfo *introspection_data;
 
+/* Properties */
+static gchar *prop_read_only;
+static gchar *prop_write_only;
 
 // Introspection data for the service we are exporting.
 static const gchar introspection_xml[] =
@@ -86,6 +89,10 @@ static const gchar introspection_xml[] =
 "                       <arg type='a{t(bov)}' name='in5' direction='in'/>"
 "                       <arg type='i' name='response' direction='out'/>"
 "               </method>"
+""
+"               <property name='read_only' type='s' access='read'/>"
+"               <property name='write_only' type='s' access='write'/>"
+"               <property name='crash_on_write' type='i' access='write'/>"
 "       </interface>"
 "</node>";
 
@@ -107,9 +114,9 @@ static void handle_method_call(
                 const gchar *method_name, GVariant *parameters,
                 GDBusMethodInvocation *invocation, gpointer user_data)
 {
-        _cleanup_(g_freep) gchar *response = NULL;
+        g_autofree gchar *response = NULL;
 
-        g_printf("->[handle_method_call]\n");
+        g_printf("->[handle_method_call] %s\n", method_name);
 
         if (g_strcmp0(method_name, "df_hello") == 0) {
                 gchar *msg;
@@ -130,9 +137,9 @@ static void handle_method_call(
                 g_dbus_method_invocation_return_value(invocation,
                         g_variant_new("(s)", response));
                 g_printf("Sending response to Client: [%s]\n", response);
-        } else if (g_strcmp0(method_name, "df_crash") == 0 || g_strcmp0(method_name, "df_variant_crash") == 0)
+        } else if (g_str_equal(method_name, "df_crash") || g_str_equal(method_name, "df_variant_crash"))
                 test_abort();
-        else if (g_strcmp0(method_name, "df_crash_on_leeroy") == 0) {
+        else if (g_str_equal(method_name, "df_crash_on_leeroy")) {
                 gchar *str = NULL;
 
                 g_variant_get(parameters, "(&s)", &str);
@@ -158,8 +165,52 @@ static void handle_method_call(
                 g_dbus_method_invocation_return_value(invocation, g_variant_new("(i)", 0));
 }
 
-// Virtual table for handling properties and method calls for a D-Bus interface.
-static const GDBusInterfaceVTable interface_vtable = { .method_call = handle_method_call };
+static GVariant *handle_get_property(
+                GDBusConnection *connection, const gchar *sender, const gchar *object_path,
+                const gchar *interface_name, const gchar *property_name, GError **error,
+                gpointer user_data)
+{
+
+        GVariant *response = NULL;
+
+        g_printf("->[handle_get_property] %s\n", property_name);
+
+        if (g_strcmp0(property_name, "read_only") == 0) {
+                response = g_variant_new("(s)", prop_read_only);
+        }
+
+        return response;
+}
+
+static gboolean handle_set_property(
+                GDBusConnection *connection, const gchar *sender, const gchar *object_path,
+                const gchar *interface_name, const gchar *property_name, GVariant *value,
+                GError **error, gpointer user_data)
+{
+        g_autofree gchar *serialized_value = NULL;
+
+        serialized_value = g_variant_print(value, TRUE);
+        g_printf("->[handle_set_property] %s -> %s\n", property_name, serialized_value);
+
+        if (g_strcmp0(property_name, "write_only") == 0) {
+                g_autofree gchar *str = NULL;
+                str = g_variant_dup_string(value, NULL);
+                if (str) {
+                        g_free(prop_write_only);
+                        prop_write_only = TAKE_PTR(str);
+                        return TRUE;
+                }
+        } else if (g_str_equal(property_name, "crash_on_write"))
+                test_abort();
+
+        return FALSE;
+}
+
+static const GDBusInterfaceVTable interface_vtable = {
+        .method_call = handle_method_call,
+        .get_property = handle_get_property,
+        .set_property = handle_set_property
+};
 
 static void bus_acquired(GDBusConnection *connection, const gchar *name, gpointer user_data)
 {
@@ -211,6 +262,9 @@ int main(int argc, char **argv)
         /* Handle SIGTERM/SIGINT cleanly, mainly to collect code coverage */
         g_unix_signal_add(SIGTERM, handle_signal, NULL);
         g_unix_signal_add(SIGINT, handle_signal, NULL);
+
+        /* Initialize properties */
+        prop_read_only = g_strdup("I'm a read-only property!");
 
         // Starts acquiring name on the bus (G_BUS_TYPE_SESSION) and calls
         // name_acquired handler and name_lost when the name is acquired

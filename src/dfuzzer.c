@@ -30,27 +30,27 @@
 #include <errno.h>
 #include <getopt.h>
 
-#include "bus.h"
 #include "dfuzzer.h"
-#include "introspection.h"
+#include "bus.h"
 #include "fuzz.h"
+#include "introspection.h"
 #include "rand.h"
 #include "util.h"
 
+/* Shared global variables */
+/** Maximum buffer size for generated strings by rand module (in Bytes) */
+guint64 df_buf_size = MAX_BUF_LEN;
+int df_verbose_flag;
+int df_debug_flag;
 
 /** Structure containing D-Bus name, object path and interface of process */
 static struct fuzzing_target target_proc = { "", "", "" };
-/** Debug flag */
-static int df_verbose_flag;
-/** Verbose flag */
-static int df_debug_flag;
 /** Option for listing names on the bus */
 static int df_list_names;
-/** Maximum buffer size for generated strings by rand module (in Bytes) */
-static guint64 df_buf_size;
 /** Contains method name or NULL. When not NULL, only method with this name
   * will be tested (do not free - points to argv) */
 static char *df_test_method;
+static char *df_test_property;
 /** Tested process PID */
 static int df_pid = -1;
 /** NULL terminated struct of methods names which will be skipped from testing */
@@ -485,10 +485,12 @@ int df_fuzz(GDBusConnection *dcon, const char *name, const char *object, const c
         _cleanup_(g_dbus_proxy_unrefp) GDBusProxy *dproxy = NULL;
         _cleanup_(g_dbus_node_info_unrefp) GDBusNodeInfo *node_info = NULL;
         GDBusInterfaceInfo *interface_info = NULL;
-        int ret = 0;
-        int method_found = 0;   // If df_test_method is found in an interface,
-        // method_found is set to 1, otherwise is 0.
-        int rv = DF_BUS_OK;     // return value of function
+        guint64 iterations;
+        int method_found = 0, property_found = 0, ret;
+        int rv = DF_BUS_OK;
+
+        // initialization of random module
+        df_rand_init();
 
         // Sanity check fuzzing target
         if (isempty(name) || isempty(object) || isempty(interface)) {
@@ -513,49 +515,43 @@ int df_fuzz(GDBusConnection *dcon, const char *name, const char *object, const c
                 return DF_BUS_ERROR;
         }
 
-        for (GDBusMethodInfo **p = interface_info->methods, *m; (m = *p) && m; p++) {
-                _cleanup_(df_dbus_method_cleanup) struct df_dbus_method dbus_method = {0,};
-                char *description;
+        /* Test properties */
+        for (GDBusPropertyInfo **_p = interface_info->properties, *p;
+             /* Skip properties if a specific method to test is set */
+             isempty(df_test_method) && (p = *_p) && p;
+             _p++) {
+                _cleanup_(df_dbus_property_cleanup) struct df_dbus_property dbus_property = {0,};
 
-                // testing only one method with name df_test_method
-                if (df_test_method != NULL) {
-                        if (strcmp(df_test_method, m->name) != 0)
-                                continue;
-                        method_found = 1;
-                }
-
-                if (df_path_is_suppressed(object, interface, m->name, &description) != 0) {
-                        df_verbose("%s  %sSKIP%s %s - %s\n", ansi_cr(), ansi_blue(), ansi_normal(),
-                                   m->name, description ?: "suppressed method");
+                /* Test only a specific property if set */
+                if (df_test_property && strcmp(df_test_property, p->name) != 0)
                         continue;
-                }
 
-                dbus_method.name = strdup(m->name);
-                dbus_method.signature = df_method_get_full_signature(m);
-                dbus_method.returns_value = !!*(m->out_args);
-                dbus_method.expect_reply = df_method_returns_reply(m);
-                dbus_method.fuzz_on_str_len = (strstr(dbus_method.signature, "s") || strstr(dbus_method.signature, "v"));
+                property_found = 1;
 
-                // tests for method
-                ret = df_fuzz_test_method(
-                                &dbus_method,
-                                df_buf_size,
+                dbus_property.name = strdup(p->name);
+                dbus_property.signature = strjoin("(", p->signature, ")");
+                dbus_property.is_readable = p->flags & G_DBUS_PROPERTY_INFO_FLAGS_READABLE;
+                dbus_property.is_writable = p->flags & G_DBUS_PROPERTY_INFO_FLAGS_WRITABLE;
+                dbus_property.expect_reply = df_object_returns_reply(p->annotations);
+
+                iterations = df_get_number_of_iterations(dbus_property.signature);
+                iterations = CLAMP(iterations, df_min_iterations, df_max_iterations);
+                ret = df_fuzz_test_property(
+                                dcon,
+                                &dbus_property,
                                 name,
                                 object,
                                 interface,
                                 df_pid,
-                                df_execute_cmd,
-                                df_min_iterations,
-                                df_max_iterations);
-                if (ret == -1) {
+                                iterations);
+                if (ret < 0) {
                         // error during testing method
-                        df_debug("Error in df_fuzz_test_method()\n");
+                        df_debug("Error in df_fuzz_test_property()\n");
                         return DF_BUS_ERROR;
-                } else if (ret == 1 && df_test_method == NULL) {
+                } else if (ret == 1 && !df_test_property) {
                         // launch process again after crash
                         rv = DF_BUS_FAIL;
-                        g_object_unref(dproxy);
-                        dproxy = NULL;
+                        dproxy = safe_g_dbus_proxy_unref(dproxy);
 
                         if (!df_is_valid_dbus(name, object, interface))
                                 return DF_BUS_ERROR;
@@ -565,7 +561,7 @@ int df_fuzz(GDBusConnection *dcon, const char *name, const char *object, const c
                         if (!dproxy)
                                 return DF_BUS_ERROR;
 
-                        sleep(5);       // wait for application to launch
+                        sleep(5);
 
                         // gets pid of tested process
                         df_pid = df_get_pid(dcon, FALSE);
@@ -576,13 +572,85 @@ int df_fuzz(GDBusConnection *dcon, const char *name, const char *object, const c
                         fprintf(stderr, "%s%s[RE-CONNECTED TO PID: %d]%s\n",
                                         ansi_cr(), ansi_cyan(), df_pid, ansi_blue());
 
-                        // tells fuzz module to call methods on different dproxy and to use
-                        // new status file of process with PID df_pid
-                        if (df_fuzz_init(dproxy) == -1) {
+                        if (df_fuzz_init(dproxy) < 0) {
                                 df_debug("Error in df_fuzz_add_proxy()\n");
                                 return DF_BUS_ERROR;
                         }
-                } else if (ret == 1 && df_test_method != NULL) {
+                } else if (ret == 1 && df_test_property)
+                        rv = DF_BUS_FAIL;
+        }
+
+        /* Test methods */
+        for (GDBusMethodInfo **p = interface_info->methods, *m;
+             /* Skip methods if a specific property to test is set */
+             isempty(df_test_property) && (m = *p) && m;
+             p++) {
+                _cleanup_(df_dbus_method_cleanup) struct df_dbus_method dbus_method = {0,};
+                char *description;
+
+                /* Test only a specific method if set */
+                if (df_test_method && strcmp(df_test_method, m->name) != 0)
+                        continue;
+
+                method_found = 1;
+
+                if (df_path_is_suppressed(object, interface, m->name, &description) != 0) {
+                        df_verbose("%s  %sSKIP%s [M] %s - %s\n", ansi_cr(), ansi_blue(), ansi_normal(),
+                                   m->name, description ?: "suppressed method");
+                        continue;
+                }
+
+                dbus_method.name = strdup(m->name);
+                dbus_method.signature = df_method_get_full_signature(m);
+                dbus_method.returns_value = !!*(m->out_args);
+                dbus_method.expect_reply = df_object_returns_reply(m->annotations);
+                dbus_method.fuzz_on_str_len = (strstr(dbus_method.signature, "s") || strstr(dbus_method.signature, "v"));
+
+                iterations = df_get_number_of_iterations(dbus_method.signature);
+                iterations = CLAMP(iterations, df_min_iterations, df_max_iterations);
+
+                // tests for method
+                ret = df_fuzz_test_method(
+                                &dbus_method,
+                                name,
+                                object,
+                                interface,
+                                df_pid,
+                                df_execute_cmd,
+                                iterations);
+                if (ret < 0) {
+                        // error during testing method
+                        df_debug("Error in df_fuzz_test_method()\n");
+                        return DF_BUS_ERROR;
+                } else if (ret == 1 && !df_test_method) {
+                        // launch process again after crash
+                        rv = DF_BUS_FAIL;
+                        dproxy = safe_g_dbus_proxy_unref(dproxy);
+
+                        if (!df_is_valid_dbus(name, object, interface))
+                                return DF_BUS_ERROR;
+
+                        dproxy = df_bus_new(dcon, name, object, interface,
+                                            G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES|G_DBUS_PROXY_FLAGS_DO_NOT_CONNECT_SIGNALS);
+                        if (!dproxy)
+                                return DF_BUS_ERROR;
+
+                        sleep(5);
+
+                        // gets pid of tested process
+                        df_pid = df_get_pid(dcon, FALSE);
+                        if (df_pid < 0) {
+                                df_debug("Error in df_get_pid() on getting pid of process\n");
+                                return DF_BUS_ERROR;
+                        }
+                        fprintf(stderr, "%s%s[RE-CONNECTED TO PID: %d]%s\n",
+                                        ansi_cr(), ansi_cyan(), df_pid, ansi_blue());
+
+                        if (df_fuzz_init(dproxy) < 0) {
+                                df_debug("Error in df_fuzz_add_proxy()\n");
+                                return DF_BUS_ERROR;
+                        }
+                } else if (ret == 1 && df_test_method) {
                         // for one method, testing ends with failure
                         rv = DF_BUS_FAIL;
                 } else if (ret == 2) {
@@ -596,13 +664,16 @@ int df_fuzz(GDBusConnection *dcon, const char *name, const char *object, const c
                         // executed command finished unsuccessfuly
                         rv = DF_BUS_FAIL;
                 }
-
         }
 
-
-        if (method_found == 0 && df_test_method != NULL) {
+        if (df_test_method && method_found == 0) {
                 df_fail("Error: Method '%s' is not in the interface '%s'.\n", df_test_method, interface);
-                return rv;
+                return DF_BUS_ERROR;
+        }
+
+        if (df_test_property && property_found == 0) {
+                df_fail("Error: Property '%s' is not in the interface '%s'.\n", df_test_property, interface);
+                return DF_BUS_ERROR;
         }
 
         return rv;
@@ -788,6 +859,7 @@ void df_parse_parameters(int argc, char **argv)
                 { "mem-limit",          required_argument,  NULL,   'm' },
                 { "bus",                required_argument,  NULL,   'n' },
                 { "object",             required_argument,  NULL,   'o' },
+                { "property",           required_argument,  NULL,   'p' },
                 { "no-suppressions",    no_argument,        NULL,   's' },
                 { "method",             required_argument,  NULL,   't' },
                 { "verbose",            no_argument,        NULL,   'v' },
@@ -799,7 +871,7 @@ void df_parse_parameters(int argc, char **argv)
                 {}
         };
 
-        while ((c = getopt_long(argc, argv, "n:o:i:m:b:t:e:L:x:y:f:I:sdvlhV", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "n:o:i:m:b:t:e:L:x:y:f:I:p:sdvlhV", options, NULL)) >= 0) {
                 switch (c) {
                         case 'n':
                                 if (strlen(optarg) >= MAXLEN) {
@@ -843,6 +915,9 @@ void df_parse_parameters(int argc, char **argv)
                                 break;
                         case 't':
                                 df_test_method = optarg;
+                                break;
+                        case 'p':
+                                df_test_property = optarg;
                                 break;
                         case 'e':
                                 df_execute_cmd = optarg;
@@ -946,7 +1021,12 @@ void df_parse_parameters(int argc, char **argv)
         }
 
         if (df_min_iterations > df_max_iterations) {
-                df_fail("Error: minimal # of iterations can't be larger that the max one\n");
+                df_fail("Error: minimal # of iterations can't be larger that the max one.\n");
+                exit(1);
+        }
+
+        if (df_test_method && df_test_property) {
+                df_fail("Error: -t/--method= and -p/--property= are mutually exclusive.\n");
                 exit(1);
         }
 }
@@ -1137,7 +1217,11 @@ void df_print_help(const char *name)
          "  -o --object=OBJECT_PATH     Optional object path to test. All children objects are traversed.\n"
          "  -i --interface=INTERFACE    Interface to test. Requires -o to be set as well.\n"
          "  -t --method=METHOD_NAME     Test only given method, all other methods are skipped.\n"
-         "                              Requires -o and -i to be set as well.\n"
+         "                              Requires -o and -i to be set as well. Can't be used together\n"
+         "                              with --property=.\n"
+         "  -p --property=PROPERTY_NAME Test only given property, all other properties are skipped.\n"
+         "                              Requires -o and -i to be set as well, can't be used togetgher\n"
+         "                              with --method=.\n"
          "  -b --buffer-limit=SIZE      Maximum buffer size for generated strings in bytes.\n"
          "                              Default: 50K, minimum: 256B.\n"
          "  -x --max-iterations=ITER    Maximum number of iterations done for each method.\n"

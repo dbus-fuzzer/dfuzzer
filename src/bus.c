@@ -34,7 +34,7 @@ GDBusProxy *df_bus_new_full(GDBusConnection *dcon, const char *name, const char 
         return dproxy;
 }
 
-GVariant *df_bus_call_full(GDBusProxy *proxy, const char *method, GVariant *signature,
+GVariant *df_bus_call_full(GDBusProxy *proxy, const char *method, GVariant *value,
                            GDBusCallFlags flags, GError **ret_error)
 {
         _cleanup_(g_error_freep) GError *error = NULL;
@@ -43,7 +43,7 @@ GVariant *df_bus_call_full(GDBusProxy *proxy, const char *method, GVariant *sign
         response = g_dbus_proxy_call_sync(
                         proxy,
                         method,
-                        signature,
+                        value,
                         flags,
                         -1,
                         NULL,

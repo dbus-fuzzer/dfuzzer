@@ -44,6 +44,22 @@ static inline void df_dbus_method_cleanup(struct df_dbus_method *p)
         memset(p, 0, sizeof(*p));
 }
 
+struct df_dbus_property {
+        char *name;
+        char *signature;
+        gboolean is_readable;
+        gboolean is_writable;
+        gboolean expect_reply;
+};
+
+static inline void df_dbus_property_cleanup(struct df_dbus_property *p)
+{
+        free(p->name);
+        free(p->signature);
+        memset(p, 0, sizeof(*p));
+}
+
+guint64 df_get_number_of_iterations(const char *signature);
 GVariant *df_generate_random_basic(const GVariantType *type, guint64 iteration);
 GVariant *df_generate_random_from_signature(const char *signature, guint64 iteration);
 /**
@@ -94,10 +110,13 @@ int df_fuzz_add_method_arg(const char *signature);
  * command finished unsuccessfuly
  */
 int df_fuzz_test_method(
-                const struct df_dbus_method *method, long buf_size, const char *name,
+                const struct df_dbus_method *method, const char *name,
                 const char *obj, const char *intf, const int pid, const char *execute_cmd,
-                guint64 min_iterations, guint64 max_iterations);
+                guint64 iterations);
 
+int df_fuzz_test_property(GDBusConnection *dcon, const struct df_dbus_property *property,
+                          const char *bus, const char *object, const char *interface,
+                          const int pid, guint64 iterations);
 extern FILE* logfile;
 
 /** Writes a message to a logfile if it is opened (i.e. if -L flag was passed

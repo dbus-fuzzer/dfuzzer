@@ -32,11 +32,13 @@
 #include <unistd.h>
 
 #include "fuzz.h"
+#include "bus.h"
 #include "dfuzzer.h"
 #include "rand.h"
 #include "util.h"
 
-
+extern int df_debug_flag;
+extern guint64 df_buf_size;
 /** Pointer on D-Bus interface proxy for calling methods. */
 static GDBusProxy *df_dproxy;
 /** Exceptions counter; if MAX_EXCEPTIONS is reached testing continues
@@ -442,40 +444,30 @@ static int df_check_if_exited(const int pid) {
  * command finished unsuccessfuly
  */
 int df_fuzz_test_method(
-                const struct df_dbus_method *method, long buf_size, const char *name,
+                const struct df_dbus_method *method, const char *name,
                 const char *obj, const char *intf, const int pid, const char *execute_cmd,
-                guint64 min_iterations, guint64 max_iterations)
+                guint64 iterations)
 {
         _cleanup_(g_variant_unrefp) GVariant *value = NULL;
-        guint64 iterations;
         int ret = 0;            // return value from df_fuzz_call_method()
         int execr = 0;          // return value from execution of execute_cmd
-        int buf_size_flg = 0;
-
-        if (buf_size != 0)
-                buf_size_flg = 1;
-        if (buf_size < MINLEN)
-                buf_size = MAX_BUF_LEN;
-        // initialization of random module
-        df_rand_init(buf_size);
-        iterations = df_get_number_of_iterations(method->signature);
-        iterations = CLAMP(iterations, min_iterations, max_iterations);
 
         df_debug("  Method: %s%s %s => %"G_GUINT64_FORMAT" iterations%s\n", ansi_bold(),
                  method->name, method->signature, iterations, ansi_normal());
 
         df_verbose("  %s...", method->name);
 
+        df_except_counter = 0;
+
         for (guint64 i = 0; i < iterations; i++) {
                 int r;
 
                 value = safe_g_variant_unref(value);
 
-                // creates variant containing all (fuzzed) method arguments
+                /* Create a random GVariant based on method's signature */
                 value = df_generate_random_from_signature(method->signature, i);
-                if (!value) {
+                if (!value)
                         return df_debug_ret(-1, "Failed to generate a variant for signature '%s'\n", method->signature);
-                }
 
                 /* Convert the floating variant reference into a full one */
                 value = g_variant_ref_sink(value);
@@ -483,7 +475,7 @@ int df_fuzz_test_method(
                 execr = df_exec_cmd_check(execute_cmd);
 
                 if (ret < 0) {
-                        df_fail("%s  %sFAIL%s %s - unexpected response\n",
+                        df_fail("%s  %sFAIL%s [M] %s - unexpected response\n",
                                 ansi_cr(), ansi_red(), ansi_normal(), method->name);
                         break;
                 }
@@ -491,7 +483,7 @@ int df_fuzz_test_method(
                 if (execr < 0)
                         return df_fail_ret(-1, "df_exec_cmd_check() failed: %m");
                 else if (execr > 0) {
-                        df_fail("%s  %sFAIL%s %s - '%s' returned %s%d%s\n",
+                        df_fail("%s  %sFAIL%s [M] %s - '%s' returned %s%d%s\n",
                                 ansi_cr(), ansi_red(), ansi_normal(), method->name,
                                 execute_cmd, ansi_red(), execr, ansi_normal());
                         break;
@@ -502,7 +494,7 @@ int df_fuzz_test_method(
                         return df_fail_ret(-1, "Error while reading process' stat file: %m\n");
                 else if (r == 0) {
                         ret = -1;
-                        df_fail("%s  %sFAIL%s %s - process %d exited\n",
+                        df_fail("%s  %sFAIL%s [M] %s - process %d exited\n",
                                 ansi_cr(), ansi_red(), ansi_normal(), method->name, pid);
                         break;
                 }
@@ -518,16 +510,15 @@ int df_fuzz_test_method(
                 if (logfile)
                         df_fuzz_write_log(method, value);
                 FULL_LOG("Success\n");
-                if (df_except_counter == MAX_EXCEPTIONS) {
-                        df_except_counter = 0;
+
+                if (df_except_counter == MAX_EXCEPTIONS)
                         break;
-                }
         }
 
         if (ret != 0 || execr != 0)
                 goto fail_label;
 
-        df_verbose("%s  %sPASS%s %s\n",
+        df_verbose("%s  %sPASS%s [M] %s\n",
                    ansi_cr(), ansi_green(), ansi_normal(), method->name);
         return 0;
 
@@ -541,8 +532,7 @@ fail_label:
 
         df_fail("   reproducer: %sdfuzzer -v -n %s -o %s -i %s -t %s",
                 ansi_yellow(), name, obj, intf, method->name);
-        if (buf_size_flg)
-                df_fail(" -b %ld", buf_size);
+        df_fail(" -b %"G_GUINT64_FORMAT, df_buf_size);
         if (execute_cmd != NULL)
                 df_fail(" -e '%s'", execute_cmd);
         df_fail("%s\n", ansi_normal());
@@ -600,7 +590,7 @@ static int df_fuzz_call_method(const struct df_dbus_method *method, GVariant *va
                                 return -1;
                         } else if ((strcmp(dbus_error, "org.freedesktop.DBus.Error.AccessDenied") == 0) ||
                                    (strcmp(dbus_error, "org.freedesktop.DBus.Error.AuthFailed") == 0)) {
-                                df_verbose("%s  %sSKIP%s %s - raised exception '%s'\n",
+                                df_verbose("%s  %sSKIP%s [M] %s - raised exception '%s'\n",
                                            ansi_cr(), ansi_blue(), ansi_normal(),
                                            method->name, dbus_error);
                                 return 2;
@@ -609,12 +599,12 @@ static int df_fuzz_call_method(const struct df_dbus_method *method, GVariant *va
 
                 g_dbus_error_strip_remote_error(error);
                 if (strstr(error->message, "Timeout")) {
-                        df_verbose("%s  %sSKIP%s %s - timeout reached\n",
+                        df_verbose("%s  %sSKIP%s [M] %s - timeout reached\n",
                                    ansi_cr(), ansi_blue(), ansi_normal(), method->name);
                         return 2;
                 }
 
-                df_debug("%s  EXCE %s - D-Bus exception thrown: %.60s\n",
+                df_debug("%s  EXCE %s - D-Bus exception thrown: %s\n",
                          ansi_cr(), method->name, error->message);
                 df_except_counter++;
                 return 0;
@@ -624,12 +614,161 @@ static int df_fuzz_call_method(const struct df_dbus_method *method, GVariant *va
                         fmt = g_variant_get_type_string(response);
                         // void function can only return empty tuple
                         if (strcmp(fmt, "()") != 0) {
-                                df_fail("%s  %sFAIL%s %s - void method returns '%s' instead of '()'\n",
+                                df_fail("%s  %sFAIL%s [M] %s - void method returns '%s' instead of '()'\n",
                                         ansi_cr(), ansi_red(), ansi_normal(), method->name, fmt);
                                 return 1;
                         }
                 }
         }
+
+        return 0;
+}
+
+static int df_fuzz_get_property(GDBusProxy *pproxy, const char *interface,
+                                const struct df_dbus_property *property)
+{
+        g_autoptr(GVariant) response = NULL;
+
+        response = df_bus_call(pproxy, "Get",
+                               g_variant_new("(ss)", interface, property->name),
+                               G_DBUS_CALL_FLAGS_NONE);
+        if (!response)
+                return -1;
+
+        if (df_debug_flag) {
+                g_autofree gchar *value_str = NULL;
+                value_str = g_variant_print(response, TRUE);
+                df_debug("Got value for property %s.%s: %s\n", interface, property->name, value_str);
+        }
+
+        return 0;
+}
+
+static int df_fuzz_set_property(GDBusProxy *pproxy, const char *interface,
+                                const struct df_dbus_property *property, GVariant *value)
+{
+        g_autoptr(GVariant) val = NULL, response = NULL;
+        g_autoptr(GError) error = NULL;
+        g_autofree gchar *dbus_error = NULL;
+
+        /* Unwrap the variant, since our generator automagically wraps it in a tuple
+         * to make generating method signatures easier. Property signatures should
+         * consist of a single complete type, hence getting the first child from
+         * the tuple should achieve just that. */
+        val = g_variant_get_child_value(value, 0);
+        response = g_dbus_proxy_call_sync(
+                        pproxy,
+                        "Set",
+                        g_variant_new("(ssv)", interface, property->name, val),
+                        G_DBUS_CALL_FLAGS_NONE,
+                        -1,
+                        NULL,
+                        &error);
+        if (!response) {
+                // D-Bus exceptions are accepted
+                dbus_error = g_dbus_error_get_remote_error(error);
+                if (dbus_error) {
+                        if (strcmp(dbus_error, "org.freedesktop.DBus.Error.NoReply") == 0)
+                                /* If the property is annotated as "NoReply", don't consider
+                                 * not replying as an error */
+                                return property->expect_reply ? -1 : 0;
+                        else if (strcmp(dbus_error, "org.freedesktop.DBus.Error.Timeout") == 0) {
+                                sleep(10);
+                                return -1;
+                        } else if ((strcmp(dbus_error, "org.freedesktop.DBus.Error.AccessDenied") == 0) ||
+                                   (strcmp(dbus_error, "org.freedesktop.DBus.Error.AuthFailed") == 0)) {
+                                df_verbose("%s  %sSKIP%s [P] %s - raised exception '%s'\n",
+                                           ansi_cr(), ansi_blue(), ansi_normal(),
+                                           property->name, dbus_error);
+                                return 2;
+                        }
+                }
+
+                g_dbus_error_strip_remote_error(error);
+                if (strstr(error->message, "Timeout")) {
+                        df_verbose("%s  %sSKIP%s [P] %s - timeout reached\n",
+                                   ansi_cr(), ansi_blue(), ansi_normal(), property->name);
+                        return 2;
+                }
+
+                df_debug("%s  EXCE [P] %s - D-Bus exception thrown: %s\n",
+                         ansi_cr(), property->name, error->message);
+                df_except_counter++;
+                return 0;
+        }
+
+        if (df_debug_flag) {
+                g_autofree gchar *value_str = NULL;
+                value_str = g_variant_print(value, TRUE);
+                df_debug("Set value for property %s.%s: %s\n", interface, property->name, value_str);
+        }
+
+        return 0;
+}
+
+int df_fuzz_test_property(GDBusConnection *dcon, const struct df_dbus_property *property,
+                          const char *bus, const char *object, const char *interface,
+                          const int pid, guint64 iterations)
+{
+        g_autoptr(GDBusProxy) pproxy = NULL;
+        int r;
+
+        df_debug("  Property: %s%s %s => %"G_GUINT64_FORMAT" iterations%s\n", ansi_bold(),
+                 property->name, property->signature, iterations, ansi_normal());
+
+        df_verbose("  [P] %s...", property->name);
+
+        /* Create a "property proxy"
+         * See: https://dbus.freedesktop.org/doc/dbus-specification.html#standard-interfaces-properties
+         */
+        pproxy = df_bus_new(dcon, bus, object, "org.freedesktop.DBus.Properties",
+                            G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES|G_DBUS_PROXY_FLAGS_DO_NOT_CONNECT_SIGNALS);
+        if (!pproxy)
+                return df_fail_ret(-1, "Failed to create a property proxy for object '%s'\n", object);
+
+        for (guint64 i = 0; i < iterations; i++) {
+                /* Try to read the property if it's readable */
+                if (property->is_readable) {
+                        r = df_fuzz_get_property(pproxy, interface, property);
+                        if (r < 0) {
+                                df_fail("%s  %sFAIL%s [P] %s - unexpected response while reading a property\n",
+                                        ansi_cr(), ansi_red(), ansi_normal(), property->name);
+                                return 1;
+                        }
+                }
+
+                /* Try to write a random value to the property if it's writable */
+                if (property->is_writable) {
+                        g_autoptr(GVariant) value = NULL;
+
+                        /* Create a random GVariant based on method's signature */
+                        value = df_generate_random_from_signature(property->signature, i);
+                        if (!value)
+                                return df_debug_ret(-1, "Failed to generate a variant for signature '%s'\n", property->signature);
+
+                        /* Convert the floating variant reference into a full one */
+                        value = g_variant_ref_sink(value);
+                        r = df_fuzz_set_property(pproxy, interface, property, value);
+                        if (r < 0) {
+                                df_fail("%s  %sFAIL%s [P] %s - unexpected response while writing to a property\n",
+                                        ansi_cr(), ansi_red(), ansi_normal(), property->name);
+                                return 1;
+                        }
+                }
+
+                /* Check if the remote side is still alive */
+                r = df_check_if_exited(pid);
+                if (r < 0)
+                        return df_fail_ret(-1, "Error while reading process' stat file: %m\n");
+                else if (r == 0) {
+                        df_fail("%s  %sFAIL%s [P] %s - process %d exited\n",
+                                ansi_cr(), ansi_red(), ansi_normal(), property->name, pid);
+                        return 1;
+                }
+        }
+
+        df_verbose("%s  %sPASS%s [P] %s\n",
+                   ansi_cr(), ansi_green(), ansi_normal(), property->name);
 
         return 0;
 }
