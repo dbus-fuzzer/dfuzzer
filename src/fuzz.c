@@ -23,6 +23,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <gio/gio.h>
+#include <json-glib/json-glib.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -48,6 +49,9 @@ static char df_except_counter = 0;
 static void df_fuzz_write_log(const struct df_dbus_method *method, GVariant *value);
 static int df_exec_cmd_check(const char *cmd);
 static int df_fuzz_call_method(const struct df_dbus_method *method, GVariant *value);
+static void df_fuzz_dump_reproducer(const char *bus, const char *object, const char *interface,
+                         const char *method, const char *signature, GVariant *value,
+                         const char *type);
 
 guint64 df_get_number_of_iterations(const char *signature) {
         guint64 iterations = 0;
@@ -399,6 +403,8 @@ static int df_check_if_exited(const int pid) {
         assert(pid > 0);
 
         sprintf(proc_pid, "/proc/%d/status", pid);
+        /* FIXME: check correctly if the target responds before checking its PID,
+         *        otherwise we might miss the crash */
 
         f = fopen(proc_pid, "r");
         if (!f) {
@@ -539,6 +545,8 @@ fail_label:
                 df_fuzz_write_log(method, value);
         }
 
+        df_fuzz_dump_reproducer(name, obj, intf, method->name, method->signature, value, "fail");
+
         df_fail("   reproducer: %sdfuzzer -v -n %s -o %s -i %s -t %s",
                 ansi_yellow(), name, obj, intf, method->name);
         if (buf_size_flg)
@@ -632,4 +640,75 @@ static int df_fuzz_call_method(const struct df_dbus_method *method, GVariant *va
         }
 
         return 0;
+}
+
+static void df_fuzz_dump_reproducer(const char *bus, const char *object, const char *interface,
+                         const char *method, const char *signature, GVariant *value,
+                         const char *type)
+{
+        g_autoptr(JsonBuilder) builder = NULL;
+        g_autoptr(JsonNode) root = NULL;
+        g_autoptr(JsonGenerator) generator = NULL;
+        g_autoptr (GError) error = NULL;
+        g_autofree gchar *filename = NULL;
+
+        /* No log dir set, don't dump anything */
+        if (!df_log_dir)
+                return;
+
+        assert(bus);
+        assert(object);
+        assert(method);
+        assert(signature);
+        assert(value);
+
+        /* Generate a JSON tree
+         *
+         * Current structure:
+         *  {
+         *      "bus": <bus_name>,
+         *      "object": <object_name>,
+         *      "interface": <interface_name>,
+         *      "method": <method_name>,
+         *      "payload": {
+         *          "signature": <signature>,
+         *          "data": <serialized_gvariant>
+         *      }
+         *  }
+         */
+        builder = json_builder_new();
+        json_builder_begin_object(builder);
+
+        json_builder_set_member_name(builder, "bus");
+        json_builder_add_string_value(builder, bus);
+        json_builder_set_member_name(builder, "object");
+        json_builder_add_string_value(builder, object);
+        json_builder_set_member_name(builder, "interface");
+        json_builder_add_string_value(builder, interface);
+        json_builder_set_member_name(builder, "method");
+        json_builder_add_string_value(builder, method);
+
+        json_builder_set_member_name(builder, "payload");
+        json_builder_begin_object(builder);
+        json_builder_set_member_name(builder, "signature");
+        json_builder_add_string_value(builder, signature);
+        json_builder_set_member_name(builder, "data");
+        json_builder_add_value(builder, json_gvariant_serialize(value));
+        json_builder_end_object(builder);
+
+        json_builder_end_object(builder);
+
+        /* Serialize the whole JSON tree */
+        root = json_builder_get_root(builder);
+        generator = json_generator_new();
+        json_generator_set_root(generator, root);
+        json_generator_set_pretty(generator, TRUE);
+
+        /* Dump it into a file */
+        filename = g_strdup_printf("%s/%s-%s-%"G_GINT64_FORMAT"-%s.json", df_log_dir,
+                                   bus, method, g_get_real_time(), type);
+        if (!json_generator_to_file(generator, filename, &error))
+                df_fail("Failed to dump reproducer into file '%s': %s\n", filename, error->message);
+
+        df_fail("   Wrote the reproducer into file '%s'\n", filename);
 }

@@ -8,6 +8,7 @@ project('dfuzzer', 'c',
 )
 
 libgio = dependency('gio-2.0', required : true)
+json_glib = dependency('json-glib-1.0', required : true)
 xsltproc = find_program('xsltproc', required: false)
 
 subdir('src')
@@ -15,7 +16,7 @@ subdir('src')
 executable(
         'dfuzzer',
         dfuzzer_sources,
-        dependencies : [libgio],
+        dependencies : [libgio, json_glib],
         install : true
 )
 

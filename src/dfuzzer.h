@@ -67,6 +67,8 @@ struct suppression_item {
         char *description;
 };
 
+extern char *df_log_dir;
+
 int df_process_bus(GBusType bus_type);
 
 /**
