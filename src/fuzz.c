@@ -482,6 +482,12 @@ int df_fuzz_test_method(
                 ret = df_fuzz_call_method(method, value);
                 execr = df_exec_cmd_check(execute_cmd);
 
+                if (ret < 0) {
+                        df_fail("%s  %sFAIL%s %s - unexpected response\n",
+                                ansi_cr(), ansi_red(), ansi_normal(), method->name);
+                        break;
+                }
+
                 if (execr < 0)
                         return df_fail_ret(-1, "df_exec_cmd_check() failed: %m");
                 else if (execr > 0) {
