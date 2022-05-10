@@ -533,6 +533,7 @@ int df_fuzz(GDBusConnection *dcon, const char *name, const char *object, const c
                 dbus_method.name = strdup(m->name);
                 dbus_method.signature = df_method_get_full_signature(m);
                 dbus_method.returns_value = !!*(m->out_args);
+                dbus_method.expect_reply = df_method_returns_reply(m);
                 dbus_method.fuzz_on_str_len = (strstr(dbus_method.signature, "s") || strstr(dbus_method.signature, "v"));
 
                 // tests for method

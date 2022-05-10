@@ -32,6 +32,7 @@ struct df_dbus_method {
         char *name;
         char *signature;
         gboolean returns_value;
+        gboolean expect_reply;
 
         int fuzz_on_str_len;
 };

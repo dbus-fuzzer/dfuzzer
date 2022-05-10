@@ -60,6 +60,10 @@ static const gchar introspection_xml[] =
 "               <method name='df_noreply'>"
 "                       <arg type='t' name='lol' direction='in'/>"
 "               </method>"
+"               <method name='df_noreply_expected'>"
+"                       <arg type='ag' name='in' direction='in'/>"
+"                       <annotation name='org.freedesktop.DBus.Method.NoReply' value='true'/>"
+"               </method>"
 "               <method name='df_variant_crash'>"
 "                       <arg type='v' name='variant' direction='in'/>"
 "               </method>"
@@ -127,8 +131,8 @@ static void handle_method_call(
                 g_dbus_method_invocation_return_value(invocation, g_variant_new("()"));
         } else if (g_strcmp0(method_name, "df_hang") == 0)
                 pause();
-        else if (g_strcmp0(method_name, "df_noreply") == 0)
-                return;
+        else if (g_strcmp0(method_name, "df_noreply") == 0 || g_strcmp0(method_name, "df_noreply_expected") == 0)
+                g_dbus_method_invocation_return_dbus_error(invocation, "org.freedesktop.DBus.Error.NoReply", "org.freedesktop.DBus.Error.NoReply");
         else if (g_strcmp0(method_name, "df_complex_sig_1") == 0) {
                 gchar *str = NULL;
                 unsigned u;

@@ -22,5 +22,6 @@
 
 GDBusNodeInfo *df_get_interface_info(GDBusProxy *dproxy, const char *interface, GDBusInterfaceInfo **ret_iinfo);
 char *df_method_get_full_signature(const GDBusMethodInfo *method);
+gboolean df_method_returns_reply(const GDBusMethodInfo *method);
 
 #endif

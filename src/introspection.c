@@ -102,3 +102,16 @@ char *df_method_get_full_signature(const GDBusMethodInfo *method)
         return r;
 }
 
+gboolean df_method_returns_reply(const GDBusMethodInfo *method)
+{
+        const gchar *annotation_str;
+
+        assert(method);
+
+        annotation_str = g_dbus_annotation_info_lookup(method->annotations,
+                                                       "org.freedesktop.DBus.Method.NoReply");
+        if (!isempty(annotation_str) && g_strcmp0(annotation_str, "true") == 0)
+                return FALSE;
+
+        return TRUE;
+}
