@@ -118,7 +118,7 @@ static void handle_method_call(
 
         g_printf("->[handle_method_call] %s\n", method_name);
 
-        if (g_strcmp0(method_name, "df_hello") == 0) {
+        if (g_str_equal(method_name, "df_hello")) {
                 gchar *msg;
                 int n;
 
@@ -143,15 +143,15 @@ static void handle_method_call(
                 gchar *str = NULL;
 
                 g_variant_get(parameters, "(&s)", &str);
-                if (g_strcmp0(str, "Leeroy Jenkins") == 0)
+                if (g_str_equal(str, "Leeroy Jenkins"))
                         test_abort();
 
                 g_dbus_method_invocation_return_value(invocation, g_variant_new("()"));
-        } else if (g_strcmp0(method_name, "df_hang") == 0)
+        } else if (g_str_equal(method_name, "df_hang"))
                 pause();
-        else if (g_strcmp0(method_name, "df_noreply") == 0 || g_strcmp0(method_name, "df_noreply_expected") == 0)
+        else if (g_str_equal(method_name, "df_noreply") || g_str_equal(method_name, "df_noreply_expected"))
                 g_dbus_method_invocation_return_dbus_error(invocation, "org.freedesktop.DBus.Error.NoReply", "org.freedesktop.DBus.Error.NoReply");
-        else if (g_strcmp0(method_name, "df_complex_sig_1") == 0) {
+        else if (g_str_equal(method_name, "df_complex_sig_1")) {
                 gchar *str = NULL;
                 unsigned u;
                 int i;
@@ -161,7 +161,7 @@ static void handle_method_call(
 
                 response = g_strdup_printf("%s", str);
                 g_dbus_method_invocation_return_value(invocation, g_variant_new("(s)", response));
-        } else if (g_strcmp0(method_name, "df_complex_sig_2") == 0)
+        } else if (g_str_equal(method_name, "df_complex_sig_2"))
                 g_dbus_method_invocation_return_value(invocation, g_variant_new("(i)", 0));
 }
 
@@ -175,7 +175,7 @@ static GVariant *handle_get_property(
 
         g_printf("->[handle_get_property] %s\n", property_name);
 
-        if (g_strcmp0(property_name, "read_only") == 0) {
+        if (g_str_equal(property_name, "read_only")) {
                 response = g_variant_new("(s)", prop_read_only);
         }
 
@@ -192,7 +192,7 @@ static gboolean handle_set_property(
         serialized_value = g_variant_print(value, TRUE);
         g_printf("->[handle_set_property] %s -> %s\n", property_name, serialized_value);
 
-        if (g_strcmp0(property_name, "write_only") == 0) {
+        if (g_str_equal(property_name, "write_only")) {
                 g_autofree gchar *str = NULL;
                 str = g_variant_dup_string(value, NULL);
                 if (str) {

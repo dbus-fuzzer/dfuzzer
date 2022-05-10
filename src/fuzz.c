@@ -579,17 +579,15 @@ static int df_fuzz_call_method(const struct df_dbus_method *method, GVariant *va
                 // D-Bus exceptions are accepted
                 dbus_error = g_dbus_error_get_remote_error(error);
                 if (dbus_error) {
-                        // if process does not respond
-                        if (strcmp(dbus_error, "org.freedesktop.DBus.Error.NoReply") == 0)
+                        if (g_str_equal(dbus_error, "org.freedesktop.DBus.Error.NoReply"))
                                 /* If the method is annotated as "NoReply", don't consider
                                  * not replying as an error */
                                 return method->expect_reply ? -1 : 0;
-                        else if (strcmp(dbus_error, "org.freedesktop.DBus.Error.Timeout") == 0) {
-                                sleep(10);      // wait for tested process; processing
-                                // of longer inputs may take a longer time
+                        else if (g_str_equal(dbus_error, "org.freedesktop.DBus.Error.Timeout")) {
+                                sleep(10);
                                 return -1;
-                        } else if ((strcmp(dbus_error, "org.freedesktop.DBus.Error.AccessDenied") == 0) ||
-                                   (strcmp(dbus_error, "org.freedesktop.DBus.Error.AuthFailed") == 0)) {
+                        } else if (g_str_equal(dbus_error, "org.freedesktop.DBus.Error.AccessDenied") ||
+                                   g_str_equal(dbus_error, "org.freedesktop.DBus.Error.AuthFailed")) {
                                 df_verbose("%s  %sSKIP%s [M] %s - raised exception '%s'\n",
                                            ansi_cr(), ansi_blue(), ansi_normal(),
                                            method->name, dbus_error);
@@ -609,11 +607,10 @@ static int df_fuzz_call_method(const struct df_dbus_method *method, GVariant *va
                 df_except_counter++;
                 return 0;
         } else {
+                /* Check if a method without return value returns void */
                 if (!method->returns_value) {
-                        // fmt points to GVariant, do not free it
                         fmt = g_variant_get_type_string(response);
-                        // void function can only return empty tuple
-                        if (strcmp(fmt, "()") != 0) {
+                        if (!g_str_equal(fmt, "()")) {
                                 df_fail("%s  %sFAIL%s [M] %s - void method returns '%s' instead of '()'\n",
                                         ansi_cr(), ansi_red(), ansi_normal(), method->name, fmt);
                                 return 1;
@@ -665,18 +662,17 @@ static int df_fuzz_set_property(GDBusProxy *pproxy, const char *interface,
                         NULL,
                         &error);
         if (!response) {
-                // D-Bus exceptions are accepted
                 dbus_error = g_dbus_error_get_remote_error(error);
                 if (dbus_error) {
-                        if (strcmp(dbus_error, "org.freedesktop.DBus.Error.NoReply") == 0)
+                        if (g_str_equal(dbus_error, "org.freedesktop.DBus.Error.NoReply"))
                                 /* If the property is annotated as "NoReply", don't consider
                                  * not replying as an error */
                                 return property->expect_reply ? -1 : 0;
-                        else if (strcmp(dbus_error, "org.freedesktop.DBus.Error.Timeout") == 0) {
+                        else if (g_str_equal(dbus_error, "org.freedesktop.DBus.Error.Timeout")) {
                                 sleep(10);
                                 return -1;
-                        } else if ((strcmp(dbus_error, "org.freedesktop.DBus.Error.AccessDenied") == 0) ||
-                                   (strcmp(dbus_error, "org.freedesktop.DBus.Error.AuthFailed") == 0)) {
+                        } else if (g_str_equal(dbus_error, "org.freedesktop.DBus.Error.AccessDenied") ||
+                                   g_str_equal(dbus_error, "org.freedesktop.DBus.Error.AuthFailed")) {
                                 df_verbose("%s  %sSKIP%s [P] %s - raised exception '%s'\n",
                                            ansi_cr(), ansi_blue(), ansi_normal(),
                                            property->name, dbus_error);

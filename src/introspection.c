@@ -110,7 +110,7 @@ gboolean df_object_returns_reply(GDBusAnnotationInfo **annotations)
 
         annotation_str = g_dbus_annotation_info_lookup(annotations,
                                                        "org.freedesktop.DBus.Method.NoReply");
-        if (!isempty(annotation_str) && g_strcmp0(annotation_str, "true") == 0)
+        if (!isempty(annotation_str) && g_str_equal(annotation_str, "true"))
                 return FALSE;
 
         return TRUE;

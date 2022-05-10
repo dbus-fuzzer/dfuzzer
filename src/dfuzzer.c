@@ -371,9 +371,9 @@ int df_traverse_node(GDBusConnection *dcon, const char *root_node)
                 // D-Bus exceptions
                 if ((dbus_error = g_dbus_error_get_remote_error(error)) != NULL) {
                         // if process does not respond
-                        if (strcmp(dbus_error, "org.freedesktop.DBus.Error.NoReply") == 0)
+                        if (g_str_equal(dbus_error, "org.freedesktop.DBus.Error.NoReply"))
                                 return DF_BUS_FAIL;
-                        if (strcmp(dbus_error, "org.freedesktop.DBus.Error.Timeout") == 0)
+                        if (g_str_equal(dbus_error, "org.freedesktop.DBus.Error.Timeout"))
                                 return DF_BUS_FAIL;
                         return DF_BUS_OK;
                 } else {
@@ -454,13 +454,13 @@ static int df_path_is_suppressed(const char *object, const char *interface, cons
 
         for (struct suppression_item **p = suppressions, *i; (i = *p) && i; p++) {
                 /* If the method name is set but doesn't match, continue */
-                if (!isempty(method) && !isempty(i->method) && strcmp(method, i->method) != 0)
+                if (!isempty(method) && !isempty(i->method) && !g_str_equal(method, i->method))
                         continue;
                 /* If the interface name is set but doesn't match, continue */
-                if (!isempty(interface) && !isempty(i->interface) && strcmp(interface, i->interface) != 0)
+                if (!isempty(interface) && !isempty(i->interface) && !g_str_equal(interface, i->interface))
                         continue;
                 /* If the object name is set but doesn't match, continue */
-                if (!isempty(object) && !isempty(i->object) && strcmp(object, i->object) != 0)
+                if (!isempty(object) && !isempty(i->object) && !g_str_equal(object, i->object))
                         continue;
                 /* Everything that should match matches, so the method is suppressed */
                 *ret_description_ptr = i->description;
@@ -523,7 +523,7 @@ int df_fuzz(GDBusConnection *dcon, const char *name, const char *object, const c
                 _cleanup_(df_dbus_property_cleanup) struct df_dbus_property dbus_property = {0,};
 
                 /* Test only a specific property if set */
-                if (df_test_property && strcmp(df_test_property, p->name) != 0)
+                if (df_test_property && !g_str_equal(df_test_property, p->name))
                         continue;
 
                 property_found = 1;
@@ -589,7 +589,7 @@ int df_fuzz(GDBusConnection *dcon, const char *name, const char *object, const c
                 char *description;
 
                 /* Test only a specific method if set */
-                if (df_test_method && strcmp(df_test_method, m->name) != 0)
+                if (df_test_method && !g_str_equal(df_test_method, m->name))
                         continue;
 
                 method_found = 1;
