@@ -137,15 +137,22 @@ log_out="$(mktemp)"
 sudo "${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i org.freedesktop.systemd1.Manager -t ListUnits |& tee "$log_out"
 grep "PASS" "$log_out"
 grep "SKIP" "$log_out" && false
+
+# Going through all objects and their properties takes an ungodly amount of time
+# in CI with Valgrind (2h+), so let's help it a little
+bus_object=()
+if [[ "$TYPE" == valgrind ]]; then
+        bus_object=(-o /org/freedesktop/systemd1/unit/_2d_2eslice)
+fi
 # Test as an unprivileged user (short options)
-"${dfuzzer[@]}" -v -n org.freedesktop.systemd1
+"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 "${bus_object[@]}"
 # Test as root (long options + duplicate options)
-sudo "${dfuzzer[@]}" --verbose --bus this.should.be.ignored --bus org.freedesktop.systemd1
+sudo "${dfuzzer[@]}" --verbose --bus this.should.be.ignored --bus org.freedesktop.systemd1 "${bus_object[@]}"
 # Test logdir
 mkdir dfuzzer-logs
 "${dfuzzer[@]}" --log-dir dfuzzer-logs -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i org.freedesktop.systemd1.Manager
 # Test a non-existent bus
-if sudo "${dfuzzer[@]}" --log-dir "" --bus this.should.not.exist; then false; fi
+sudo "${dfuzzer[@]}" --log-dir "" --bus this.should.not.exist && false
 # Test object & interface options
 "${dfuzzer[@]}" -v --bus org.freedesktop.systemd1 --object / --interface org.freedesktop.DBus.Peer
 sudo "${dfuzzer[@]}" -v --bus org.freedesktop.systemd1 --object / --interface org.freedesktop.DBus.Peer
@@ -153,7 +160,7 @@ sudo "${dfuzzer[@]}" -v --bus org.freedesktop.systemd1 --object / --interface or
 "${dfuzzer[@]}" -v --bus org.freedesktop.systemd1 --object xxx --object yyy --object / --interface org.freedesktop.DBus.Peer
 "${dfuzzer[@]}" -v --bus org.freedesktop.systemd1 --object xxx --object yyy --object / --interface zzz --interface org.freedesktop.DBus.Peer
 # - test error paths
-if "${dfuzzer[@]}" -v --bus org.freedesktop.systemd1 --object aaa; then false; fi
-if "${dfuzzer[@]}" -v --bus org.freedesktop.systemd1 --interface aaa; then false; fi
+"${dfuzzer[@]}" -v --bus org.freedesktop.systemd1 --object aaa && false
+"${dfuzzer[@]}" -v --bus org.freedesktop.systemd1 --interface aaa && false
 
 sudo systemctl stop dfuzzer-test-server
