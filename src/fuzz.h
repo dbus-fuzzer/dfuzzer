@@ -33,8 +33,6 @@ struct df_dbus_method {
         char *signature;
         gboolean returns_value;
         gboolean expect_reply;
-
-        int fuzz_on_str_len;
 };
 
 static inline void df_dbus_method_cleanup(struct df_dbus_method *p)

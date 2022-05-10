@@ -604,7 +604,6 @@ int df_fuzz(GDBusConnection *dcon, const char *name, const char *object, const c
                 dbus_method.signature = df_method_get_full_signature(m);
                 dbus_method.returns_value = !!*(m->out_args);
                 dbus_method.expect_reply = df_object_returns_reply(m->annotations);
-                dbus_method.fuzz_on_str_len = (strstr(dbus_method.signature, "s") || strstr(dbus_method.signature, "v"));
 
                 iterations = df_get_number_of_iterations(dbus_method.signature);
                 iterations = CLAMP(iterations, df_min_iterations, df_max_iterations);
