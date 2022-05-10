@@ -591,7 +591,9 @@ static int df_fuzz_call_method(const struct df_dbus_method *method, GVariant *va
                 if (dbus_error) {
                         // if process does not respond
                         if (strcmp(dbus_error, "org.freedesktop.DBus.Error.NoReply") == 0)
-                                return -1;
+                                /* If the method is annotated as "NoReply", don't consider
+                                 * not replying as an error */
+                                return method->expect_reply ? -1 : 0;
                         else if (strcmp(dbus_error, "org.freedesktop.DBus.Error.Timeout") == 0) {
                                 sleep(10);      // wait for tested process; processing
                                 // of longer inputs may take a longer time

@@ -7,6 +7,11 @@ if [[ "$TYPE" == valgrind ]]; then
         dfuzzer=("valgrind" "--leak-check=full" "--show-leak-kinds=definite" "--errors-for-leak-kinds=definite" "--error-exitcode=42" "dfuzzer")
 fi
 
+# CI specific suppressions for issues already fixed in upstream
+sudo sed -i '/\[org.freedesktop.systemd1\]/a \
+org.freedesktop.systemd1.Manager:Reexecute Fixed by https://github.com/systemd/systemd/pull/23328 \
+' /etc/dfuzzer.conf
+
 sudo systemctl daemon-reload
 
 # Test if we can list activatable dbus services as well
@@ -34,6 +39,10 @@ no way this is a string as well
 EOF
 "${dfuzzer[@]}" -f inputs.txt -s -v -n org.freedesktop.dfuzzerServer -o /org/freedesktop/dfuzzerObject -i org.freedesktop.dfuzzerInterface -t df_crash_on_leeroy && false
 rm -f inputs.txt
+
+# Test if we respect the org.freedesktop.DBus.Method.NoReply annotation
+"${dfuzzer[@]}" -s -v -n org.freedesktop.dfuzzerServer -o /org/freedesktop/dfuzzerObject -i org.freedesktop.dfuzzerInterface -t df_noreply && false
+"${dfuzzer[@]}" -s -v -n org.freedesktop.dfuzzerServer -o /org/freedesktop/dfuzzerObject -i org.freedesktop.dfuzzerInterface -t df_noreply_expected
 
 sudo systemctl stop dfuzzer-test-server
 
