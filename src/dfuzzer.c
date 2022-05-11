@@ -37,6 +37,8 @@
 #include "rand.h"
 #include "util.h"
 
+/* Shared global variables */
+char *df_log_dir;
 
 /** Structure containing D-Bus name, object path and interface of process */
 static struct fuzzing_target target_proc = { "", "", "" };
@@ -71,7 +73,6 @@ static char *df_execute_cmd;
   * written to a [BUS_NAME.log] file */
 static int df_full_log_flag;
 /** Path to directory containing output logs */
-static char *log_dir_name;
 static guint64 df_max_iterations = G_MAXUINT32;
 static guint64 df_min_iterations = 10;
 /** Pointer to a file for full logging  */
@@ -94,7 +95,7 @@ int main(int argc, char **argv)
         df_parse_parameters(argc, argv);
 
         if (df_full_log_flag) {
-                log_file_name = strjoina(log_dir_name, "/", target_proc.name);
+                log_file_name = strjoina(df_log_dir, "/", target_proc.name);
                 logfile = fopen(log_file_name, "a+");
                 if(!logfile) {
                         df_fail("Error opening file %s; detailed logs will not be written\n", log_file_name);
@@ -874,7 +875,7 @@ void df_parse_parameters(int argc, char **argv)
                                                 " 'L'\n", argv[0], MAXLEN - 1);
                                         exit(1);
                                 }
-                                log_dir_name = optarg;
+                                df_log_dir = optarg;
                                 df_full_log_flag = 1;
                                 break;
                         case 'x':
