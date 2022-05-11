@@ -89,6 +89,17 @@ static const gchar introspection_xml[] =
 "       </interface>"
 "</node>";
 
+/* Dump coverage on abort() */
+extern void __gcov_dump(void);
+
+static inline void test_abort(void)
+{
+#ifdef WITH_COVERAGE
+        __gcov_dump();
+#endif
+
+        abort();
+}
 
 static void handle_method_call(
                 GDBusConnection *connection, const gchar *sender,
@@ -120,13 +131,13 @@ static void handle_method_call(
                         g_variant_new("(s)", response));
                 g_printf("Sending response to Client: [%s]\n", response);
         } else if (g_strcmp0(method_name, "df_crash") == 0 || g_strcmp0(method_name, "df_variant_crash") == 0)
-                abort();
+                test_abort();
         else if (g_strcmp0(method_name, "df_crash_on_leeroy") == 0) {
                 gchar *str = NULL;
 
                 g_variant_get(parameters, "(&s)", &str);
                 if (g_strcmp0(str, "Leeroy Jenkins") == 0)
-                        abort();
+                        test_abort();
 
                 g_dbus_method_invocation_return_value(invocation, g_variant_new("()"));
         } else if (g_strcmp0(method_name, "df_hang") == 0)

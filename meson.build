@@ -10,6 +10,10 @@ project('dfuzzer', 'c',
 libgio = dependency('gio-2.0', required : true)
 xsltproc = find_program('xsltproc', required: false)
 
+if get_option('b_coverage')
+        add_project_arguments('-DWITH_COVERAGE', language : 'c')
+endif
+
 subdir('src')
 
 executable(
