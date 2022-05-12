@@ -722,8 +722,12 @@ int df_fuzz_test_property(GDBusConnection *dcon, const struct df_dbus_property *
         if (!pproxy)
                 return df_fail_ret(-1, "Failed to create a property proxy for object '%s'\n", object);
 
-        for (guint64 i = 0; i < iterations; i++) {
-                /* Try to read the property if it's readable */
+        /* Try to read the property if it's readable.
+         *
+         * For performance reasons read readable property only twice, since that
+         * should be enough to trigger most of the issues.
+         */
+        for (guint8 i = 0; i < 2; i++) {
                 if (property->is_readable) {
                         r = df_fuzz_get_property(pproxy, interface, property);
                         if (r < 0) {
@@ -732,8 +736,15 @@ int df_fuzz_test_property(GDBusConnection *dcon, const struct df_dbus_property *
                                 return 1;
                         }
                 }
+        }
 
-                /* Try to write a random value to the property if it's writable */
+        /* Try to write a random value to the property if it's writable
+         *
+         * Cap the iterations for writable properties to 16 for now, since without
+         * dictionaries doing the "full" loop is mostly a waste of time.
+         */
+        iterations = CLAMP(iterations, 1, 16);
+        for (guint64 i = 0; i < iterations; i++) {
                 if (property->is_writable) {
                         g_autoptr(GVariant) value = NULL;
 
