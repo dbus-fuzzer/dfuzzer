@@ -273,8 +273,6 @@ int df_is_object_on_bus(GDBusConnection *dcon, const char *root_node)
         _cleanup_(g_error_freep) GError *error = NULL;
         /** Information about nodes in a remote object hierarchy. */
         _cleanup_(g_dbus_node_info_unrefp) GDBusNodeInfo *node_data = NULL;
-        GDBusNodeInfo *node = NULL;
-        int i = 0;
         int ret = 0;        // return value of this function
 
         if (strstr(root_node, target_proc.obj_path) != NULL)
@@ -307,9 +305,7 @@ int df_is_object_on_bus(GDBusConnection *dcon, const char *root_node)
         }
 
         // go through all nodes
-        i = 0;
-        node = node_data->nodes[i++];
-        while (node != NULL) {
+        STRV_FOREACH(node, node_data->nodes) {
                 _cleanup_free_ char *object = NULL;
                 // create next object path
                 object = strjoin(root_node, strlen(root_node) == 1 ? "" : "/", node->path);
@@ -320,8 +316,6 @@ int df_is_object_on_bus(GDBusConnection *dcon, const char *root_node)
                 ret = df_is_object_on_bus(dcon, object);
                 if (ret == 1)
                         return 1;
-                // move to next node
-                node = node_data->nodes[i++];
         }
 
         return ret;
@@ -347,10 +341,6 @@ int df_traverse_node(GDBusConnection *dcon, const char *root_node)
         _cleanup_(g_error_freep) GError *error = NULL;
         /** Information about nodes in a remote object hierarchy. */
         _cleanup_(g_dbus_node_info_unrefp) GDBusNodeInfo *node_data = NULL;
-        GDBusNodeInfo *node = NULL;
-        int i = 0;
-        /** Information about a D-Bus interface. */
-        GDBusInterfaceInfo *interface = NULL;
         /** Return values */
         int rd = 0;          // return value from df_fuzz()
         int rt = 0;          // return value from recursive transition
@@ -399,9 +389,7 @@ int df_traverse_node(GDBusConnection *dcon, const char *root_node)
         }
 
         // go through all interfaces
-        i = 0;
-        interface = node_data->interfaces[i++];
-        while (interface != NULL) {
+        STRV_FOREACH(interface, node_data->interfaces) {
                 fprintf(stderr, " Interface: %s%s%s\n",
                         ansi_bold(), interface->name, ansi_normal());
                 // start fuzzing on the target_proc.name
@@ -412,7 +400,6 @@ int df_traverse_node(GDBusConnection *dcon, const char *root_node)
                         if (rd != DF_BUS_OK)
                                 ret = rd;
                 }
-                interface = node_data->interfaces[i++];
         }
 
         // if object path was set as dfuzzer option, do not traverse
@@ -421,9 +408,7 @@ int df_traverse_node(GDBusConnection *dcon, const char *root_node)
                 return ret;
 
         // go through all nodes
-        i = 0;
-        node = node_data->nodes[i++];
-        while (node != NULL) {
+        STRV_FOREACH(node, node_data->nodes) {
                 _cleanup_free_ char *object = NULL;
                 // create next object path
                 object = strjoin(root_node, strlen(root_node) == 1 ? "" : "/", node->path);
@@ -439,8 +424,6 @@ int df_traverse_node(GDBusConnection *dcon, const char *root_node)
                         if (rt != DF_BUS_OK)
                                 ret = rt;
                 }
-                // move to next node
-                node = node_data->nodes[i++];
         }
 
         return ret;
@@ -516,9 +499,7 @@ int df_fuzz(GDBusConnection *dcon, const char *name, const char *object, const c
         }
 
         /* Test properties */
-        for (GDBusPropertyInfo **_p = interface_info->properties, *p;
-             !df_skip_properties && (p = *_p) && p;
-             _p++) {
+        STRV_FOREACH_COND(p, interface_info->properties, !df_skip_properties) {
                 _cleanup_(df_dbus_property_cleanup) struct df_dbus_property dbus_property = {0,};
 
                 /* Test only a specific property if set */
@@ -580,10 +561,7 @@ int df_fuzz(GDBusConnection *dcon, const char *name, const char *object, const c
         }
 
         /* Test methods */
-        for (GDBusMethodInfo **p = interface_info->methods, *m;
-             /* Skip methods if a specific property to test is set */
-             !df_skip_methods && (m = *p) && m;
-             p++) {
+        STRV_FOREACH_COND(m, interface_info->methods, !df_skip_methods) {
                 _cleanup_(df_dbus_method_cleanup) struct df_dbus_method dbus_method = {0,};
                 char *description;
 
