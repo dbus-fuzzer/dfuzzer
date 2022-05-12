@@ -43,14 +43,14 @@ guint64 df_buf_size = MAX_BUF_LEN;
 int df_verbose_flag;
 int df_debug_flag;
 
+gboolean df_skip_methods;
+gboolean df_skip_properties;
+static char *df_test_method;
+static char *df_test_property;
 /** Structure containing D-Bus name, object path and interface of process */
 static struct fuzzing_target target_proc = { "", "", "" };
 /** Option for listing names on the bus */
 static int df_list_names;
-/** Contains method name or NULL. When not NULL, only method with this name
-  * will be tested (do not free - points to argv) */
-static char *df_test_method;
-static char *df_test_property;
 /** Tested process PID */
 static int df_pid = -1;
 /** NULL terminated struct of methods names which will be skipped from testing */
@@ -517,8 +517,7 @@ int df_fuzz(GDBusConnection *dcon, const char *name, const char *object, const c
 
         /* Test properties */
         for (GDBusPropertyInfo **_p = interface_info->properties, *p;
-             /* Skip properties if a specific method to test is set */
-             isempty(df_test_method) && (p = *_p) && p;
+             !df_skip_properties && (p = *_p) && p;
              _p++) {
                 _cleanup_(df_dbus_property_cleanup) struct df_dbus_property dbus_property = {0,};
 
@@ -583,7 +582,7 @@ int df_fuzz(GDBusConnection *dcon, const char *name, const char *object, const c
         /* Test methods */
         for (GDBusMethodInfo **p = interface_info->methods, *m;
              /* Skip methods if a specific property to test is set */
-             isempty(df_test_property) && (m = *p) && m;
+             !df_skip_methods && (m = *p) && m;
              p++) {
                 _cleanup_(df_dbus_method_cleanup) struct df_dbus_method dbus_method = {0,};
                 char *description;
@@ -665,12 +664,12 @@ int df_fuzz(GDBusConnection *dcon, const char *name, const char *object, const c
                 }
         }
 
-        if (df_test_method && method_found == 0) {
+        if (!df_skip_methods && df_test_method && method_found == 0) {
                 df_fail("Error: Method '%s' is not in the interface '%s'.\n", df_test_method, interface);
                 return DF_BUS_ERROR;
         }
 
-        if (df_test_property && property_found == 0) {
+        if (!df_skip_properties && df_test_property && property_found == 0) {
                 df_fail("Error: Property '%s' is not in the interface '%s'.\n", df_test_property, interface);
                 return DF_BUS_ERROR;
         }
@@ -847,26 +846,35 @@ void df_parse_parameters(int argc, char **argv)
         int c = 0;
         int r;
 
+        enum {
+                /* 0x100: make geopt() return values >256 for options without
+                 * short variant */
+                ARG_SKIP_METHODS = 0x100,
+                ARG_SKIP_PROPERTIES,
+        };
+
         static const struct option options[] = {
-                { "buffer-limit",       required_argument,  NULL,   'b' },
-                { "debug",              no_argument,        NULL,   'd' },
-                { "command",            required_argument,  NULL,   'e' },
-                { "string-file",        required_argument,  NULL,   'f' },
-                { "help",               no_argument,        NULL,   'h' },
-                { "interface",          required_argument,  NULL,   'i' },
-                { "list",               no_argument,        NULL,   'l' },
-                { "mem-limit",          required_argument,  NULL,   'm' },
-                { "bus",                required_argument,  NULL,   'n' },
-                { "object",             required_argument,  NULL,   'o' },
-                { "property",           required_argument,  NULL,   'p' },
-                { "no-suppressions",    no_argument,        NULL,   's' },
-                { "method",             required_argument,  NULL,   't' },
-                { "verbose",            no_argument,        NULL,   'v' },
-                { "log-dir",            required_argument,  NULL,   'L' },
-                { "version",            no_argument,        NULL,   'V' },
-                { "max-iterations",     required_argument,  NULL,   'x' },
-                { "min-iterations",     required_argument,  NULL,   'y' },
-                { "iterations",         required_argument,  NULL,   'I' },
+                { "buffer-limit",       required_argument,  NULL,   'b'                 },
+                { "debug",              no_argument,        NULL,   'd'                 },
+                { "command",            required_argument,  NULL,   'e'                 },
+                { "string-file",        required_argument,  NULL,   'f'                 },
+                { "help",               no_argument,        NULL,   'h'                 },
+                { "interface",          required_argument,  NULL,   'i'                 },
+                { "list",               no_argument,        NULL,   'l'                 },
+                { "mem-limit",          required_argument,  NULL,   'm'                 },
+                { "bus",                required_argument,  NULL,   'n'                 },
+                { "object",             required_argument,  NULL,   'o'                 },
+                { "property",           required_argument,  NULL,   'p'                 },
+                { "no-suppressions",    no_argument,        NULL,   's'                 },
+                { "method",             required_argument,  NULL,   't'                 },
+                { "verbose",            no_argument,        NULL,   'v'                 },
+                { "log-dir",            required_argument,  NULL,   'L'                 },
+                { "version",            no_argument,        NULL,   'V'                 },
+                { "max-iterations",     required_argument,  NULL,   'x'                 },
+                { "min-iterations",     required_argument,  NULL,   'y'                 },
+                { "iterations",         required_argument,  NULL,   'I'                 },
+                { "skip-methods",       no_argument,        NULL,   ARG_SKIP_METHODS    },
+                { "skip-properties",    no_argument,        NULL,   ARG_SKIP_PROPERTIES },
                 {}
         };
 
@@ -914,9 +922,13 @@ void df_parse_parameters(int argc, char **argv)
                                 break;
                         case 't':
                                 df_test_method = optarg;
+                                /* Skip properties when we test a specific method */
+                                df_skip_properties = TRUE;
                                 break;
                         case 'p':
                                 df_test_property = optarg;
+                                /* Skip methods when we test a specific property */
+                                df_skip_methods = TRUE;
                                 break;
                         case 'e':
                                 df_execute_cmd = optarg;
@@ -1002,6 +1014,12 @@ void df_parse_parameters(int argc, char **argv)
                                         exit(1);
                                 }
 
+                                break;
+                        case ARG_SKIP_METHODS:
+                                df_skip_methods = TRUE;
+                                break;
+                        case ARG_SKIP_PROPERTIES:
+                                df_skip_properties = TRUE;
                                 break;
                         default:    // '?'
                                 exit(1);
@@ -1217,10 +1235,12 @@ void df_print_help(const char *name)
          "  -i --interface=INTERFACE    Interface to test. Requires -o to be set as well.\n"
          "  -t --method=METHOD_NAME     Test only given method, all other methods are skipped.\n"
          "                              Requires -o and -i to be set as well. Can't be used together\n"
-         "                              with --property=.\n"
+         "                              with --property=. Implies --skip-properties.\n"
          "  -p --property=PROPERTY_NAME Test only given property, all other properties are skipped.\n"
          "                              Requires -o and -i to be set as well, can't be used togetgher\n"
-         "                              with --method=.\n"
+         "                              with --method=. Implies --skip-methods.\n"
+         "     --skip-methods           Skip all methods.\n"
+         "     --skip-properties        Skip all properties.\n"
          "  -b --buffer-limit=SIZE      Maximum buffer size for generated strings in bytes.\n"
          "                              Default: 50K, minimum: 256B.\n"
          "  -x --max-iterations=ITER    Maximum number of iterations done for each method.\n"
