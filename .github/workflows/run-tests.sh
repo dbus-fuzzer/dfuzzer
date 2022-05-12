@@ -8,6 +8,7 @@ if [[ "$TYPE" == valgrind ]]; then
 fi
 
 # CI specific suppressions for issues already fixed in upstream
+# shellcheck disable=SC1004
 sudo sed -i '/\[org.freedesktop.systemd1\]/a \
 org.freedesktop.systemd1.Manager:Reexecute Fixed by https://github.com/systemd/systemd/pull/23328 \
 ' /etc/dfuzzer.conf
@@ -128,9 +129,28 @@ rm -f dfuzzer.conf
 "${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -L "$(perl -e 'print "x" x 256')" && false
 "${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -b 0 && false
 "${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -x 0 && false
+# Non-existent bus/object/interface/method/property objects
+"${dfuzzer[@]}" -v -n aaaaaaaa && false
 "${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o aaaaaaaaa && false
-"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o / -i aaaaaaaaaa && false
-"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o / -i aaaaaaaaaa && false
+"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i aaaaaaaaaa && false
+"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i org.freedesktop.systemd1.Manager -t bbbbbbb && false
+"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i org.freedesktop.systemd1.Manager -p ccccccc && false
+# -t/--method= and -p/--property= are mutualy exclusive
+"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o / -i a -t method -p property && false
+# Non-existent -f/--dictionary= path
+"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -f /a/b/c/d/e && false
+for opt in "-y" "--min-iterations" "-x" "--max-iterations" "-I" "--iterations"; do
+        # Number of iterations must be > 0 ...
+        "${dfuzzer[@]}" -v -n org.freedesktop.systemd1 "$opt" 0 && false
+        "${dfuzzer[@]}" -v -n org.freedesktop.systemd1 "$opt" -1 && false
+        # ... must fit into guint64, i.e. < 2^64 -1 ...
+        "${dfuzzer[@]}" -v -n org.freedesktop.systemd1 "$opt" 18446744073709551616 && false
+        # ... and it should be a valid integer.
+        "${dfuzzer[@]}" -v -n org.freedesktop.systemd1 "$opt" 10a && false
+        "${dfuzzer[@]}" -v -n org.freedesktop.systemd1 "$opt" 10.1 && false
+done
+# min-iterations <= max-iterations
+"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 --max-iterations=1 --min-iterations=2 && false
 
 # Check if we probe void methods
 log_out="$(mktemp)"
