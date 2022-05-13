@@ -62,6 +62,14 @@ static inline GVariantIter *safe_g_variant_iter_free(GVariantIter *p) {
 
         return NULL;
 }
+
+static inline GDBusProxy *safe_g_dbus_proxy_unref(GDBusProxy *p) {
+        if (p)
+                g_object_unref(p);
+
+        return NULL;
+}
+
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(char*, free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(gchar*, g_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(GDBusConnection*, g_dbus_connection_unref, NULL);
@@ -113,6 +121,9 @@ static inline int isempty(const char *s) {
                 !__builtin_types_compatible_p(typeof(x), typeof(&*(x))), \
                 sizeof(x)/sizeof((x)[0]),                               \
                 (void*)0))
+
+#define STRV_FOREACH(i, strv) for (typeof(*(strv)) *_i = (strv), i; (i = *_i) && i; _i++)
+#define STRV_FOREACH_COND(i, strv, cond) for (typeof(*(strv)) *_i = (strv), i; (cond) && (i = *_i) && i; _i++)
 
 int safe_strtoull(const gchar *p, guint64 *ret);
 char *strjoin_real(const char *x, ...) __attribute__((__sentinel__));

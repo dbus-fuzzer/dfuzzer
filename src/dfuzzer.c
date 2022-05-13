@@ -30,27 +30,27 @@
 #include <errno.h>
 #include <getopt.h>
 
-#include "bus.h"
 #include "dfuzzer.h"
-#include "introspection.h"
+#include "bus.h"
 #include "fuzz.h"
+#include "introspection.h"
 #include "rand.h"
 #include "util.h"
 
+/* Shared global variables */
+/** Maximum buffer size for generated strings by rand module (in Bytes) */
+guint64 df_buf_size = MAX_BUF_LEN;
+int df_verbose_flag;
+int df_debug_flag;
 
+gboolean df_skip_methods;
+gboolean df_skip_properties;
+static char *df_test_method;
+static char *df_test_property;
 /** Structure containing D-Bus name, object path and interface of process */
 static struct fuzzing_target target_proc = { "", "", "" };
-/** Debug flag */
-static int df_verbose_flag;
-/** Verbose flag */
-static int df_debug_flag;
 /** Option for listing names on the bus */
 static int df_list_names;
-/** Maximum buffer size for generated strings by rand module (in Bytes) */
-static guint64 df_buf_size;
-/** Contains method name or NULL. When not NULL, only method with this name
-  * will be tested (do not free - points to argv) */
-static char *df_test_method;
 /** Tested process PID */
 static int df_pid = -1;
 /** NULL terminated struct of methods names which will be skipped from testing */
@@ -273,8 +273,6 @@ int df_is_object_on_bus(GDBusConnection *dcon, const char *root_node)
         _cleanup_(g_error_freep) GError *error = NULL;
         /** Information about nodes in a remote object hierarchy. */
         _cleanup_(g_dbus_node_info_unrefp) GDBusNodeInfo *node_data = NULL;
-        GDBusNodeInfo *node = NULL;
-        int i = 0;
         int ret = 0;        // return value of this function
 
         if (strstr(root_node, target_proc.obj_path) != NULL)
@@ -307,9 +305,7 @@ int df_is_object_on_bus(GDBusConnection *dcon, const char *root_node)
         }
 
         // go through all nodes
-        i = 0;
-        node = node_data->nodes[i++];
-        while (node != NULL) {
+        STRV_FOREACH(node, node_data->nodes) {
                 _cleanup_free_ char *object = NULL;
                 // create next object path
                 object = strjoin(root_node, strlen(root_node) == 1 ? "" : "/", node->path);
@@ -320,8 +316,6 @@ int df_is_object_on_bus(GDBusConnection *dcon, const char *root_node)
                 ret = df_is_object_on_bus(dcon, object);
                 if (ret == 1)
                         return 1;
-                // move to next node
-                node = node_data->nodes[i++];
         }
 
         return ret;
@@ -347,10 +341,6 @@ int df_traverse_node(GDBusConnection *dcon, const char *root_node)
         _cleanup_(g_error_freep) GError *error = NULL;
         /** Information about nodes in a remote object hierarchy. */
         _cleanup_(g_dbus_node_info_unrefp) GDBusNodeInfo *node_data = NULL;
-        GDBusNodeInfo *node = NULL;
-        int i = 0;
-        /** Information about a D-Bus interface. */
-        GDBusInterfaceInfo *interface = NULL;
         /** Return values */
         int rd = 0;          // return value from df_fuzz()
         int rt = 0;          // return value from recursive transition
@@ -371,9 +361,9 @@ int df_traverse_node(GDBusConnection *dcon, const char *root_node)
                 // D-Bus exceptions
                 if ((dbus_error = g_dbus_error_get_remote_error(error)) != NULL) {
                         // if process does not respond
-                        if (strcmp(dbus_error, "org.freedesktop.DBus.Error.NoReply") == 0)
+                        if (g_str_equal(dbus_error, "org.freedesktop.DBus.Error.NoReply"))
                                 return DF_BUS_FAIL;
-                        if (strcmp(dbus_error, "org.freedesktop.DBus.Error.Timeout") == 0)
+                        if (g_str_equal(dbus_error, "org.freedesktop.DBus.Error.Timeout"))
                                 return DF_BUS_FAIL;
                         return DF_BUS_OK;
                 } else {
@@ -399,9 +389,7 @@ int df_traverse_node(GDBusConnection *dcon, const char *root_node)
         }
 
         // go through all interfaces
-        i = 0;
-        interface = node_data->interfaces[i++];
-        while (interface != NULL) {
+        STRV_FOREACH(interface, node_data->interfaces) {
                 fprintf(stderr, " Interface: %s%s%s\n",
                         ansi_bold(), interface->name, ansi_normal());
                 // start fuzzing on the target_proc.name
@@ -412,7 +400,6 @@ int df_traverse_node(GDBusConnection *dcon, const char *root_node)
                         if (rd != DF_BUS_OK)
                                 ret = rd;
                 }
-                interface = node_data->interfaces[i++];
         }
 
         // if object path was set as dfuzzer option, do not traverse
@@ -421,9 +408,7 @@ int df_traverse_node(GDBusConnection *dcon, const char *root_node)
                 return ret;
 
         // go through all nodes
-        i = 0;
-        node = node_data->nodes[i++];
-        while (node != NULL) {
+        STRV_FOREACH(node, node_data->nodes) {
                 _cleanup_free_ char *object = NULL;
                 // create next object path
                 object = strjoin(root_node, strlen(root_node) == 1 ? "" : "/", node->path);
@@ -439,8 +424,6 @@ int df_traverse_node(GDBusConnection *dcon, const char *root_node)
                         if (rt != DF_BUS_OK)
                                 ret = rt;
                 }
-                // move to next node
-                node = node_data->nodes[i++];
         }
 
         return ret;
@@ -454,13 +437,13 @@ static int df_path_is_suppressed(const char *object, const char *interface, cons
 
         for (struct suppression_item **p = suppressions, *i; (i = *p) && i; p++) {
                 /* If the method name is set but doesn't match, continue */
-                if (!isempty(method) && !isempty(i->method) && strcmp(method, i->method) != 0)
+                if (!isempty(method) && !isempty(i->method) && !g_str_equal(method, i->method))
                         continue;
                 /* If the interface name is set but doesn't match, continue */
-                if (!isempty(interface) && !isempty(i->interface) && strcmp(interface, i->interface) != 0)
+                if (!isempty(interface) && !isempty(i->interface) && !g_str_equal(interface, i->interface))
                         continue;
                 /* If the object name is set but doesn't match, continue */
-                if (!isempty(object) && !isempty(i->object) && strcmp(object, i->object) != 0)
+                if (!isempty(object) && !isempty(i->object) && !g_str_equal(object, i->object))
                         continue;
                 /* Everything that should match matches, so the method is suppressed */
                 *ret_description_ptr = i->description;
@@ -485,10 +468,12 @@ int df_fuzz(GDBusConnection *dcon, const char *name, const char *object, const c
         _cleanup_(g_dbus_proxy_unrefp) GDBusProxy *dproxy = NULL;
         _cleanup_(g_dbus_node_info_unrefp) GDBusNodeInfo *node_info = NULL;
         GDBusInterfaceInfo *interface_info = NULL;
-        int ret = 0;
-        int method_found = 0;   // If df_test_method is found in an interface,
-        // method_found is set to 1, otherwise is 0.
-        int rv = DF_BUS_OK;     // return value of function
+        guint64 iterations;
+        int method_found = 0, property_found = 0, ret;
+        int rv = DF_BUS_OK;
+
+        // initialization of random module
+        df_rand_init();
 
         // Sanity check fuzzing target
         if (isempty(name) || isempty(object) || isempty(interface)) {
@@ -513,49 +498,40 @@ int df_fuzz(GDBusConnection *dcon, const char *name, const char *object, const c
                 return DF_BUS_ERROR;
         }
 
-        for (GDBusMethodInfo **p = interface_info->methods, *m; (m = *p) && m; p++) {
-                _cleanup_(df_dbus_method_cleanup) struct df_dbus_method dbus_method = {0,};
-                char *description;
+        /* Test properties */
+        STRV_FOREACH_COND(p, interface_info->properties, !df_skip_properties) {
+                _cleanup_(df_dbus_property_cleanup) struct df_dbus_property dbus_property = {0,};
 
-                // testing only one method with name df_test_method
-                if (df_test_method != NULL) {
-                        if (strcmp(df_test_method, m->name) != 0)
-                                continue;
-                        method_found = 1;
-                }
-
-                if (df_path_is_suppressed(object, interface, m->name, &description) != 0) {
-                        df_verbose("%s  %sSKIP%s %s - %s\n", ansi_cr(), ansi_blue(), ansi_normal(),
-                                   m->name, description ?: "suppressed method");
+                /* Test only a specific property if set */
+                if (df_test_property && !g_str_equal(df_test_property, p->name))
                         continue;
-                }
 
-                dbus_method.name = strdup(m->name);
-                dbus_method.signature = df_method_get_full_signature(m);
-                dbus_method.returns_value = !!*(m->out_args);
-                dbus_method.expect_reply = df_method_returns_reply(m);
-                dbus_method.fuzz_on_str_len = (strstr(dbus_method.signature, "s") || strstr(dbus_method.signature, "v"));
+                property_found = 1;
 
-                // tests for method
-                ret = df_fuzz_test_method(
-                                &dbus_method,
-                                df_buf_size,
+                dbus_property.name = strdup(p->name);
+                dbus_property.signature = strjoin("(", p->signature, ")");
+                dbus_property.is_readable = p->flags & G_DBUS_PROPERTY_INFO_FLAGS_READABLE;
+                dbus_property.is_writable = p->flags & G_DBUS_PROPERTY_INFO_FLAGS_WRITABLE;
+                dbus_property.expect_reply = df_object_returns_reply(p->annotations);
+
+                iterations = df_get_number_of_iterations(dbus_property.signature);
+                iterations = CLAMP(iterations, df_min_iterations, df_max_iterations);
+                ret = df_fuzz_test_property(
+                                dcon,
+                                &dbus_property,
                                 name,
                                 object,
                                 interface,
                                 df_pid,
-                                df_execute_cmd,
-                                df_min_iterations,
-                                df_max_iterations);
-                if (ret == -1) {
+                                iterations);
+                if (ret < 0) {
                         // error during testing method
-                        df_debug("Error in df_fuzz_test_method()\n");
+                        df_debug("Error in df_fuzz_test_property()\n");
                         return DF_BUS_ERROR;
-                } else if (ret == 1 && df_test_method == NULL) {
+                } else if (ret == 1 && !df_test_property) {
                         // launch process again after crash
                         rv = DF_BUS_FAIL;
-                        g_object_unref(dproxy);
-                        dproxy = NULL;
+                        dproxy = safe_g_dbus_proxy_unref(dproxy);
 
                         if (!df_is_valid_dbus(name, object, interface))
                                 return DF_BUS_ERROR;
@@ -565,7 +541,7 @@ int df_fuzz(GDBusConnection *dcon, const char *name, const char *object, const c
                         if (!dproxy)
                                 return DF_BUS_ERROR;
 
-                        sleep(5);       // wait for application to launch
+                        sleep(5);
 
                         // gets pid of tested process
                         df_pid = df_get_pid(dcon, FALSE);
@@ -576,13 +552,81 @@ int df_fuzz(GDBusConnection *dcon, const char *name, const char *object, const c
                         fprintf(stderr, "%s%s[RE-CONNECTED TO PID: %d]%s\n",
                                         ansi_cr(), ansi_cyan(), df_pid, ansi_blue());
 
-                        // tells fuzz module to call methods on different dproxy and to use
-                        // new status file of process with PID df_pid
-                        if (df_fuzz_init(dproxy) == -1) {
+                        if (df_fuzz_init(dproxy) < 0) {
                                 df_debug("Error in df_fuzz_add_proxy()\n");
                                 return DF_BUS_ERROR;
                         }
-                } else if (ret == 1 && df_test_method != NULL) {
+                } else if (ret == 1 && df_test_property)
+                        rv = DF_BUS_FAIL;
+        }
+
+        /* Test methods */
+        STRV_FOREACH_COND(m, interface_info->methods, !df_skip_methods) {
+                _cleanup_(df_dbus_method_cleanup) struct df_dbus_method dbus_method = {0,};
+                char *description;
+
+                /* Test only a specific method if set */
+                if (df_test_method && !g_str_equal(df_test_method, m->name))
+                        continue;
+
+                method_found = 1;
+
+                if (df_path_is_suppressed(object, interface, m->name, &description) != 0) {
+                        df_verbose("%s  %sSKIP%s [M] %s - %s\n", ansi_cr(), ansi_blue(), ansi_normal(),
+                                   m->name, description ?: "suppressed method");
+                        continue;
+                }
+
+                dbus_method.name = strdup(m->name);
+                dbus_method.signature = df_method_get_full_signature(m);
+                dbus_method.returns_value = !!*(m->out_args);
+                dbus_method.expect_reply = df_object_returns_reply(m->annotations);
+
+                iterations = df_get_number_of_iterations(dbus_method.signature);
+                iterations = CLAMP(iterations, df_min_iterations, df_max_iterations);
+
+                // tests for method
+                ret = df_fuzz_test_method(
+                                &dbus_method,
+                                name,
+                                object,
+                                interface,
+                                df_pid,
+                                df_execute_cmd,
+                                iterations);
+                if (ret < 0) {
+                        // error during testing method
+                        df_debug("Error in df_fuzz_test_method()\n");
+                        return DF_BUS_ERROR;
+                } else if (ret == 1 && !df_test_method) {
+                        // launch process again after crash
+                        rv = DF_BUS_FAIL;
+                        dproxy = safe_g_dbus_proxy_unref(dproxy);
+
+                        if (!df_is_valid_dbus(name, object, interface))
+                                return DF_BUS_ERROR;
+
+                        dproxy = df_bus_new(dcon, name, object, interface,
+                                            G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES|G_DBUS_PROXY_FLAGS_DO_NOT_CONNECT_SIGNALS);
+                        if (!dproxy)
+                                return DF_BUS_ERROR;
+
+                        sleep(5);
+
+                        // gets pid of tested process
+                        df_pid = df_get_pid(dcon, FALSE);
+                        if (df_pid < 0) {
+                                df_debug("Error in df_get_pid() on getting pid of process\n");
+                                return DF_BUS_ERROR;
+                        }
+                        fprintf(stderr, "%s%s[RE-CONNECTED TO PID: %d]%s\n",
+                                        ansi_cr(), ansi_cyan(), df_pid, ansi_blue());
+
+                        if (df_fuzz_init(dproxy) < 0) {
+                                df_debug("Error in df_fuzz_add_proxy()\n");
+                                return DF_BUS_ERROR;
+                        }
+                } else if (ret == 1 && df_test_method) {
                         // for one method, testing ends with failure
                         rv = DF_BUS_FAIL;
                 } else if (ret == 2) {
@@ -596,13 +640,16 @@ int df_fuzz(GDBusConnection *dcon, const char *name, const char *object, const c
                         // executed command finished unsuccessfuly
                         rv = DF_BUS_FAIL;
                 }
-
         }
 
-
-        if (method_found == 0 && df_test_method != NULL) {
+        if (!df_skip_methods && df_test_method && method_found == 0) {
                 df_fail("Error: Method '%s' is not in the interface '%s'.\n", df_test_method, interface);
-                return rv;
+                return DF_BUS_ERROR;
+        }
+
+        if (!df_skip_properties && df_test_property && property_found == 0) {
+                df_fail("Error: Property '%s' is not in the interface '%s'.\n", df_test_property, interface);
+                return DF_BUS_ERROR;
         }
 
         return rv;
@@ -777,29 +824,39 @@ void df_parse_parameters(int argc, char **argv)
         int c = 0;
         int r;
 
+        enum {
+                /* 0x100: make geopt() return values >256 for options without
+                 * short variant */
+                ARG_SKIP_METHODS = 0x100,
+                ARG_SKIP_PROPERTIES,
+        };
+
         static const struct option options[] = {
-                { "buffer-limit",       required_argument,  NULL,   'b' },
-                { "debug",              no_argument,        NULL,   'd' },
-                { "command",            required_argument,  NULL,   'e' },
-                { "string-file",        required_argument,  NULL,   'f' },
-                { "help",               no_argument,        NULL,   'h' },
-                { "interface",          required_argument,  NULL,   'i' },
-                { "list",               no_argument,        NULL,   'l' },
-                { "mem-limit",          required_argument,  NULL,   'm' },
-                { "bus",                required_argument,  NULL,   'n' },
-                { "object",             required_argument,  NULL,   'o' },
-                { "no-suppressions",    no_argument,        NULL,   's' },
-                { "method",             required_argument,  NULL,   't' },
-                { "verbose",            no_argument,        NULL,   'v' },
-                { "log-dir",            required_argument,  NULL,   'L' },
-                { "version",            no_argument,        NULL,   'V' },
-                { "max-iterations",     required_argument,  NULL,   'x' },
-                { "min-iterations",     required_argument,  NULL,   'y' },
-                { "iterations",         required_argument,  NULL,   'I' },
+                { "buffer-limit",       required_argument,  NULL,   'b'                 },
+                { "debug",              no_argument,        NULL,   'd'                 },
+                { "command",            required_argument,  NULL,   'e'                 },
+                { "string-file",        required_argument,  NULL,   'f'                 },
+                { "help",               no_argument,        NULL,   'h'                 },
+                { "interface",          required_argument,  NULL,   'i'                 },
+                { "list",               no_argument,        NULL,   'l'                 },
+                { "mem-limit",          required_argument,  NULL,   'm'                 },
+                { "bus",                required_argument,  NULL,   'n'                 },
+                { "object",             required_argument,  NULL,   'o'                 },
+                { "property",           required_argument,  NULL,   'p'                 },
+                { "no-suppressions",    no_argument,        NULL,   's'                 },
+                { "method",             required_argument,  NULL,   't'                 },
+                { "verbose",            no_argument,        NULL,   'v'                 },
+                { "log-dir",            required_argument,  NULL,   'L'                 },
+                { "version",            no_argument,        NULL,   'V'                 },
+                { "max-iterations",     required_argument,  NULL,   'x'                 },
+                { "min-iterations",     required_argument,  NULL,   'y'                 },
+                { "iterations",         required_argument,  NULL,   'I'                 },
+                { "skip-methods",       no_argument,        NULL,   ARG_SKIP_METHODS    },
+                { "skip-properties",    no_argument,        NULL,   ARG_SKIP_PROPERTIES },
                 {}
         };
 
-        while ((c = getopt_long(argc, argv, "n:o:i:m:b:t:e:L:x:y:f:I:sdvlhV", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "n:o:i:m:b:t:e:L:x:y:f:I:p:sdvlhV", options, NULL)) >= 0) {
                 switch (c) {
                         case 'n':
                                 if (strlen(optarg) >= MAXLEN) {
@@ -843,6 +900,13 @@ void df_parse_parameters(int argc, char **argv)
                                 break;
                         case 't':
                                 df_test_method = optarg;
+                                /* Skip properties when we test a specific method */
+                                df_skip_properties = TRUE;
+                                break;
+                        case 'p':
+                                df_test_property = optarg;
+                                /* Skip methods when we test a specific property */
+                                df_skip_methods = TRUE;
                                 break;
                         case 'e':
                                 df_execute_cmd = optarg;
@@ -929,6 +993,12 @@ void df_parse_parameters(int argc, char **argv)
                                 }
 
                                 break;
+                        case ARG_SKIP_METHODS:
+                                df_skip_methods = TRUE;
+                                break;
+                        case ARG_SKIP_PROPERTIES:
+                                df_skip_properties = TRUE;
+                                break;
                         default:    // '?'
                                 exit(1);
                                 break;
@@ -946,7 +1016,12 @@ void df_parse_parameters(int argc, char **argv)
         }
 
         if (df_min_iterations > df_max_iterations) {
-                df_fail("Error: minimal # of iterations can't be larger that the max one\n");
+                df_fail("Error: minimal # of iterations can't be larger that the max one.\n");
+                exit(1);
+        }
+
+        if (df_test_method && df_test_property) {
+                df_fail("Error: -t/--method= and -p/--property= are mutually exclusive.\n");
                 exit(1);
         }
 }
@@ -1137,7 +1212,13 @@ void df_print_help(const char *name)
          "  -o --object=OBJECT_PATH     Optional object path to test. All children objects are traversed.\n"
          "  -i --interface=INTERFACE    Interface to test. Requires -o to be set as well.\n"
          "  -t --method=METHOD_NAME     Test only given method, all other methods are skipped.\n"
-         "                              Requires -o and -i to be set as well.\n"
+         "                              Requires -o and -i to be set as well. Can't be used together\n"
+         "                              with --property=. Implies --skip-properties.\n"
+         "  -p --property=PROPERTY_NAME Test only given property, all other properties are skipped.\n"
+         "                              Requires -o and -i to be set as well, can't be used togetgher\n"
+         "                              with --method=. Implies --skip-methods.\n"
+         "     --skip-methods           Skip all methods.\n"
+         "     --skip-properties        Skip all properties.\n"
          "  -b --buffer-limit=SIZE      Maximum buffer size for generated strings in bytes.\n"
          "                              Default: 50K, minimum: 256B.\n"
          "  -x --max-iterations=ITER    Maximum number of iterations done for each method.\n"

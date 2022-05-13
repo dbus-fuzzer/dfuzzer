@@ -31,8 +31,8 @@
 #include "util.h"
 
 
-/** Maximum buffer size for generated strings (in Bytes) */
-static size_t df_buf_size;
+extern guint64 df_buf_size;
+
 static struct external_dictionary df_external_dictionary;
 
 /**
@@ -40,15 +40,10 @@ static struct external_dictionary df_external_dictionary;
  * numbers generators.
  * @param buf_size Maximum buffer size for generated strings (in Bytes)
  */
-void df_rand_init(const long buf_size)
+void df_rand_init()
 {
         srand(time(NULL));  // for int rand()
         srandom(time(NULL));    // for long int random()
-
-        if (buf_size < MINLEN)
-                df_buf_size = MAX_BUF_LEN;
-        else
-                df_buf_size = buf_size;
 }
 
 int df_rand_load_external_dictionary(const char *filename)

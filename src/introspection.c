@@ -102,15 +102,15 @@ char *df_method_get_full_signature(const GDBusMethodInfo *method)
         return r;
 }
 
-gboolean df_method_returns_reply(const GDBusMethodInfo *method)
+gboolean df_object_returns_reply(GDBusAnnotationInfo **annotations)
 {
         const gchar *annotation_str;
 
-        assert(method);
+        assert(annotations);
 
-        annotation_str = g_dbus_annotation_info_lookup(method->annotations,
+        annotation_str = g_dbus_annotation_info_lookup(annotations,
                                                        "org.freedesktop.DBus.Method.NoReply");
-        if (!isempty(annotation_str) && g_strcmp0(annotation_str, "true") == 0)
+        if (!isempty(annotation_str) && g_str_equal(annotation_str, "true"))
                 return FALSE;
 
         return TRUE;

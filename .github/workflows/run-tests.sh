@@ -8,6 +8,7 @@ if [[ "$TYPE" == valgrind ]]; then
 fi
 
 # CI specific suppressions for issues already fixed in upstream
+# shellcheck disable=SC1004
 sudo sed -i '/\[org.freedesktop.systemd1\]/a \
 org.freedesktop.systemd1.Manager:Reexecute Fixed by https://github.com/systemd/systemd/pull/23328 \
 ' /etc/dfuzzer.conf
@@ -43,6 +44,11 @@ rm -f inputs.txt
 # Test if we respect the org.freedesktop.DBus.Method.NoReply annotation
 "${dfuzzer[@]}" -s -v -n org.freedesktop.dfuzzerServer -o /org/freedesktop/dfuzzerObject -i org.freedesktop.dfuzzerInterface -t df_noreply && false
 "${dfuzzer[@]}" -s -v -n org.freedesktop.dfuzzerServer -o /org/freedesktop/dfuzzerObject -i org.freedesktop.dfuzzerInterface -t df_noreply_expected
+
+# Test property handling
+"${dfuzzer[@]}" -s -v -n org.freedesktop.dfuzzerServer -o /org/freedesktop/dfuzzerObject -i org.freedesktop.dfuzzerInterface -p crash_on_write && false
+"${dfuzzer[@]}" -s -v -n org.freedesktop.dfuzzerServer -o /org/freedesktop/dfuzzerObject -i org.freedesktop.dfuzzerInterface -p read_only
+"${dfuzzer[@]}" -s -v -n org.freedesktop.dfuzzerServer -o /org/freedesktop/dfuzzerObject -i org.freedesktop.dfuzzerInterface -p write_only
 
 sudo systemctl stop dfuzzer-test-server
 
@@ -88,25 +94,25 @@ perl -e 'print "[org.freedesktop.systemd1]\n"; print "Reboot destructive\n" x 25
 "${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i org.freedesktop.systemd1.Manager -t Reboot
 # Test various suppression definitions
 printf "[org.freedesktop.systemd1]\nPing" >dfuzzer.conf
-"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i org.freedesktop.DBus.Peer -t Ping |& grep "SKIP Ping"
+"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i org.freedesktop.DBus.Peer -t Ping |& grep -F "SKIP [M] Ping"
 printf "[org.freedesktop.systemd1]\n::Ping" >dfuzzer.conf
-"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i org.freedesktop.DBus.Peer -t Ping |& grep "SKIP Ping"
+"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i org.freedesktop.DBus.Peer -t Ping |& grep -F "SKIP [M] Ping"
 printf "[org.freedesktop.systemd1]\n/org/freedesktop/systemd1:org.freedesktop.DBus.Peer:Ping" >dfuzzer.conf
-"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i org.freedesktop.DBus.Peer -t Ping |& grep "SKIP Ping"
+"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i org.freedesktop.DBus.Peer -t Ping |& grep -F "SKIP [M] Ping"
 printf "[org.freedesktop.systemd1]\n/org/freedesktop/systemd1::Ping" >dfuzzer.conf
-"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i org.freedesktop.DBus.Peer -t Ping |& grep "SKIP Ping"
+"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i org.freedesktop.DBus.Peer -t Ping |& grep -F "SKIP [M] Ping"
 printf "[org.freedesktop.systemd1]\norg.freedesktop.DBus.Peer:Ping" >dfuzzer.conf
-"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i org.freedesktop.DBus.Peer -t Ping |& grep "SKIP Ping"
+"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i org.freedesktop.DBus.Peer -t Ping |& grep -F "SKIP [M] Ping"
 printf "[org.freedesktop.systemd1]\n:" >dfuzzer.conf
-"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i org.freedesktop.DBus.Peer -t Ping |& grep "SKIP Ping"
+"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i org.freedesktop.DBus.Peer -t Ping |& grep -F "SKIP [M] Ping"
 printf "[org.freedesktop.systemd1]\n::" >dfuzzer.conf
-"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i org.freedesktop.DBus.Peer -t Ping |& grep "SKIP Ping"
+"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i org.freedesktop.DBus.Peer -t Ping |& grep -F "SKIP [M] Ping"
 printf "[org.freedesktop.systemd1]\naaaaaaa:Ping" >dfuzzer.conf
-"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i org.freedesktop.DBus.Peer -t Ping |& grep "PASS Ping"
+"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i org.freedesktop.DBus.Peer -t Ping |& grep -F "PASS [M] Ping"
 printf "[org.freedesktop.systemd1]\naaaaaaa::Ping" >dfuzzer.conf
-"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i org.freedesktop.DBus.Peer -t Ping |& grep "PASS Ping"
+"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i org.freedesktop.DBus.Peer -t Ping |& grep -F "PASS [M] Ping"
 printf "[org.freedesktop.systemd1]\n/org/freedesktop/systemd1:nope:Ping" >dfuzzer.conf
-"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i org.freedesktop.DBus.Peer -t Ping |& grep "PASS Ping"
+"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i org.freedesktop.DBus.Peer -t Ping |& grep -F "PASS [M] Ping"
 # Invalid definitions
 printf "[org.freedesktop.systemd1]\n:::Ping" >dfuzzer.conf
 "${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i org.freedesktop.DBus.Peer -t Ping && false
@@ -123,24 +129,50 @@ rm -f dfuzzer.conf
 "${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -L "$(perl -e 'print "x" x 256')" && false
 "${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -b 0 && false
 "${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -x 0 && false
+# Non-existent bus/object/interface/method/property objects
+"${dfuzzer[@]}" -v -n aaaaaaaa && false
 "${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o aaaaaaaaa && false
-"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o / -i aaaaaaaaaa && false
-"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o / -i aaaaaaaaaa && false
+"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i aaaaaaaaaa && false
+"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i org.freedesktop.systemd1.Manager -t bbbbbbb && false
+"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i org.freedesktop.systemd1.Manager -p ccccccc && false
+# -t/--method= and -p/--property= are mutualy exclusive
+"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o / -i a -t method -p property && false
+# Non-existent -f/--dictionary= path
+"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -f /a/b/c/d/e && false
+for opt in "-y" "--min-iterations" "-x" "--max-iterations" "-I" "--iterations"; do
+        # Number of iterations must be > 0 ...
+        "${dfuzzer[@]}" -v -n org.freedesktop.systemd1 "$opt" 0 && false
+        "${dfuzzer[@]}" -v -n org.freedesktop.systemd1 "$opt" -1 && false
+        # ... must fit into guint64, i.e. < 2^64 -1 ...
+        "${dfuzzer[@]}" -v -n org.freedesktop.systemd1 "$opt" 18446744073709551616 && false
+        # ... and it should be a valid integer.
+        "${dfuzzer[@]}" -v -n org.freedesktop.systemd1 "$opt" 10a && false
+        "${dfuzzer[@]}" -v -n org.freedesktop.systemd1 "$opt" 10.1 && false
+done
+# min-iterations <= max-iterations
+"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 --max-iterations=1 --min-iterations=2 && false
 
 # Check if we probe void methods
 log_out="$(mktemp)"
 sudo "${dfuzzer[@]}" -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i org.freedesktop.systemd1.Manager -t ListUnits |& tee "$log_out"
 grep "PASS" "$log_out"
 grep "SKIP" "$log_out" && false
+
+# Going through all objects and their properties takes an ungodly amount of time
+# in CI with Valgrind (2h+), so let's help it a little
+bus_object=()
+if [[ "$TYPE" == valgrind ]]; then
+        bus_object=(-o /org/freedesktop/systemd1/unit/_2d_2eslice)
+fi
 # Test as an unprivileged user (short options)
-"${dfuzzer[@]}" -v -n org.freedesktop.systemd1
+"${dfuzzer[@]}" -v -n org.freedesktop.systemd1 "${bus_object[@]}"
 # Test as root (long options + duplicate options)
-sudo "${dfuzzer[@]}" --verbose --bus this.should.be.ignored --bus org.freedesktop.systemd1
+sudo "${dfuzzer[@]}" --verbose --bus this.should.be.ignored --bus org.freedesktop.systemd1 "${bus_object[@]}"
 # Test logdir
 mkdir dfuzzer-logs
 "${dfuzzer[@]}" --log-dir dfuzzer-logs -v -n org.freedesktop.systemd1 -o /org/freedesktop/systemd1 -i org.freedesktop.systemd1.Manager
 # Test a non-existent bus
-if sudo "${dfuzzer[@]}" --log-dir "" --bus this.should.not.exist; then false; fi
+sudo "${dfuzzer[@]}" --log-dir "" --bus this.should.not.exist && false
 # Test object & interface options
 "${dfuzzer[@]}" -v --bus org.freedesktop.systemd1 --object / --interface org.freedesktop.DBus.Peer
 sudo "${dfuzzer[@]}" -v --bus org.freedesktop.systemd1 --object / --interface org.freedesktop.DBus.Peer
@@ -148,7 +180,7 @@ sudo "${dfuzzer[@]}" -v --bus org.freedesktop.systemd1 --object / --interface or
 "${dfuzzer[@]}" -v --bus org.freedesktop.systemd1 --object xxx --object yyy --object / --interface org.freedesktop.DBus.Peer
 "${dfuzzer[@]}" -v --bus org.freedesktop.systemd1 --object xxx --object yyy --object / --interface zzz --interface org.freedesktop.DBus.Peer
 # - test error paths
-if "${dfuzzer[@]}" -v --bus org.freedesktop.systemd1 --object aaa; then false; fi
-if "${dfuzzer[@]}" -v --bus org.freedesktop.systemd1 --interface aaa; then false; fi
+"${dfuzzer[@]}" -v --bus org.freedesktop.systemd1 --object aaa && false
+"${dfuzzer[@]}" -v --bus org.freedesktop.systemd1 --interface aaa && false
 
 sudo systemctl stop dfuzzer-test-server

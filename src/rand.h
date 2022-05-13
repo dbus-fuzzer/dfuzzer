@@ -42,9 +42,8 @@ struct external_dictionary {
 /**
  * @function Initializes global flag variables and seeds pseudo-random
  * numbers generators.
- * @param buf_size Maximum buffer size for generated strings (in Bytes)
  */
-void df_rand_init(const long buf_size);
+void df_rand_init();
 int df_rand_load_external_dictionary(const char *filename);
 
 /**
