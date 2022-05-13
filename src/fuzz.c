@@ -455,7 +455,7 @@ int df_fuzz_test_method(
         df_debug("  Method: %s%s %s => %"G_GUINT64_FORMAT" iterations%s\n", ansi_bold(),
                  method->name, method->signature, iterations, ansi_normal());
 
-        df_verbose("  %s...", method->name);
+        df_verbose("  [M] %s...", method->name);
 
         df_except_counter = 0;
 
@@ -709,11 +709,6 @@ int df_fuzz_test_property(GDBusConnection *dcon, const struct df_dbus_property *
         g_autoptr(GDBusProxy) pproxy = NULL;
         int r;
 
-        df_debug("  Property: %s%s %s => %"G_GUINT64_FORMAT" iterations%s\n", ansi_bold(),
-                 property->name, property->signature, iterations, ansi_normal());
-
-        df_verbose("  [P] %s...", property->name);
-
         /* Create a "property proxy"
          * See: https://dbus.freedesktop.org/doc/dbus-specification.html#standard-interfaces-properties
          */
@@ -727,8 +722,14 @@ int df_fuzz_test_property(GDBusConnection *dcon, const struct df_dbus_property *
          * For performance reasons read readable property only twice, since that
          * should be enough to trigger most of the issues.
          */
-        for (guint8 i = 0; i < 2; i++) {
-                if (property->is_readable) {
+        iterations = 2;
+        if (property->is_readable) {
+                df_debug("  Property: %s%s %s (read) => %"G_GUINT64_FORMAT" iterations%s\n", ansi_bold(),
+                         property->name, property->signature, iterations, ansi_normal());
+
+                df_verbose("  [P] %s (read)...", property->name);
+
+                for (guint8 i = 0; i < iterations; i++) {
                         r = df_fuzz_get_property(pproxy, interface, property);
                         if (r < 0) {
                                 df_fail("%s  %sFAIL%s [P] %s - unexpected response while reading a property\n",
@@ -736,6 +737,19 @@ int df_fuzz_test_property(GDBusConnection *dcon, const struct df_dbus_property *
                                 return 1;
                         }
                 }
+
+                /* Check if the remote side is still alive */
+                r = df_check_if_exited(pid);
+                if (r < 0)
+                        return df_fail_ret(-1, "Error while reading process' stat file: %m\n");
+                else if (r == 0) {
+                        df_fail("%s  %sFAIL%s [P] %s (read) - process %d exited\n",
+                                ansi_cr(), ansi_red(), ansi_normal(), property->name, pid);
+                        return 1;
+                }
+
+                df_verbose("%s  %sPASS%s [P] %s (read)\n",
+                           ansi_cr(), ansi_green(), ansi_normal(), property->name);
         }
 
         /* Try to write a random value to the property if it's writable
@@ -744,8 +758,13 @@ int df_fuzz_test_property(GDBusConnection *dcon, const struct df_dbus_property *
          * dictionaries doing the "full" loop is mostly a waste of time.
          */
         iterations = CLAMP(iterations, 1, 16);
-        for (guint64 i = 0; i < iterations; i++) {
-                if (property->is_writable) {
+        if (property->is_writable) {
+                df_debug("  Property: %s%s %s (write) => %"G_GUINT64_FORMAT" iterations%s\n", ansi_bold(),
+                         property->name, property->signature, iterations, ansi_normal());
+
+                df_verbose("  [P] %s (write)...", property->name);
+
+                for (guint64 i = 0; i < iterations; i++) {
                         g_autoptr(GVariant) value = NULL;
 
                         /* Create a random GVariant based on method's signature */
@@ -757,7 +776,7 @@ int df_fuzz_test_property(GDBusConnection *dcon, const struct df_dbus_property *
                         value = g_variant_ref_sink(value);
                         r = df_fuzz_set_property(pproxy, interface, property, value);
                         if (r < 0) {
-                                df_fail("%s  %sFAIL%s [P] %s - unexpected response while writing to a property\n",
+                                df_fail("%s  %sFAIL%s [P] %s (write) - unexpected response while writing to a property\n",
                                         ansi_cr(), ansi_red(), ansi_normal(), property->name);
                                 return 1;
                         }
@@ -768,14 +787,14 @@ int df_fuzz_test_property(GDBusConnection *dcon, const struct df_dbus_property *
                 if (r < 0)
                         return df_fail_ret(-1, "Error while reading process' stat file: %m\n");
                 else if (r == 0) {
-                        df_fail("%s  %sFAIL%s [P] %s - process %d exited\n",
+                        df_fail("%s  %sFAIL%s [P] %s (write) - process %d exited\n",
                                 ansi_cr(), ansi_red(), ansi_normal(), property->name, pid);
                         return 1;
                 }
-        }
 
-        df_verbose("%s  %sPASS%s [P] %s\n",
-                   ansi_cr(), ansi_green(), ansi_normal(), property->name);
+                df_verbose("%s  %sPASS%s [P] %s (write)\n",
+                           ansi_cr(), ansi_green(), ansi_normal(), property->name);
+        }
 
         return 0;
 }
