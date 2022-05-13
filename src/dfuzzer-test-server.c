@@ -97,6 +97,7 @@ static const gchar introspection_xml[] =
 "               <property name='read_only' type='s' access='read'/>"
 "               <property name='write_only' type='s' access='write'/>"
 "               <property name='crash_on_write' type='i' access='write'/>"
+"               <property name='crash_on_read' type='a(gov)' access='read'/>"
 "               <property name='read_write' type='(iu)' access='readwrite'/>"
 "       </interface>"
 "</node>";
@@ -180,11 +181,12 @@ static GVariant *handle_get_property(
 
         g_printf("->[handle_get_property] %s\n", property_name);
 
-        if (g_str_equal(property_name, "read_only")) {
+        if (g_str_equal(property_name, "read_only"))
                 response = g_variant_new("(s)", prop_read_only);
-        } else if (g_str_equal(property_name, "read_write")) {
+        else if (g_str_equal(property_name, "crash_on_read"))
+                test_abort();
+        else if (g_str_equal(property_name, "read_write"))
                 response = g_variant_new("(iu)", prop_read_write.i, prop_read_write.u);
-        }
 
         return response;
 }
