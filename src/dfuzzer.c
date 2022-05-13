@@ -924,7 +924,7 @@ void df_parse_parameters(int argc, char **argv)
                                 df_list_names = 1;
                                 break;
                         case 'V':
-                                printf("%s", DF_VERSION);
+                                printf("dfuzzer %s\n", G_STRINGIFY(DFUZZER_VERSION));
                                 exit(0);
                                 break;
                         case 'h':
