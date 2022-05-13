@@ -41,11 +41,11 @@ if xsltproc.found()
 
         custom_target(
                 'dfuzzer.1',
-                input: 'man/dfuzzer.xml',
-                output: 'dfuzzer.1',
-                command: xsltproc_cmd,
-                install: true,
-                install_dir: get_option('mandir') / 'man1',
+                input : 'man/dfuzzer.xml',
+                output : 'dfuzzer.1',
+                command : xsltproc_cmd,
+                install : true,
+                install_dir : get_option('mandir') / 'man1',
         )
 endif
 
