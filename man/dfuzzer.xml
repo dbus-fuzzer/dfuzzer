@@ -82,8 +82,31 @@
                 <term><option>--method=<replaceable>NAME</replaceable></option></term>
 
                 <listitem><para>If provided, only method named <replaceable>NAME</replaceable> is tested.
-                Requires <option>-o/--object=</option> and <option>-i/--interface=</option> to be set as well.
-                </para></listitem>
+                Requires <option>-o/--object=</option> and <option>-i/--interface=</option> to be set as well.</para>
+
+                <para>Implies <option>--skip-properties</option>.</para></listitem>
+            </varlistentry>
+
+            <varlistentry>
+                <term><option>-p <replaceable>NAME</replaceable></option></term>
+                <term><option>--property=<replaceable>NAME</replaceable></option></term>
+
+                <listitem><para>If provided, only property named <replaceable>NAME</replaceable> is tested.
+                Requires <option>-o/--object=</option> and <option>-i/--interface=</option> to be set as well.</para>
+
+                <para>Implies <option>--skip-methods</option>.</para></listitem>
+            </varlistentry>
+
+            <varlistentry>
+                <term><option>--skip-methods</option></term>
+
+                <listitem><para>Skip method testing and test only properties.</para></listitem>
+            </varlistentry>
+
+            <varlistentry>
+                <term><option>--skip-properties</option></term>
+
+                <listitem><para>Skip property testing and test only methods.</para></listitem>
             </varlistentry>
 
             <varlistentry>
