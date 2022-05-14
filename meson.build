@@ -1,5 +1,5 @@
 project('dfuzzer', 'c',
-        version : '1.4',
+        version : '2.0',
         default_options: [
                 'c_std=gnu11',
                 'prefix=/usr',
@@ -10,9 +10,15 @@ project('dfuzzer', 'c',
 libgio = dependency('gio-2.0', required : true)
 xsltproc = find_program('xsltproc', required: false)
 
-if get_option('b_coverage')
-        add_project_arguments('-DWITH_COVERAGE', language : 'c')
-endif
+conf = configuration_data()
+conf.set('DFUZZER_VERSION', meson.project_version())
+conf.set10('WITH_COVERAGE', get_option('b_coverage'))
+
+config_h = configure_file(
+              output : 'config.h',
+              configuration : conf)
+
+add_project_arguments('-include', 'config.h', language : 'c')
 
 subdir('src')
 
@@ -35,11 +41,11 @@ if xsltproc.found()
 
         custom_target(
                 'dfuzzer.1',
-                input: 'man/dfuzzer.xml',
-                output: 'dfuzzer.1',
-                command: xsltproc_cmd,
-                install: true,
-                install_dir: get_option('mandir') / 'man1',
+                input : 'man/dfuzzer.xml',
+                output : 'dfuzzer.1',
+                command : xsltproc_cmd,
+                install : true,
+                install_dir : get_option('mandir') / 'man1',
         )
 endif
 

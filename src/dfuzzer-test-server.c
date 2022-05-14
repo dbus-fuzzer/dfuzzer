@@ -107,7 +107,7 @@ extern void __gcov_dump(void);
 
 static inline void test_abort(void)
 {
-#ifdef WITH_COVERAGE
+#if WITH_COVERAGE
         __gcov_dump();
 #endif
 
