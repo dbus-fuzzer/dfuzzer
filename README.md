@@ -3,16 +3,16 @@ dfuzzer
 [![Total alerts](https://img.shields.io/lgtm/alerts/g/matusmarhefka/dfuzzer.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/matusmarhefka/dfuzzer/alerts/)
 [![Coverage Status](https://coveralls.io/repos/github/matusmarhefka/dfuzzer/badge.svg)](https://coveralls.io/github/matusmarhefka/dfuzzer)
 
-dfuzzer is the D-Bus fuzzer, the tool for fuzz testing processes communicating
+dfuzzer is a D-Bus fuzzer, a tool for fuzz testing processes communicating
 through D-Bus. It can be used to test processes connected to both, the session
 bus and the system bus daemon. The fuzzer works as a client, it first connects
-to the bus daemon and then it traverses and fuzz tests all the methods provided
-by a D-Bus service.
+to the bus daemon and then it traverses and fuzz tests all the methods and
+properties provided by a D-Bus service.
 
-Automatic installation (Fedora 21 and higher):
+Automatic installation (Fedora):
 --------------
 
-    sudo yum/dnf install dfuzzer
+    sudo dnf install dfuzzer
 
 Manual installation:
 --------------
