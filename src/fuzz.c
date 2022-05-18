@@ -266,7 +266,7 @@ GVariant *df_generate_random_from_signature(const char *signature, guint64 itera
                         array_signature = g_variant_type_dup_string(array_type);
 
                         /* Create a pseudo-randomly sized array */
-                        for (int i = 0; i < rand() % 10; i++) {
+                        for (size_t i = 0; i < df_rand_array_size(iteration); i++) {
                                 GVariant *array_item = NULL;
 
                                 array_item = df_generate_random_from_signature(array_signature, iteration);
