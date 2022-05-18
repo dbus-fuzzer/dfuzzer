@@ -10,7 +10,7 @@ synced_files:
 
 upstream_package_name: dfuzzer
 downstream_package_name: dfuzzer
-upstream_project_url: https://github.com/matusmarhefka/dfuzzer
+upstream_project_url: https://github.com/dbus-fuzzer/dfuzzer
 upstream_tag_template: "v{version}"
 
 actions:

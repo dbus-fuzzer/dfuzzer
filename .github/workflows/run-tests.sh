@@ -19,7 +19,7 @@ sudo systemctl daemon-reload
 "${dfuzzer[@]}" -l | grep 'org.freedesktop.dfuzzerServer (activatable)'
 
 set +e
-# https://github.com/matusmarhefka/dfuzzer/issues/45
+# https://github.com/dbus-fuzzer/dfuzzer/issues/45
 "${dfuzzer[@]}" -v -n org.freedesktop.dfuzzerServer
 [[ $? == 2 ]] || exit 1
 set -e
@@ -53,7 +53,7 @@ rm -f inputs.txt
 sudo systemctl stop dfuzzer-test-server
 
 # dfuzzer should return 0 by default when services it tests time out
-# https://github.com/matusmarhefka/dfuzzer/pull/57#issuecomment-1112191073
+# https://github.com/dbus-fuzzer/dfuzzer/pull/57#issuecomment-1112191073
 "${dfuzzer[@]}" -s -v -n org.freedesktop.dfuzzerServer -o /org/freedesktop/dfuzzerObject -i org.freedesktop.dfuzzerInterface -t df_hang
 
 sudo systemctl stop dfuzzer-test-server

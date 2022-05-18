@@ -301,7 +301,7 @@ hello                   suppress the method 'hello' on any interface
     <refsect1>
         <title>Bugs</title>
 
-        <para>Please report all bugs to the upstream tracker at <ulink>https://github.com/matusmarhefka/dfuzzer</ulink>.</para>
+        <para>Please report all bugs to the upstream tracker at <ulink>https://github.com/dbus-fuzzer/dfuzzer</ulink>.</para>
     </refsect1>
 
     <refsect1>
