@@ -46,6 +46,8 @@ struct external_dictionary {
 void df_rand_init();
 int df_rand_load_external_dictionary(const char *filename);
 
+size_t df_rand_array_size(guint64 iteration);
+
 /**
  * @return Generated pseudo-random 8-bit unsigned integer value
  */

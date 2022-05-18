@@ -81,6 +81,16 @@ int df_rand_load_external_dictionary(const char *filename)
 
         return 0;
 }
+
+size_t df_rand_array_size(guint64 iteration)
+{
+        /* Generate an empty array on the first iteration */
+        if (iteration == 0)
+                return 0;
+
+        return rand() % 10;
+}
+
 /**
  * @return Generated pseudo-random 8-bit unsigned integer value
  */
