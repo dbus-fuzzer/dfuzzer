@@ -11,6 +11,10 @@ fi
 # shellcheck disable=SC1004
 sudo sed -i '/\[org.freedesktop.systemd1\]/a \
 org.freedesktop.systemd1.Manager:Reexecute Fixed by https://github.com/systemd/systemd/pull/23328 \
+org.freedesktop.systemd1.Manager:RefUnit \
+org.freedesktop.systemd1.Manager:UnrefUnit \
+Ref \
+Unref \
 ' /etc/dfuzzer.conf
 
 sudo systemctl daemon-reload
