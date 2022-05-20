@@ -78,16 +78,6 @@ int df_process_bus(GBusType bus_type);
 int df_list_bus_names(GDBusConnection *dcon);
 
 /**
- * @function Traverses through all objects of bus name target_proc.name
- * and is looking for object path target_proc.obj_path
- * @param dcon D-Bus connection structure
- * @param root_node Starting object path (all nodes from this object path
- * will be traversed)
- * @return 1 when obj. path target_proc.obj_path is found on bus, 0 otherwise
- */
-int df_is_object_on_bus(GDBusConnection *dcon, const char *root_node);
-
-/**
  * @function Traverses through all interfaces and objects of bus
  * name target_proc.name and for each interface it calls df_fuzz()
  * to fuzz test all its methods.

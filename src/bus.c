@@ -52,8 +52,7 @@ GVariant *df_bus_call_full(GDBusProxy *proxy, const char *method, GVariant *valu
                 if (ret_error)
                         *ret_error = TAKE_PTR(error);
                 else {
-                        g_dbus_error_strip_remote_error(error);
-                        df_fail("Error while calling method '%s': %s.\n", method, error->message);
+                        df_fail("Error while calling method '%s': %s\n", method, error->message);
                         df_error("Error in g_dbus_proxy_call_sync()", error);
                 }
 
