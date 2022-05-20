@@ -183,18 +183,10 @@ int df_process_bus(GBusType bus_type)
                         if (!isempty(target_proc.interface)) {
                                 fprintf(stderr, "Object: %s%s%s\n", ansi_bold(), target_proc.obj_path, ansi_normal());
                                 fprintf(stderr, " Interface: %s%s%s\n", ansi_bold(), target_proc.interface, ansi_normal());
-                                if (!df_is_object_on_bus(dcon, DF_BUS_ROOT_NODE)) {
-                                        df_fail("Error: Unknown object path '%s'.\n", target_proc.obj_path);
-                                        return DF_BUS_ERROR;
-                                } else
-                                        return df_fuzz(dcon, target_proc.name, target_proc.obj_path, target_proc.interface);
+                                return df_fuzz(dcon, target_proc.name, target_proc.obj_path, target_proc.interface);
                         } else if (!isempty(target_proc.obj_path)) {
                                 fprintf(stderr, "Object: %s%s%s\n", ansi_bold(), target_proc.obj_path, ansi_normal());
-                                if (!df_is_object_on_bus(dcon, DF_BUS_ROOT_NODE)) {
-                                        df_fail("Error: Unknown object path '%s'.\n", target_proc.obj_path);
-                                        return DF_BUS_ERROR;
-                                } else
-                                        return df_traverse_node(dcon, target_proc.obj_path);
+                                return df_traverse_node(dcon, target_proc.obj_path);
                         } else {
                                 fprintf(stderr, "Object: %s/%s\n", ansi_bold(), ansi_normal());
                                 return df_traverse_node(dcon, DF_BUS_ROOT_NODE);
@@ -253,72 +245,6 @@ int df_list_bus_names(GDBusConnection *dcon)
         }
 
         return 0;
-}
-
-/**
- * @function Traverses through all objects of bus name target_proc.name
- * and is looking for object path target_proc.obj_path
- * @param dcon D-Bus connection structure
- * @param root_node Starting object path (all nodes from this object path
- * will be traversed)
- * @return 1 when obj. path target_proc.obj_path is found on bus, 0 otherwise
- */
-int df_is_object_on_bus(GDBusConnection *dcon, const char *root_node)
-{
-        char *intro_iface = "org.freedesktop.DBus.Introspectable";
-        char *intro_method = "Introspect";
-        _cleanup_(g_variant_unrefp) GVariant *response = NULL;
-        _cleanup_(g_dbus_proxy_unrefp) GDBusProxy *dproxy = NULL;
-        _cleanup_(g_freep) gchar *introspection_xml = NULL;
-        _cleanup_(g_error_freep) GError *error = NULL;
-        /** Information about nodes in a remote object hierarchy. */
-        _cleanup_(g_dbus_node_info_unrefp) GDBusNodeInfo *node_data = NULL;
-        int ret = 0;        // return value of this function
-
-        if (strstr(root_node, target_proc.obj_path) != NULL)
-                return 1;
-
-        if (!df_is_valid_dbus(target_proc.name, root_node, intro_iface))
-                return 0;
-        dproxy = df_bus_new(dcon, target_proc.name, root_node, intro_iface,
-                            G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES|G_DBUS_PROXY_FLAGS_DO_NOT_CONNECT_SIGNALS);
-        if (!dproxy)
-                return 0;
-
-        response = df_bus_call(dproxy, intro_method, NULL, G_DBUS_CALL_FLAGS_NONE);
-        if (!response)
-                return 0;
-
-        g_variant_get(response, "(s)", &introspection_xml);
-        if (!introspection_xml) {
-                df_fail("Error: Unable to get introspection data from GVariant.\n");
-                return 0;
-        }
-
-        // Parses introspection_xml and returns a GDBusNodeInfo representing
-        // the data.
-        node_data = g_dbus_node_info_new_for_xml(introspection_xml, &error);
-        if (!node_data) {
-                df_fail("Error: Unable to get introspection data.\n");
-                df_error("Error in g_dbus_node_info_new_for_xml()", error);
-                return 0;
-        }
-
-        // go through all nodes
-        STRV_FOREACH(node, node_data->nodes) {
-                _cleanup_free_ char *object = NULL;
-                // create next object path
-                object = strjoin(root_node, strlen(root_node) == 1 ? "" : "/", node->path);
-                if (object == NULL) {
-                        df_fail("Error: Could not allocate memory for object string.\n");
-                        return DF_BUS_ERROR;
-                }
-                ret = df_is_object_on_bus(dcon, object);
-                if (ret == 1)
-                        return 1;
-        }
-
-        return ret;
 }
 
 /**
