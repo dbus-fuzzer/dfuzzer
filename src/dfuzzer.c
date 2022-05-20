@@ -355,24 +355,10 @@ int df_traverse_node(GDBusConnection *dcon, const char *root_node)
         if (!dproxy)
                 return DF_BUS_ERROR;
 
-        response = df_bus_call_full(dproxy, intro_method, NULL, G_DBUS_CALL_FLAGS_NONE, &error);
-        if (!response) {
-                _cleanup_(g_freep) gchar *dbus_error = NULL;
-                // D-Bus exceptions
-                if ((dbus_error = g_dbus_error_get_remote_error(error)) != NULL) {
-                        // if process does not respond
-                        if (g_str_equal(dbus_error, "org.freedesktop.DBus.Error.NoReply"))
-                                return DF_BUS_FAIL;
-                        if (g_str_equal(dbus_error, "org.freedesktop.DBus.Error.Timeout"))
-                                return DF_BUS_FAIL;
-                        return DF_BUS_OK;
-                } else {
-                        g_dbus_error_strip_remote_error(error);
-                        df_fail("Error: %s.\n", error->message);
-                        df_error("Error in g_dbus_proxy_call_sync()", error);
-                        return DF_BUS_ERROR;
-                }
-        }
+        response = df_bus_call(dproxy, intro_method, NULL, G_DBUS_CALL_FLAGS_NONE);
+        if (!response)
+                return DF_BUS_ERROR;
+
         g_variant_get(response, "(s)", &introspection_xml);
         if (!introspection_xml) {
                 df_fail("Error: Unable to get introspection data from GVariant.\n");
