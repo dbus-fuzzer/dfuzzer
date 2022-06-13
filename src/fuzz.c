@@ -123,7 +123,7 @@ guint64 df_get_number_of_iterations(const char *signature) {
  *       cannot be iterated on
  */
 GVariant *df_generate_random_basic(const GVariantType *type, guint64 iteration) {
-        _cleanup_free_ char *ssig = NULL;
+        g_autoptr(char) ssig = NULL;
 
         if (!type) {
                 g_assert_not_reached();
@@ -153,7 +153,7 @@ GVariant *df_generate_random_basic(const GVariantType *type, guint64 iteration) 
         else if (g_variant_type_equal(type, G_VARIANT_TYPE_DOUBLE))
                 return g_variant_new(ssig, df_rand_gdouble(iteration));
         else if (g_variant_type_equal(type, G_VARIANT_TYPE_STRING)) {
-                _cleanup_free_ char *str = NULL;
+                g_autoptr(char) str = NULL;
 
                 if (df_rand_string(&str, iteration) < 0) {
                         df_fail("Failed to generate a random string\n");
@@ -162,7 +162,7 @@ GVariant *df_generate_random_basic(const GVariantType *type, guint64 iteration) 
 
                 return g_variant_new(ssig, str);
         } else if (g_variant_type_equal(type, G_VARIANT_TYPE_OBJECT_PATH)) {
-                _cleanup_free_ char *obj_path = NULL;
+                g_autoptr(char) obj_path = NULL;
 
                 if (df_rand_dbus_objpath_string(&obj_path, iteration) < 0) {
                         df_fail("Failed to generate a random object path\n");
@@ -171,7 +171,7 @@ GVariant *df_generate_random_basic(const GVariantType *type, guint64 iteration) 
 
                 return g_variant_new(ssig, obj_path);
         } else if (g_variant_type_equal(type, G_VARIANT_TYPE_SIGNATURE)) {
-                _cleanup_free_ char *sig_str = NULL;
+                g_autoptr(char) sig_str = NULL;
 
                 if (df_rand_dbus_signature_string(&sig_str, iteration) < 0) {
                         df_fail("Failed to generate a random signature string\n");
@@ -198,8 +198,8 @@ GVariant *df_generate_random_basic(const GVariantType *type, guint64 iteration) 
 
 GVariant *df_generate_random_from_signature(const char *signature, guint64 iteration)
 {
-        _cleanup_(g_variant_type_freep) GVariantType *type = NULL;
-        _cleanup_(g_variant_builder_unrefp) GVariantBuilder *builder = NULL;
+        g_autoptr(GVariantType) type = NULL;
+        g_autoptr(GVariantBuilder) builder = NULL;
 
         if (!signature ||
             !g_variant_is_signature(signature) ||
@@ -219,7 +219,7 @@ GVariant *df_generate_random_from_signature(const char *signature, guint64 itera
              iter;
              iter = g_variant_type_next(iter)) {
 
-                _cleanup_free_ char *ssig = NULL;
+                g_autoptr(char) ssig = NULL;
 
                 ssig = g_variant_type_dup_string(iter);
 
@@ -246,7 +246,7 @@ GVariant *df_generate_random_from_signature(const char *signature, guint64 itera
                         g_variant_builder_add_value(builder, tuple);
                 } else if (g_variant_type_is_array(iter)) {
                         /* Array */
-                        _cleanup_free_ char *array_signature = NULL;
+                        g_autoptr(char) array_signature = NULL;
                         const GVariantType *array_type = NULL;
                         int nest_level = 0;
 
@@ -316,7 +316,7 @@ int df_fuzz_init(GDBusProxy *dproxy)
  */
 static void df_fuzz_write_log(const struct df_dbus_method *method, GVariant *value)
 {
-        _cleanup_free_ char *variant_value = NULL;
+        g_autoptr(char) variant_value = NULL;
 
         assert(method);
         assert(value);
@@ -392,8 +392,8 @@ static int df_exec_cmd_check(const char *cmd)
 }
 
 static int df_check_if_exited(const int pid) {
-        _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_free_ char *line = NULL;
+        g_autoptr(FILE) f = NULL;
+        g_autoptr(char) line = NULL;
         char proc_pid[14 + DECIMAL_STR_MAX(pid)];
         size_t len = 0;
         int dumping;
@@ -448,7 +448,7 @@ int df_fuzz_test_method(
                 const char *obj, const char *intf, const int pid, const char *execute_cmd,
                 guint64 iterations)
 {
-        _cleanup_(g_variant_unrefp) GVariant *value = NULL;
+        g_autoptr(GVariant) value = NULL;
         int ret = 0;            // return value from df_fuzz_call_method()
         int execr = 0;          // return value from execution of execute_cmd
 
@@ -560,9 +560,9 @@ fail_label:
  */
 static int df_fuzz_call_method(const struct df_dbus_method *method, GVariant *value)
 {
-        _cleanup_(g_error_freep) GError *error = NULL;
-        _cleanup_(g_variant_unrefp) GVariant *response = NULL;
-        _cleanup_(g_freep) gchar *dbus_error = NULL;
+        g_autoptr(GError) error = NULL;
+        g_autoptr(GVariant) response = NULL;
+        g_autoptr(gchar) dbus_error = NULL;
         const gchar *fmt;
 
         // Synchronously invokes method with arguments stored in value (GVariant *)
@@ -626,6 +626,8 @@ static int df_fuzz_get_property(GDBusProxy *pproxy, const char *interface,
 {
         g_autoptr(GVariant) response = NULL;
 
+        printf("INTERFACE: %s\nPROPERTY: %s\n", interface, property->name);
+
         response = df_bus_call(pproxy, "Get",
                                g_variant_new("(ss)", interface, property->name),
                                G_DBUS_CALL_FLAGS_NONE);
@@ -633,7 +635,7 @@ static int df_fuzz_get_property(GDBusProxy *pproxy, const char *interface,
                 return -1;
 
         if (df_debug_flag) {
-                g_autofree gchar *value_str = NULL;
+                g_autoptr(gchar) value_str = NULL;
                 value_str = g_variant_print(response, TRUE);
                 df_debug("Got value for property %s.%s: %s\n", interface, property->name, value_str);
         }
@@ -646,7 +648,7 @@ static int df_fuzz_set_property(GDBusProxy *pproxy, const char *interface,
 {
         g_autoptr(GVariant) val = NULL, response = NULL;
         g_autoptr(GError) error = NULL;
-        g_autofree gchar *dbus_error = NULL;
+        g_autoptr(gchar) dbus_error = NULL;
 
         /* Unwrap the variant, since our generator automagically wraps it in a tuple
          * to make generating method signatures easier. Property signatures should
@@ -694,7 +696,7 @@ static int df_fuzz_set_property(GDBusProxy *pproxy, const char *interface,
         }
 
         if (df_debug_flag) {
-                g_autofree gchar *value_str = NULL;
+                g_autoptr(gchar) value_str = NULL;
                 value_str = g_variant_print(value, TRUE);
                 df_debug("Set value for property %s.%s: %s\n", interface, property->name, value_str);
         }

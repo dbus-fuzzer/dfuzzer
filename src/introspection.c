@@ -30,9 +30,9 @@
 
 GDBusNodeInfo *df_get_interface_info(GDBusProxy *dproxy, const char *interface, GDBusInterfaceInfo **ret_iinfo)
 {
-        _cleanup_(g_error_freep) GError *error = NULL;
-        _cleanup_(g_freep) gchar *introspection_xml = NULL;
-        _cleanup_(g_variant_unrefp) GVariant *response = NULL;
+        g_autoptr(GError) error = NULL;
+        g_autoptr(gchar) introspection_xml = NULL;
+        g_autoptr(GVariant) response = NULL;
         GDBusNodeInfo *introspection_data = NULL;
         GDBusInterfaceInfo *interface_info = NULL;
 

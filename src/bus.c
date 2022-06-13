@@ -8,7 +8,7 @@
 GDBusProxy *df_bus_new_full(GDBusConnection *dcon, const char *name, const char *object,
                        const char *interface, GDBusProxyFlags flags, GError **ret_error)
 {
-        _cleanup_(g_error_freep) GError *error = NULL;
+        g_autoptr(GError) error = NULL;
         GDBusProxy *dproxy = NULL;
 
         dproxy = g_dbus_proxy_new_sync(
@@ -37,7 +37,7 @@ GDBusProxy *df_bus_new_full(GDBusConnection *dcon, const char *name, const char 
 GVariant *df_bus_call_full(GDBusProxy *proxy, const char *method, GVariant *value,
                            GDBusCallFlags flags, GError **ret_error)
 {
-        _cleanup_(g_error_freep) GError *error = NULL;
+        g_autoptr(GError) error = NULL;
         GVariant *response = NULL;
 
         response = g_dbus_proxy_call_sync(

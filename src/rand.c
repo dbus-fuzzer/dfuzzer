@@ -48,8 +48,8 @@ void df_rand_init()
 
 int df_rand_load_external_dictionary(const char *filename)
 {
-        _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_free_ char *line = NULL;
+        g_autoptr(FILE) f = NULL;
+        g_autoptr(char) line = NULL;
         char **array = NULL;
         size_t allocated = 0, len = 0, i = 0;
         ssize_t n;
@@ -320,7 +320,7 @@ int df_rand_string(gchar **buf, guint64 iteration)
                 "Description",
                 "127.0.0.1",
         };
-        _cleanup_(g_freep) gchar *ret = NULL;
+        g_autoptr(gchar) ret = NULL;
         size_t len;
 
         /* If -f/--string-file= was used, use the loaded strings instead of the
@@ -376,7 +376,7 @@ int df_rand_dbus_objpath_string(gchar **buf, guint64 iteration)
                 "/0/0/0",
                 "/_/_/_",
         };
-        _cleanup_(g_freep) gchar *ret = NULL;
+        g_autoptr(gchar) ret = NULL;
         guint16 size;
         int i, j, beg;
 
@@ -441,7 +441,7 @@ int df_rand_dbus_signature_string(gchar **buf, guint64 iteration)
 {
         /* TODO: support arrays ('a') and other complex types */
         static const char valid_signature_chars[] = "ybnqiuxtdsogvh";
-        _cleanup_(g_freep) gchar *ret = NULL;
+        g_autoptr(gchar) ret = NULL;
         uint16_t size, i = 0;
 
         size = (iteration % MAXSIG) + 1;
@@ -468,7 +468,7 @@ int df_rand_dbus_signature_string(gchar **buf, guint64 iteration)
  */
 int df_rand_GVariant(GVariant **var, guint64 iteration)
 {
-        _cleanup_(g_freep) gchar *str = NULL;
+        g_autoptr(gchar) str = NULL;
         int r;
 
         r = df_rand_string(&str, iteration);
