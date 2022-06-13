@@ -5,7 +5,7 @@
 
 typedef int fd_t;
 
-static inline int safe_close(int fd) {
+static inline int safe_close(fd_t fd) {
         if (fd >= 0)
                 close(fd);
 
@@ -54,16 +54,6 @@ static inline int isempty(const char *s) {
         ({                                      \
                 free(memory);                   \
                 (typeof(memory)) NULL;          \
-        })
-
-/* Takes inspiration from Rust's Option::take() method: reads and returns a pointer, but at the same time
- * resets it to NULL. See: https://doc.rust-lang.org/std/option/enum.Option.html#method.take */
-#define TAKE_PTR(ptr)                           \
-        ({                                      \
-                typeof(ptr) *_pptr_ = &(ptr);   \
-                typeof(ptr) _ptr_ = *_pptr_;    \
-                *_pptr_ = NULL;                 \
-                _ptr_;                          \
         })
 
 /* Returns the number of chars needed to format variables of the

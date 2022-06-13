@@ -73,10 +73,10 @@ int df_rand_load_external_dictionary(const char *filename)
                 if (line[n - 1] == '\n')
                         line[n - 1] = 0;
 
-                array[i++] = TAKE_PTR(line);
+                array[i++] = g_steal_pointer(&line);
         }
 
-        df_external_dictionary.strings = TAKE_PTR(array);
+        df_external_dictionary.strings = g_steal_pointer(&array);
         df_external_dictionary.size = i;
 
         return 0;
@@ -347,7 +347,7 @@ int df_rand_string(gchar **buf, guint64 iteration)
                 df_rand_random_string(ret, len);
         }
 
-        *buf = TAKE_PTR(ret);
+        *buf = g_steal_pointer(&ret);
 
         return 0;
 }
@@ -420,7 +420,7 @@ int df_rand_dbus_objpath_string(gchar **buf, guint64 iteration)
                 ret[j] = '\0';
         }
 
-        *buf = TAKE_PTR(ret);
+        *buf = g_steal_pointer(&ret);
 
         return 0;
 }
@@ -454,7 +454,7 @@ int df_rand_dbus_signature_string(gchar **buf, guint64 iteration)
                 ret[i] = valid_signature_chars[rand() % G_N_ELEMENTS(valid_signature_chars)];
 
         ret[i] = '\0';
-        *buf = TAKE_PTR(ret);
+        *buf = g_steal_pointer(&ret);
 
         return 0;
 }

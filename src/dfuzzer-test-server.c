@@ -206,7 +206,7 @@ static gboolean handle_set_property(
                 str = g_variant_dup_string(value, NULL);
                 if (str) {
                         g_free(prop_write_only);
-                        prop_write_only = TAKE_PTR(str);
+                        prop_write_only = g_steal_pointer(&str);
                         return TRUE;
                 }
         } else if (g_str_equal(property_name, "crash_on_write"))

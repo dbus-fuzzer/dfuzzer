@@ -1043,7 +1043,7 @@ int df_load_suppressions(void)
                 /* Extract method name */
                 p = strrchr(suppression, ':');
                 if (!p)
-                        suppressions[i]->method = TAKE_PTR(suppression);
+                        suppressions[i]->method = g_steal_pointer(&suppression);
                 else {
                         suppressions[i]->method = strdup(p + 1);
                         *p = 0;
@@ -1079,7 +1079,7 @@ int df_load_suppressions(void)
                                 return df_oom();
                 }
 
-                suppressions[i]->description = TAKE_PTR(description);
+                suppressions[i]->description = g_steal_pointer(&description);
                 df_verbose("Loaded suppression for method: %s:%s:%s (%s)\n",
                            isempty(suppressions[i]->object) ? "*" : suppressions[i]->object,
                            isempty(suppressions[i]->interface) ? "*" : suppressions[i]->interface,

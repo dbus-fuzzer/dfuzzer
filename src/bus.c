@@ -22,7 +22,7 @@ GDBusProxy *df_bus_new_full(GDBusConnection *dcon, const char *name, const char 
                         &error);
         if (!dproxy) {
                 if (ret_error)
-                        *ret_error = TAKE_PTR(error);
+                        *ret_error = g_steal_pointer(&error);
                 else {
                         df_fail("Error: Unable to create proxy for bus name '%s'.\n", name);
                         df_error("Error in g_dbus_proxy_new_sync() on creating proxy", error);
@@ -50,7 +50,7 @@ GVariant *df_bus_call_full(GDBusProxy *proxy, const char *method, GVariant *valu
                         &error);
         if (!response) {
                 if (ret_error)
-                        *ret_error = TAKE_PTR(error);
+                        *ret_error = g_steal_pointer(&error);
                 else {
                         df_fail("Error while calling method '%s': %s\n", method, error->message);
                         df_error("Error in g_dbus_proxy_call_sync()", error);
