@@ -3,15 +3,13 @@
 
 #define USEC_PER_SEC ((useconds_t) 1000000ULL)
 
+typedef int fd_t;
+
 static inline int safe_close(int fd) {
         if (fd >= 0)
                 close(fd);
 
         return -1;
-}
-
-static inline void closep(int *fd) {
-        safe_close(*fd);
 }
 
 static inline FILE *safe_fclose(FILE *f) {
@@ -42,13 +40,11 @@ static inline GDBusProxy *safe_g_dbus_proxy_unref(GDBusProxy *p) {
         return NULL;
 }
 
-
 G_DEFINE_AUTOPTR_CLEANUP_FUNC(FILE, safe_fclose)
 G_DEFINE_AUTOPTR_CLEANUP_FUNC(char, free)
 G_DEFINE_AUTOPTR_CLEANUP_FUNC(gchar, g_free)
 
-#define _cleanup_(x) __attribute__((__cleanup__(x)))
-#define _cleanup_close_ _cleanup_(closep)
+G_DEFINE_AUTO_CLEANUP_FREE_FUNC(fd_t, safe_close, -1)
 
 static inline int isempty(const char *s) {
         return !s || s[0] == '\0';

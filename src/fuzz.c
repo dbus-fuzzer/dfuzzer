@@ -350,7 +350,7 @@ static int df_exec_cmd_check(const char *cmd)
                 return 0;
 
         const char *fn = "/dev/null";
-        _cleanup_(closep) int stdoutcpy = -1, stderrcpy = -1, fd = -1;
+        g_auto(fd_t) stdoutcpy = -1, stderrcpy = -1, fd = -1;
         int status = 0;
 
         fd = open(fn, O_RDWR, S_IRUSR | S_IWUSR);

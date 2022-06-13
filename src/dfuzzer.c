@@ -412,7 +412,7 @@ int df_fuzz(GDBusConnection *dcon, const char *name, const char *object, const c
 
         /* Test properties */
         STRV_FOREACH_COND(p, interface_info->properties, !df_skip_properties) {
-                _cleanup_(df_dbus_property_cleanup) struct df_dbus_property dbus_property = {0,};
+                g_auto(df_dbus_property_t) dbus_property = {0,};
 
                 /* Test only a specific property if set */
                 if (df_test_property && !g_str_equal(df_test_property, p->name))
@@ -474,7 +474,7 @@ int df_fuzz(GDBusConnection *dcon, const char *name, const char *object, const c
 
         /* Test methods */
         STRV_FOREACH_COND(m, interface_info->methods, !df_skip_methods) {
-                _cleanup_(df_dbus_method_cleanup) struct df_dbus_method dbus_method = {0,};
+                g_auto(df_dbus_method_t) dbus_method = {0,};
                 char *description;
 
                 /* Test only a specific method if set */
@@ -659,7 +659,7 @@ void df_print_process_info(int pid)
 {
         char proc_path[15 + DECIMAL_STR_MAX(int)]; // "/proc/(int)/[exe|cmdline]"
         char name[PATH_MAX + 1];
-        _cleanup_close_ int fd = -1;
+        g_auto(fd_t) fd = -1;
         int ret;
 
         sprintf(proc_path, "/proc/%d/exe", pid);
