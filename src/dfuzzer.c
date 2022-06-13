@@ -146,8 +146,8 @@ cleanup:
 
 int df_process_bus(GBusType bus_type)
 {
-        _cleanup_(g_dbus_connection_unrefp) GDBusConnection *dcon = NULL;
-        _cleanup_(g_error_freep) GError *error = NULL;
+        g_autoptr(GDBusConnection) dcon = NULL;
+        g_autoptr(GError) error = NULL;
 
         switch (bus_type) {
         case G_BUS_TYPE_SESSION:
@@ -208,9 +208,9 @@ int df_process_bus(GBusType bus_type)
  */
 int df_list_bus_names(GDBusConnection *dcon)
 {
-        _cleanup_(g_dbus_proxy_unrefp) GDBusProxy *proxy = NULL;
-        _cleanup_(g_variant_iter_freep) GVariantIter *iter = NULL;
-        _cleanup_(g_variant_unrefp) GVariant *response = NULL;
+        g_autoptr(GDBusProxy) proxy = NULL;
+        g_autoptr(GVariantIter) iter = NULL;
+        g_autoptr(GVariant) response = NULL;
         char *str;
 
         proxy = df_bus_new(dcon,
@@ -261,12 +261,12 @@ int df_traverse_node(GDBusConnection *dcon, const char *root_node)
 {
         char *intro_iface = "org.freedesktop.DBus.Introspectable";
         char *intro_method = "Introspect";
-        _cleanup_(g_variant_unrefp) GVariant *response = NULL;
-        _cleanup_(g_dbus_proxy_unrefp) GDBusProxy *dproxy = NULL;
-        _cleanup_(g_freep) gchar *introspection_xml = NULL;
-        _cleanup_(g_error_freep) GError *error = NULL;
+        g_autoptr(GVariant) response = NULL;
+        g_autoptr(GDBusProxy) dproxy = NULL;
+        g_autoptr(gchar) introspection_xml = NULL;
+        g_autoptr(GError) error = NULL;
         /** Information about nodes in a remote object hierarchy. */
-        _cleanup_(g_dbus_node_info_unrefp) GDBusNodeInfo *node_data = NULL;
+        g_autoptr(GDBusNodeInfo) node_data = NULL;
         /** Return values */
         int rd = 0;          // return value from df_fuzz()
         int rt = 0;          // return value from recursive transition
@@ -321,7 +321,7 @@ int df_traverse_node(GDBusConnection *dcon, const char *root_node)
 
         // go through all nodes
         STRV_FOREACH(node, node_data->nodes) {
-                _cleanup_free_ char *object = NULL;
+                g_autoptr(char) object = NULL;
                 // create next object path
                 object = strjoin(root_node, strlen(root_node) == 1 ? "" : "/", node->path);
                 if (object == NULL) {
@@ -377,8 +377,8 @@ static int df_path_is_suppressed(const char *object, const char *interface, cons
  */
 int df_fuzz(GDBusConnection *dcon, const char *name, const char *object, const char *interface)
 {
-        _cleanup_(g_dbus_proxy_unrefp) GDBusProxy *dproxy = NULL;
-        _cleanup_(g_dbus_node_info_unrefp) GDBusNodeInfo *node_info = NULL;
+        g_autoptr(GDBusProxy) dproxy = NULL;
+        g_autoptr(GDBusNodeInfo) node_info = NULL;
         GDBusInterfaceInfo *interface_info = NULL;
         guint64 iterations;
         int method_found = 0, property_found = 0, ret;
@@ -412,7 +412,7 @@ int df_fuzz(GDBusConnection *dcon, const char *name, const char *object, const c
 
         /* Test properties */
         STRV_FOREACH_COND(p, interface_info->properties, !df_skip_properties) {
-                _cleanup_(df_dbus_property_cleanup) struct df_dbus_property dbus_property = {0,};
+                g_auto(df_dbus_property_t) dbus_property = {0,};
 
                 /* Test only a specific property if set */
                 if (df_test_property && !g_str_equal(df_test_property, p->name))
@@ -474,7 +474,7 @@ int df_fuzz(GDBusConnection *dcon, const char *name, const char *object, const c
 
         /* Test methods */
         STRV_FOREACH_COND(m, interface_info->methods, !df_skip_methods) {
-                _cleanup_(df_dbus_method_cleanup) struct df_dbus_method dbus_method = {0,};
+                g_auto(df_dbus_method_t) dbus_method = {0,};
                 char *description;
 
                 /* Test only a specific method if set */
@@ -600,8 +600,8 @@ int df_is_valid_dbus(const char *name, const char *obj, const char *intf)
  */
 int df_get_pid(GDBusConnection *dcon, gboolean activate)
 {
-        _cleanup_(g_dbus_proxy_unrefp) GDBusProxy *pproxy = NULL;
-        _cleanup_(g_variant_unrefp) GVariant *variant_pid = NULL;
+        g_autoptr(GDBusProxy) pproxy = NULL;
+        g_autoptr(GVariant) variant_pid = NULL;
         int pid = -1;
 
         pproxy = df_bus_new(dcon,
@@ -621,8 +621,8 @@ int df_get_pid(GDBusConnection *dcon, gboolean activate)
          *  - https://dbus.freedesktop.org/doc/system-activation.txt
          */
         if (activate) {
-                _cleanup_(g_error_freep) GError *act_error = NULL;
-                _cleanup_(g_variant_unrefp) GVariant *act_res = NULL;
+                g_autoptr(GError) act_error = NULL;
+                g_autoptr(GVariant) act_res = NULL;
 
                 act_res = df_bus_call_full(pproxy,
                                            "StartServiceByName",
@@ -659,7 +659,7 @@ void df_print_process_info(int pid)
 {
         char proc_path[15 + DECIMAL_STR_MAX(int)]; // "/proc/(int)/[exe|cmdline]"
         char name[PATH_MAX + 1];
-        _cleanup_close_ int fd = -1;
+        g_auto(fd_t) fd = -1;
         int ret;
 
         sprintf(proc_path, "/proc/%d/exe", pid);
@@ -954,8 +954,8 @@ void df_parse_parameters(int argc, char **argv)
  */
 int df_load_suppressions(void)
 {
-        _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_free_ char *line = NULL, *home_supp = NULL;
+        g_autoptr(FILE) f = NULL;
+        g_autoptr(char) line = NULL, home_supp = NULL;
         char *env = NULL;
         int name_found = 0, i = 0;
         size_t len = 0;
@@ -1012,7 +1012,7 @@ int df_load_suppressions(void)
 
         i = 0;
         while (i < (MAXLEN - 1) && (n = getline(&line, &len, f)) > 0) {
-                _cleanup_free_ char *suppression = NULL, *description = NULL;
+                g_autoptr(char) suppression = NULL, description = NULL;
                 char *p;
 
                 if (line[0] == '[')
@@ -1043,7 +1043,7 @@ int df_load_suppressions(void)
                 /* Extract method name */
                 p = strrchr(suppression, ':');
                 if (!p)
-                        suppressions[i]->method = TAKE_PTR(suppression);
+                        suppressions[i]->method = g_steal_pointer(&suppression);
                 else {
                         suppressions[i]->method = strdup(p + 1);
                         *p = 0;
@@ -1079,7 +1079,7 @@ int df_load_suppressions(void)
                                 return df_oom();
                 }
 
-                suppressions[i]->description = TAKE_PTR(description);
+                suppressions[i]->description = g_steal_pointer(&description);
                 df_verbose("Loaded suppression for method: %s:%s:%s (%s)\n",
                            isempty(suppressions[i]->object) ? "*" : suppressions[i]->object,
                            isempty(suppressions[i]->interface) ? "*" : suppressions[i]->interface,

@@ -8,7 +8,7 @@
 GDBusProxy *df_bus_new_full(GDBusConnection *dcon, const char *name, const char *object,
                        const char *interface, GDBusProxyFlags flags, GError **ret_error)
 {
-        _cleanup_(g_error_freep) GError *error = NULL;
+        g_autoptr(GError) error = NULL;
         GDBusProxy *dproxy = NULL;
 
         dproxy = g_dbus_proxy_new_sync(
@@ -22,7 +22,7 @@ GDBusProxy *df_bus_new_full(GDBusConnection *dcon, const char *name, const char 
                         &error);
         if (!dproxy) {
                 if (ret_error)
-                        *ret_error = TAKE_PTR(error);
+                        *ret_error = g_steal_pointer(&error);
                 else {
                         df_fail("Error: Unable to create proxy for bus name '%s'.\n", name);
                         df_error("Error in g_dbus_proxy_new_sync() on creating proxy", error);
@@ -37,7 +37,7 @@ GDBusProxy *df_bus_new_full(GDBusConnection *dcon, const char *name, const char 
 GVariant *df_bus_call_full(GDBusProxy *proxy, const char *method, GVariant *value,
                            GDBusCallFlags flags, GError **ret_error)
 {
-        _cleanup_(g_error_freep) GError *error = NULL;
+        g_autoptr(GError) error = NULL;
         GVariant *response = NULL;
 
         response = g_dbus_proxy_call_sync(
@@ -50,7 +50,7 @@ GVariant *df_bus_call_full(GDBusProxy *proxy, const char *method, GVariant *valu
                         &error);
         if (!response) {
                 if (ret_error)
-                        *ret_error = TAKE_PTR(error);
+                        *ret_error = g_steal_pointer(&error);
                 else {
                         df_fail("Error while calling method '%s': %s\n", method, error->message);
                         df_error("Error in g_dbus_proxy_call_sync()", error);

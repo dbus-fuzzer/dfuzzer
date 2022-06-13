@@ -3,39 +3,13 @@
 
 #define USEC_PER_SEC ((useconds_t) 1000000ULL)
 
-/* When func() returns the void value (NULL, -1, …) of the appropriate type */
-#define DEFINE_TRIVIAL_CLEANUP_FUNC(type, func)                 \
-        static inline void func##p(type *p) {                   \
-                if (*p)                                         \
-                        *p = func(*p);                          \
-        }
+typedef int fd_t;
 
-/* When func() doesn't return the appropriate type, set variable to empty afterwards */
-#define DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(type, func, empty)     \
-        static inline void func##p(type *p) {                   \
-                if (*p != (empty)) {                            \
-                        func(*p);                               \
-                        *p = (empty);                           \
-                }                                               \
-        }
-
-static inline void g_dbus_connection_unref(GDBusConnection *p) {
-        g_object_unref(p);
-}
-
-static inline void g_dbus_proxy_unref(GDBusProxy *p) {
-        g_object_unref(p);
-}
-
-static inline int safe_close(int fd) {
+static inline int safe_close(fd_t fd) {
         if (fd >= 0)
                 close(fd);
 
         return -1;
-}
-
-static inline void closep(int *fd) {
-        safe_close(*fd);
 }
 
 static inline FILE *safe_fclose(FILE *f) {
@@ -43,10 +17,6 @@ static inline FILE *safe_fclose(FILE *f) {
                 fclose(f);
 
         return NULL;
-}
-
-static inline void fclosep(FILE **f) {
-        safe_fclose(*f);
 }
 
 static inline GVariant *safe_g_variant_unref(GVariant *p) {
@@ -70,21 +40,11 @@ static inline GDBusProxy *safe_g_dbus_proxy_unref(GDBusProxy *p) {
         return NULL;
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(char*, free, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(gchar*, g_free, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(GDBusConnection*, g_dbus_connection_unref, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(GDBusProxy*, g_dbus_proxy_unref, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(GVariantIter*, g_variant_iter_free, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(GError*, g_error_free, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(GVariant*, g_variant_unref, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(GVariantBuilder*, g_variant_builder_unref, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(GVariantType*, g_variant_type_free, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(GDBusNodeInfo*, g_dbus_node_info_unref, NULL);
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(FILE, safe_fclose)
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(char, free)
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(gchar, g_free)
 
-#define _cleanup_(x) __attribute__((__cleanup__(x)))
-#define _cleanup_free_ _cleanup_(freep)
-#define _cleanup_close_ _cleanup_(closep)
-#define _cleanup_fclose_ _cleanup_(fclosep)
+G_DEFINE_AUTO_CLEANUP_FREE_FUNC(fd_t, safe_close, -1)
 
 static inline int isempty(const char *s) {
         return !s || s[0] == '\0';
@@ -94,16 +54,6 @@ static inline int isempty(const char *s) {
         ({                                      \
                 free(memory);                   \
                 (typeof(memory)) NULL;          \
-        })
-
-/* Takes inspiration from Rust's Option::take() method: reads and returns a pointer, but at the same time
- * resets it to NULL. See: https://doc.rust-lang.org/std/option/enum.Option.html#method.take */
-#define TAKE_PTR(ptr)                           \
-        ({                                      \
-                typeof(ptr) *_pptr_ = &(ptr);   \
-                typeof(ptr) _ptr_ = *_pptr_;    \
-                *_pptr_ = NULL;                 \
-                _ptr_;                          \
         })
 
 /* Returns the number of chars needed to format variables of the

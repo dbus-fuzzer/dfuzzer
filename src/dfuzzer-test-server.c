@@ -120,7 +120,7 @@ static void handle_method_call(
                 const gchar *method_name, GVariant *parameters,
                 GDBusMethodInvocation *invocation, gpointer user_data)
 {
-        g_autofree gchar *response = NULL;
+        g_autoptr(gchar) response = NULL;
 
         g_printf("->[handle_method_call] %s\n", method_name);
 
@@ -196,17 +196,17 @@ static gboolean handle_set_property(
                 const gchar *interface_name, const gchar *property_name, GVariant *value,
                 GError **error, gpointer user_data)
 {
-        g_autofree gchar *serialized_value = NULL;
+        g_autoptr(gchar) serialized_value = NULL;
 
         serialized_value = g_variant_print(value, TRUE);
         g_printf("->[handle_set_property] %s -> %s\n", property_name, serialized_value);
 
         if (g_str_equal(property_name, "write_only")) {
-                g_autofree gchar *str = NULL;
+                g_autoptr(gchar) str = NULL;
                 str = g_variant_dup_string(value, NULL);
                 if (str) {
                         g_free(prop_write_only);
-                        prop_write_only = TAKE_PTR(str);
+                        prop_write_only = g_steal_pointer(&str);
                         return TRUE;
                 }
         } else if (g_str_equal(property_name, "crash_on_write"))

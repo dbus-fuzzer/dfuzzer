@@ -28,34 +28,37 @@
   * testing continues with a next method */
 #define MAX_EXCEPTIONS 50
 
-struct df_dbus_method {
+typedef struct df_dbus_method {
         char *name;
         char *signature;
         gboolean returns_value;
         gboolean expect_reply;
-};
+} df_dbus_method_t;
 
-static inline void df_dbus_method_cleanup(struct df_dbus_method *p)
+static inline void df_dbus_method_clear(df_dbus_method_t *p)
 {
         free(p->name);
         free(p->signature);
         memset(p, 0, sizeof(*p));
 }
 
-struct df_dbus_property {
+typedef struct df_dbus_property {
         char *name;
         char *signature;
         gboolean is_readable;
         gboolean is_writable;
         gboolean expect_reply;
-};
+} df_dbus_property_t;
 
-static inline void df_dbus_property_cleanup(struct df_dbus_property *p)
+static inline void df_dbus_property_clear(df_dbus_property_t *p)
 {
         free(p->name);
         free(p->signature);
         memset(p, 0, sizeof(*p));
 }
+
+G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(df_dbus_method_t, df_dbus_method_clear)
+G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(df_dbus_property_t, df_dbus_property_clear)
 
 guint64 df_get_number_of_iterations(const char *signature);
 GVariant *df_generate_random_basic(const GVariantType *type, guint64 iteration);
