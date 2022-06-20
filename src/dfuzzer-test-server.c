@@ -99,6 +99,7 @@ static const gchar introspection_xml[] =
 "               <property name='crash_on_write' type='i' access='write'/>"
 "               <property name='crash_on_read' type='a(gov)' access='read'/>"
 "               <property name='read_write' type='(iu)' access='readwrite'/>"
+"               <property name='read_write_timeout' type='u' access='readwrite'/>"
 "       </interface>"
 "</node>";
 
@@ -187,6 +188,8 @@ static GVariant *handle_get_property(
                 test_abort();
         else if (g_str_equal(property_name, "read_write"))
                 response = g_variant_new("(iu)", prop_read_write.i, prop_read_write.u);
+        else if (g_str_equal(property_name, "read_write_timeout"))
+                *error = g_dbus_error_new_for_dbus_error("org.freedesktop.DBus.Error.Timeout", "org.freedesktop.DBus.Error.Timeout");
 
         return response;
 }
@@ -214,7 +217,8 @@ static gboolean handle_set_property(
         else if (g_str_equal(property_name, "read_write")) {
                 g_variant_get(value, "(iu)", &prop_read_write.i, &prop_read_write.u);
                 return TRUE;
-        }
+        } else if (g_str_equal(property_name, "read_write_timeout"))
+                *error = g_dbus_error_new_for_dbus_error("org.freedesktop.DBus.Error.Timeout", "org.freedesktop.DBus.Error.Timeout");
 
         return FALSE;
 }

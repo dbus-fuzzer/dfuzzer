@@ -625,12 +625,43 @@ static int df_fuzz_get_property(GDBusProxy *pproxy, const char *interface,
                                 const struct df_dbus_property *property)
 {
         g_autoptr(GVariant) response = NULL;
+        g_autoptr(GError) error = NULL;
+        g_autoptr(gchar) dbus_error = NULL;
 
-        response = df_bus_call(pproxy, "Get",
-                               g_variant_new("(ss)", interface, property->name),
-                               G_DBUS_CALL_FLAGS_NONE);
-        if (!response)
-                return -1;
+        response = df_bus_call_full(pproxy, "Get",
+                                    g_variant_new("(ss)", interface, property->name),
+                                    G_DBUS_CALL_FLAGS_NONE, &error);
+        if (!response) {
+                dbus_error = g_dbus_error_get_remote_error(error);
+                if (dbus_error) {
+                        if (g_str_equal(dbus_error, "org.freedesktop.DBus.Error.NoReply"))
+                                /* If the property is annotated as "NoReply", don't consider
+                                 * not replying as an error */
+                                return property->expect_reply ? -1 : 0;
+                        else if (g_str_equal(dbus_error, "org.freedesktop.DBus.Error.Timeout")) {
+                                sleep(10);
+                                return -1;
+                        } else if (g_str_equal(dbus_error, "org.freedesktop.DBus.Error.AccessDenied") ||
+                                   g_str_equal(dbus_error, "org.freedesktop.DBus.Error.AuthFailed")) {
+                                df_verbose("%s  %sSKIP%s [P] %s (read) - raised exception '%s'\n",
+                                           ansi_cr(), ansi_blue(), ansi_normal(),
+                                           property->name, dbus_error);
+                                return 2;
+                        }
+                }
+
+                g_dbus_error_strip_remote_error(error);
+                if (strstr(error->message, "Timeout")) {
+                        df_verbose("%s  %sSKIP%s [P] %s (read) - timeout reached\n",
+                                   ansi_cr(), ansi_blue(), ansi_normal(), property->name);
+                        return 2;
+                }
+
+                df_debug("%s  EXCE [P] %s (read) - D-Bus exception thrown: %s\n",
+                         ansi_cr(), property->name, error->message);
+                df_except_counter++;
+                return 0;
+        }
 
         if (df_debug_flag) {
                 g_autoptr(gchar) value_str = NULL;
@@ -653,14 +684,9 @@ static int df_fuzz_set_property(GDBusProxy *pproxy, const char *interface,
          * consist of a single complete type, hence getting the first child from
          * the tuple should achieve just that. */
         val = g_variant_get_child_value(value, 0);
-        response = g_dbus_proxy_call_sync(
-                        pproxy,
-                        "Set",
-                        g_variant_new("(ssv)", interface, property->name, val),
-                        G_DBUS_CALL_FLAGS_NONE,
-                        -1,
-                        NULL,
-                        &error);
+        response = df_bus_call_full(pproxy, "Set",
+                                    g_variant_new("(ssv)", interface, property->name, val),
+                                    G_DBUS_CALL_FLAGS_NONE, &error);
         if (!response) {
                 dbus_error = g_dbus_error_get_remote_error(error);
                 if (dbus_error) {
@@ -673,7 +699,7 @@ static int df_fuzz_set_property(GDBusProxy *pproxy, const char *interface,
                                 return -1;
                         } else if (g_str_equal(dbus_error, "org.freedesktop.DBus.Error.AccessDenied") ||
                                    g_str_equal(dbus_error, "org.freedesktop.DBus.Error.AuthFailed")) {
-                                df_verbose("%s  %sSKIP%s [P] %s - raised exception '%s'\n",
+                                df_verbose("%s  %sSKIP%s [P] %s (write) - raised exception '%s'\n",
                                            ansi_cr(), ansi_blue(), ansi_normal(),
                                            property->name, dbus_error);
                                 return 2;
@@ -682,12 +708,12 @@ static int df_fuzz_set_property(GDBusProxy *pproxy, const char *interface,
 
                 g_dbus_error_strip_remote_error(error);
                 if (strstr(error->message, "Timeout")) {
-                        df_verbose("%s  %sSKIP%s [P] %s - timeout reached\n",
+                        df_verbose("%s  %sSKIP%s [P] %s (write) - timeout reached\n",
                                    ansi_cr(), ansi_blue(), ansi_normal(), property->name);
                         return 2;
                 }
 
-                df_debug("%s  EXCE [P] %s - D-Bus exception thrown: %s\n",
+                df_debug("%s  EXCE [P] %s (write) - D-Bus exception thrown: %s\n",
                          ansi_cr(), property->name, error->message);
                 df_except_counter++;
                 return 0;
