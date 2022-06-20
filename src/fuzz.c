@@ -626,8 +626,6 @@ static int df_fuzz_get_property(GDBusProxy *pproxy, const char *interface,
 {
         g_autoptr(GVariant) response = NULL;
 
-        printf("INTERFACE: %s\nPROPERTY: %s\n", interface, property->name);
-
         response = df_bus_call(pproxy, "Get",
                                g_variant_new("(ss)", interface, property->name),
                                G_DBUS_CALL_FLAGS_NONE);
