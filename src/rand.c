@@ -451,7 +451,7 @@ int df_rand_dbus_signature_string(gchar **buf, guint64 iteration)
                 return df_fail_ret(-1, "Could not allocate memory for the random string\n");
 
         for (i = 0; i < size; i++)
-                ret[i] = valid_signature_chars[rand() % G_N_ELEMENTS(valid_signature_chars)];
+                ret[i] = valid_signature_chars[rand() % strlen(valid_signature_chars)];
 
         ret[i] = '\0';
         *buf = g_steal_pointer(&ret);
