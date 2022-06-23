@@ -34,6 +34,10 @@
 /** Maximum length of D-Bus signature string */
 #define MAXSIG 255
 
+#define OBJECT_PATH_VALID_CHARS "ABCDEFGHIJKLMNOPQRSTUVWXYZ" \
+                                "abcdefghijklmnopqrstuvwxyz" \
+                                "0123456789_"
+
 struct external_dictionary {
         size_t size;
         char **strings;
