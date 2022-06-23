@@ -164,6 +164,7 @@ static void handle_method_call(
 
                 g_variant_get(parameters, "(iu&g@a{ss}@a(uiyo))", &i, &u, &str, NULL, NULL);
                 g_printf("%s: signature size: %zu\n", method_name, strlen(str));
+                g_assert_true(g_variant_is_signature(str));
 
                 response = g_strdup_printf("%s", str);
                 g_dbus_method_invocation_return_value(invocation, g_variant_new("(s)", response));
