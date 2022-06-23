@@ -19,12 +19,13 @@
  */
 #include <assert.h>
 #include <gio/gio.h>
+#include <glib.h>
+#include <limits.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <limits.h>
 #include <time.h>
-#include <stdint.h>
 
 #include "rand.h"
 #include "dfuzzer.h"
@@ -81,6 +82,183 @@ int df_rand_load_external_dictionary(const char *filename)
 
         return 0;
 }
+
+/* Generate a GVariant with random data for a basic (non-compound) type
+ *
+ * Note: variant itself is treated as a basic type, since it's a bit special and
+ *       cannot be iterated on
+ */
+GVariant *df_generate_random_basic(const GVariantType *type, guint64 iteration)
+{
+        g_autoptr(char) ssig = NULL;
+
+        if (!type) {
+                g_assert_not_reached();
+                return NULL;
+        }
+
+        ssig = g_variant_type_dup_string(type);
+
+        if (g_variant_type_equal(type, G_VARIANT_TYPE_BOOLEAN))
+                return g_variant_new(ssig, df_rand_gboolean(iteration));
+        else if (g_variant_type_equal(type, G_VARIANT_TYPE_BYTE))
+                return g_variant_new(ssig, df_rand_guint8(iteration));
+        else if (g_variant_type_equal(type, G_VARIANT_TYPE_INT16))
+                return g_variant_new(ssig, df_rand_gint16(iteration));
+        else if (g_variant_type_equal(type, G_VARIANT_TYPE_UINT16))
+                return g_variant_new(ssig, df_rand_guint16(iteration));
+        else if (g_variant_type_equal(type, G_VARIANT_TYPE_INT32))
+                return g_variant_new(ssig, df_rand_gint32(iteration));
+        else if (g_variant_type_equal(type, G_VARIANT_TYPE_UINT32))
+                return g_variant_new(ssig, df_rand_guint32(iteration));
+        else if (g_variant_type_equal(type, G_VARIANT_TYPE_INT64))
+                return g_variant_new(ssig, df_rand_gint64(iteration));
+        else if (g_variant_type_equal(type, G_VARIANT_TYPE_UINT64))
+                return g_variant_new(ssig, df_rand_guint64(iteration));
+        else if (g_variant_type_equal(type, G_VARIANT_TYPE_HANDLE))
+                return g_variant_new(ssig, df_rand_unixFD(iteration));
+        else if (g_variant_type_equal(type, G_VARIANT_TYPE_DOUBLE))
+                return g_variant_new(ssig, df_rand_gdouble(iteration));
+        else if (g_variant_type_equal(type, G_VARIANT_TYPE_STRING)) {
+                g_autoptr(char) str = NULL;
+
+                if (df_rand_string(&str, iteration) < 0) {
+                        df_fail("Failed to generate a random string\n");
+                        return NULL;
+                }
+
+                return g_variant_new(ssig, str);
+        } else if (g_variant_type_equal(type, G_VARIANT_TYPE_OBJECT_PATH)) {
+                g_autoptr(char) obj_path = NULL;
+
+                if (df_rand_dbus_objpath_string(&obj_path, iteration) < 0) {
+                        df_fail("Failed to generate a random object path\n");
+                        return NULL;
+                }
+
+                return g_variant_new(ssig, obj_path);
+        } else if (g_variant_type_equal(type, G_VARIANT_TYPE_SIGNATURE)) {
+                g_autoptr(char) sig_str = NULL;
+
+                if (df_rand_dbus_signature_string(&sig_str, iteration) < 0) {
+                        df_fail("Failed to generate a random signature string\n");
+                        return NULL;
+                }
+
+                return g_variant_new(ssig, sig_str);
+        } else if (g_variant_type_equal(type, G_VARIANT_TYPE_VARIANT)) {
+                GVariant *variant = NULL;
+
+                if (df_rand_GVariant(&variant, iteration) < 0) {
+                        df_fail("Failed to generate a random GVariant\n");
+                        return NULL;
+                }
+
+                return g_variant_new(ssig, variant);
+        } else {
+                df_fail("Invalid basic type: %s\n", ssig);
+                g_assert_not_reached();
+        }
+
+        return NULL;
+}
+
+GVariant *df_generate_random_from_signature(const char *signature, guint64 iteration)
+{
+        g_autoptr(GVariantType) type = NULL;
+        g_autoptr(GVariantBuilder) builder = NULL;
+
+        if (!signature ||
+            !g_variant_is_signature(signature) ||
+            !g_variant_type_string_is_valid(signature)) {
+                df_fail("Invalid signature: %s\n", signature);
+                return NULL;
+        }
+
+        type = g_variant_type_new(signature);
+        /* Leaf nodes */
+        if (g_variant_type_is_basic(type) || g_variant_type_is_variant(type))
+                return df_generate_random_basic(type, iteration);
+
+        builder = g_variant_builder_new(type);
+
+        for (const GVariantType *iter = g_variant_type_first(type);
+             iter;
+             iter = g_variant_type_next(iter)) {
+
+                g_autoptr(char) ssig = NULL;
+
+                ssig = g_variant_type_dup_string(iter);
+
+                if (g_variant_type_is_basic(iter) || g_variant_type_is_variant(iter)) {
+                        /* Basic type, generate a random value
+                         * Note: treat 'variant' as a basic type, since it can't
+                         *       be iterated on by g_variant_type_{first,next}()
+                         */
+                        GVariant *basic;
+
+                        basic = df_generate_random_basic(iter, iteration);
+                        if (!basic)
+                                return NULL;
+
+                        g_variant_builder_add_value(builder, basic);
+                } else if (g_variant_type_is_tuple(iter)) {
+                        /* Tuple */
+                        GVariant *tuple = NULL;
+
+                        tuple = df_generate_random_from_signature(ssig, iteration);
+                        if (!tuple)
+                                return NULL;
+
+                        g_variant_builder_add_value(builder, tuple);
+                } else if (g_variant_type_is_array(iter)) {
+                        /* Array */
+                        g_autoptr(char) array_signature = NULL;
+                        const GVariantType *array_type = NULL;
+                        int nest_level = 0;
+
+                        /* Open the "main" array container */
+                        g_variant_builder_open(builder, iter);
+
+                        /* Resolve all levels of arrays (e.g. aaaai) */
+                        for (array_type = g_variant_type_element(iter);
+                             g_variant_type_is_array(array_type);
+                             array_type = g_variant_type_element(array_type)) {
+
+                                /* Open an container for each nested array */
+                                g_variant_builder_open(builder, array_type);
+                                nest_level++;
+                        }
+
+                        array_signature = g_variant_type_dup_string(array_type);
+
+                        /* Create a pseudo-randomly sized array */
+                        for (size_t i = 0; i < df_rand_array_size(iteration); i++) {
+                                GVariant *array_item = NULL;
+
+                                array_item = df_generate_random_from_signature(array_signature, iteration);
+                                if (!array_item)
+                                        return NULL;
+
+                                g_variant_builder_add_value(builder, array_item);
+                        }
+
+                        /* Close container of each array level */
+                        for (int i = 0; i < nest_level; i++)
+                                g_variant_builder_close(builder);
+
+                        /* Close the "main" array container */
+                        g_variant_builder_close(builder);
+                } else {
+                        /* TODO: maybe */
+                        df_fail("Not implemented: %s\n", ssig);
+                        return NULL;
+                }
+        }
+
+        return g_variant_builder_end(builder);
+}
+
 
 size_t df_rand_array_size(guint64 iteration)
 {
@@ -497,7 +675,7 @@ int df_rand_dbus_objpath_string(gchar **buf, guint64 iteration)
 int df_rand_dbus_signature_string(gchar **buf, guint64 iteration)
 {
         /* TODO: support arrays ('a') and other complex types */
-        static const char valid_signature_chars[] = "ybnqiuxtdsogvh";
+        static const char *valid_signature_chars = SIGNATURE_BASIC_TYPES "v";
         g_autoptr(gchar) ret = NULL;
         uint16_t size, i = 0;
 
@@ -516,23 +694,21 @@ int df_rand_dbus_signature_string(gchar **buf, guint64 iteration)
         return 0;
 }
 
-/**
- * @function Creates Gvariant containing pseudo-random string. At the beginning
- * strings from global array df_str_def are used.
- * @param var Address of pointer on GVariant where new Gvariant value
- * will be stored
- * @return 0 on success, -1 on error
- */
+/* Create a GVariant containing a random basic type
+ *
+ * TODO: add support for any complete type once we're able to generate
+ *       arbitrary signatures
+ * */
 int df_rand_GVariant(GVariant **var, guint64 iteration)
 {
-        g_autoptr(gchar) str = NULL;
-        int r;
+        char sig[2];
 
-        r = df_rand_string(&str, iteration);
-        if (r < 0)
-                return r;
+        sig[0] = SIGNATURE_BASIC_TYPES[rand() % strlen(SIGNATURE_BASIC_TYPES)];
+        sig[1] = 0;
 
-        *var = g_variant_new("s", str);
+        *var = df_generate_random_basic(G_VARIANT_TYPE(sig), iteration);
+        if (!*var)
+                return -1;
 
         return 0;
 }

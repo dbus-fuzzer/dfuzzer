@@ -38,6 +38,9 @@ struct external_dictionary {
 void df_rand_init();
 int df_rand_load_external_dictionary(const char *filename);
 
+GVariant *df_generate_random_basic(const GVariantType *type, guint64 iteration);
+GVariant *df_generate_random_from_signature(const char *signature, guint64 iteration);
+
 size_t df_rand_array_size(guint64 iteration);
 
 /**
