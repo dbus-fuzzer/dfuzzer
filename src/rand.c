@@ -269,22 +269,79 @@ gdouble df_rand_gdouble(guint64 iteration)
         }
 }
 
+static gunichar df_rand_unichar(guint16 *width)
+{
+        gunichar uc = 0;
+
+        /* If width is set to 0, generate a random width in the UTF-8 interval
+         * (i.e. 1 - 4 bytes) and set the result as the value */
+        if (*width == 0)
+                *width = (rand() % 4) + 1;
+
+        g_assert(*width > 0 && *width < 5);
+
+        /* Not all characters in the UTF-8 range are valid, so we must try again
+         * if we hit an invalid character */
+        do
+                switch (*width) {
+                        case 1:
+                                /* 1-byte wide character: 0x00 - 0x7F (0 - 127)
+                                 *
+                                 * Skip the bottom 32 (0x20) control characters.
+                                 */
+                                uc = rand() % (0x7F - 0x20) + 0x20;
+                                break;
+                        case 2:
+                                /* 2-byte wide character: 0x80 - 0x7FF (128 - 2047) */
+                                uc = rand() % (0x7FF - 0x80) + 0x80;
+                                break;
+                        case 3:
+                                /* 3-byte wide character: 0x800 - 0xFFFF (2048 - 65535) */
+                                uc = rand() % (0xFFFF - 0x800) + 0x800;
+                                break;
+                        case 4:
+                                /* 4-byte wide character: 0x10000 - 0x10FFFF (65536 - 1114111) */
+                                uc = rand() % (0x10FFFF - 0x10000) + 0x10000;
+                                break;
+                        default:
+                                g_assert_not_reached();
+                }
+        while (!g_unichar_validate(uc));
+
+        return uc;
+}
+
 /**
  * @function Generates pseudo-random string of size size.
  * @param buf Pointer on buffer where generated string will be stored
  * @param size Size of buffer
  */
-static void df_rand_random_string(char *buf, const long size)
+static char *df_rand_random_string(size_t size)
 {
-        if (size < 1)
-                return;
+        if (size == 0)
+                return NULL;
 
-        long i;
-        long n = size - 1;  // number of generated characters
+        g_autoptr(GString) str = NULL;
+        size_t str_size;
 
-        for (i = 0; i < n; ++i)
-                buf[i] = rand() % (127 - 32) + 32;  // only printable characters
-        buf[i] = '\0';
+        str_size = size - 1;
+        str = g_string_sized_new(size);
+
+        for (size_t i = 0; i < str_size;) {
+                /* If we have enough space, let df_rand_unichar() decide the
+                 * width of the random character, otherwise specify it ourselves
+                 * to fit into the remaining space */
+                guint16 width = str_size - i > 4 ? 0 : str_size - i;
+                gunichar uc;
+
+                uc = df_rand_unichar(&width);
+                str = g_string_append_unichar(str, uc);
+                i += width;
+        }
+
+        /* "Steal" the internal C-string from the GString class to avoid another
+         * unnecessary allocation */
+        return g_steal_pointer(&str->str);
 }
 
 /**
@@ -341,10 +398,7 @@ int df_rand_string(gchar **buf, guint64 iteration)
                 /* Genearate a pseudo-random string length in interval <0, df_buf_size) */
                 len = (rand() * iteration) % df_buf_size;
                 len = CLAMP(len, 1, df_buf_size);
-                ret = g_try_new(gchar, len);
-                if (!ret)
-                        return df_fail_ret(-1, "Could not allocate memory for the random string\n");
-                df_rand_random_string(ret, len);
+                ret = df_rand_random_string(len);
         }
 
         *buf = g_steal_pointer(&ret);
