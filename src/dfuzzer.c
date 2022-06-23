@@ -39,7 +39,7 @@
 
 /* Shared global variables */
 /** Maximum buffer size for generated strings by rand module (in Bytes) */
-guint64 df_buf_size = MAX_BUF_LEN;
+guint64 df_buf_size = MAX_BUFFER_LENGTH;
 int df_verbose_flag;
 int df_debug_flag;
 
@@ -54,7 +54,7 @@ static int df_list_names;
 /** Tested process PID */
 static int df_pid = -1;
 /** NULL terminated struct of methods names which will be skipped from testing */
-static struct suppression_item *suppressions[MAXLEN];
+static struct suppression_item *suppressions[MAX_SUPPRESSIONS];
 /** If -s option is passed 1, otherwise 0 */
 static int df_supflg;
 /** Suppression file #1 */
@@ -771,25 +771,25 @@ void df_parse_parameters(int argc, char **argv)
         while ((c = getopt_long(argc, argv, "n:o:i:m:b:t:e:L:x:y:f:I:p:sdvlhV", options, NULL)) >= 0) {
                 switch (c) {
                         case 'n':
-                                if (strlen(optarg) >= MAXLEN) {
+                                if (strlen(optarg) >= MAX_OBJECT_PATH_LENGTH) {
                                         df_fail("%s: maximum %d characters for option --"
-                                                " 'n'\n", argv[0], MAXLEN - 1);
+                                                " 'n'\n", argv[0], MAX_OBJECT_PATH_LENGTH - 1);
                                         exit(1);
                                 }
                                 target_proc.name = optarg;
                                 break;
                         case 'o':
-                                if (strlen(optarg) >= MAXLEN) {
+                                if (strlen(optarg) >= MAX_OBJECT_PATH_LENGTH) {
                                         df_fail("%s: maximum %d characters for option --"
-                                                " 'o'\n", argv[0], MAXLEN - 1);
+                                                " 'o'\n", argv[0], MAX_OBJECT_PATH_LENGTH - 1);
                                         exit(1);
                                 }
                                 target_proc.obj_path = optarg;
                                 break;
                         case 'i':
-                                if (strlen(optarg) >= MAXLEN) {
+                                if (strlen(optarg) >= MAX_OBJECT_PATH_LENGTH) {
                                         df_fail("%s: maximum %d characters for option --"
-                                                " 'i'\n", argv[0], MAXLEN - 1);
+                                                " 'i'\n", argv[0], MAX_OBJECT_PATH_LENGTH - 1);
                                         exit(1);
                                 }
                                 target_proc.interface = optarg;
@@ -804,8 +804,8 @@ void df_parse_parameters(int argc, char **argv)
                                         exit(1);
                                 }
 
-                                if (df_buf_size < MINLEN) {
-                                        df_fail("Error: at least %d bytes required for the -%c option\n", MINLEN, c);
+                                if (df_buf_size < MIN_BUFFER_LENGTH) {
+                                        df_fail("Error: at least %d bytes required for the -%c option\n", MIN_BUFFER_LENGTH, c);
                                         exit(1);
                                 }
 
@@ -845,9 +845,9 @@ void df_parse_parameters(int argc, char **argv)
                                 break;
                         case 'L':
                                 //we need at least 1 more char than usual for directory separator
-                                if (strlen(optarg) >= MAXLEN -1) {
+                                if (strlen(optarg) >= MAX_OBJECT_PATH_LENGTH -1) {
                                         df_fail("%s: maximum %d characters for option --"
-                                                " 'L'\n", argv[0], MAXLEN - 1);
+                                                " 'L'\n", argv[0], MAX_OBJECT_PATH_LENGTH - 1);
                                         exit(1);
                                 }
                                 log_dir_name = optarg;
@@ -1011,7 +1011,7 @@ int df_load_suppressions(void)
         df_verbose("Found suppressions for bus: '%s'\n", target_proc.name);
 
         i = 0;
-        while (i < (MAXLEN - 1) && (n = getline(&line, &len, f)) > 0) {
+        while (i < (MAX_SUPPRESSIONS - 1) && (n = getline(&line, &len, f)) > 0) {
                 g_autoptr(char) suppression = NULL, description = NULL;
                 char *p;
 

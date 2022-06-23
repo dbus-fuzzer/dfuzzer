@@ -21,8 +21,16 @@
 #ifndef FUZZ_H
 #define FUZZ_H
 
+/** Minimal buffer size for generated strings */
+#define MIN_BUFFER_LENGTH 512
+/** Maximum buffer size for generated strings, default is cca 50 kB */
+#define MAX_BUFFER_LENGTH 50000
+/** Maximum length of strings containing D-Bus object path */
+#define MAX_OBJECT_PATH_LENGTH 256
 /** Maximum length of D-Bus signature string */
-#define MAXSIG 255
+#define MAX_SIGNATURE_LENGTH 255
+#define MAX_SUPPRESSIONS 256
+
 
 /** Maximum amount of unimportant exceptions for one method; if reached
   * testing continues with a next method */

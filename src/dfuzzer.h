@@ -25,12 +25,6 @@
 #include <errno.h>
 #include <unistd.h>
 
-/** Minimal buffer size for generated strings */
-#define MINLEN 512
-
-/** Maximum length of strings containing D-Bus name, interface and object path */
-#define MAXLEN 256
-
 #define DF_BUS_ROOT_NODE "/"
 
 enum {
@@ -44,7 +38,7 @@ enum {
 
 /** Structure containing D-Bus name, object path and interface of process. */
 struct fuzzing_target {
-        /* names on D-Bus have the most MAXLEN characters */
+        /* names on D-Bus have the most MAX_OBJECT_PATH_LENGTH characters */
         /** Bus name */
         char *name;
         /** Object path */

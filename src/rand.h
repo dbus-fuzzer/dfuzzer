@@ -22,18 +22,6 @@
 
 #include "fuzz.h"
 
-/** Minimal buffer size for generated strings */
-#define MINLEN 512
-
-/** Maximum buffer size for generated strings, default is cca 50 kB */
-#define MAX_BUF_LEN 50000
-
-/** Maximum length of strings containing D-Bus object path */
-#define MAXLEN 256
-
-/** Maximum length of D-Bus signature string */
-#define MAXSIG 255
-
 #define OBJECT_PATH_VALID_CHARS "ABCDEFGHIJKLMNOPQRSTUVWXYZ" \
                                 "abcdefghijklmnopqrstuvwxyz" \
                                 "0123456789_"
@@ -114,7 +102,7 @@ int df_rand_string(gchar **buf, guint64 iteration);
 /**
  * @function Allocates memory for pseudo-random object path string of size
  * counted by adding 1 to size variable on every call of function to maximum
- * size of MAXLEN. On every call pseudo-random object path string is generated
+ * size of MAX_OBJECT_PATH_LENGTH. On every call pseudo-random object path string is generated
  * into buf buffer.
  * Warning: buf should be freed outside this module by callee of this
  * function.
@@ -127,7 +115,7 @@ int df_rand_dbus_objpath_string(gchar **buf, guint64 iteration);
 /**
  * @function Allocates memory for pseudo-random signature string of size
  * counted by adding 1 to size variable on every call of function to maximum
- * size of MAXSIG. On every call pseudo-random signature string is generated
+ * size of MAX_SIGNATURE_LENGTH. On every call pseudo-random signature string is generated
  * by random access into global variable df_sig_def which contains all D-Bus
  * signatures and copying signature into buf buffer.
  * Warning: buf should be freed outside this module by callee of this

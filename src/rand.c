@@ -485,7 +485,7 @@ int df_rand_dbus_objpath_string(gchar **buf, guint64 iteration)
 /**
  * @function Allocates memory for pseudo-random signature string of size
  * counted by adding 1 to size variable on every call of function to maximum
- * size of MAXSIG. On every call pseudo-random signature string is generated
+ * size of MAX_SIGNATURE_LENGTH. On every call pseudo-random signature string is generated
  * by random access into global variable df_sig_def which contains all D-Bus
  * signatures and copying signature into buf buffer.
  * Warning: buf should be freed outside this module by callee of this
@@ -501,7 +501,7 @@ int df_rand_dbus_signature_string(gchar **buf, guint64 iteration)
         g_autoptr(gchar) ret = NULL;
         uint16_t size, i = 0;
 
-        size = (iteration % MAXSIG) + 1;
+        size = (iteration % MAX_SIGNATURE_LENGTH) + 1;
 
         ret = g_try_new(gchar, size + 1);
         if (!ret)
