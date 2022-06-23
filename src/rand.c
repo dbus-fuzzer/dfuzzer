@@ -352,17 +352,7 @@ int df_rand_string(gchar **buf, guint64 iteration)
         return 0;
 }
 
-/**
- * @function Allocates memory for pseudo-random object path string of size
- * counted by adding 1 to size variable on every call of function to maximum
- * size of MAXLEN. On every call pseudo-random object path string is generated
- * into buf buffer.
- * Warning: buf should be freed outside this module by callee of this
- * function.
- * @param buf Address of pointer on buffer where generated object path string
- * will be stored
- * @return 0 on success, -1 on error
- */
+/* Generate a pseudo-random object path */
 int df_rand_dbus_objpath_string(gchar **buf, guint64 iteration)
 {
         /* List of object paths that are used before we start generating random stuff */
@@ -377,47 +367,60 @@ int df_rand_dbus_objpath_string(gchar **buf, guint64 iteration)
                 "/_/_/_",
         };
         g_autoptr(gchar) ret = NULL;
-        guint16 size;
-        int i, j, beg;
 
         if (iteration < G_N_ELEMENTS(test_object_paths)) {
                 ret = strdup(test_object_paths[iteration]);
                 if (!ret)
                         return df_fail_ret(-1, "Could not allocate memory for the random string\n");
         } else {
-                size = (iteration % MAXLEN) + 9;
+                gint64 size, nelem, idx = 0;
 
-                // TODO: simplify
+                /* Rules for an object path:
+                 *
+                 * - it can be of any length
+                 * - it must begin with a '/' and consist of elements separated by '/'
+                 * - each element must only contain [A-Z][a-z][0-9]_
+                 * - no element may be an empty string
+                 *
+                 * See: https://dbus.freedesktop.org/doc/dbus-specification.html
+                 *      section 'Valid object paths;
+                 */
+
+                /* We need at least 2 characters for the shortest object path
+                 * (e.g. "/a"), not counting the root object path ("/") */
+                size = (iteration % (df_buf_size - 2)) + 2;
+                /* Calculate number of 'elements', i.e. the "/abc" parts in the object path.
+                 * For that, lets calculate the maximum number of elements for given size
+                 * (each element needs at least two characters, hence size/2) and
+                 * we need at least one element (hence +-1). With that, generate
+                 * a pseudo-random number of elements in interval <1, size/2> */
+                nelem = (rand() % (size / 2 - 1)) + 1;
+
                 ret = g_try_new(gchar, size + 1);
                 if (!ret)
                         return df_fail_ret(-1, "Could not allocate memory for the random string\n");
 
-                i = (size - 3) / 3;
-                ret[0] = '/';
-                beg = 1;
-                for (j = 1; j <= i; j++) {
-                        if (j == beg)   // objpath can begin only with character
-                                ret[j] = rand() % (91 - 65) + 65;
-                        else
-                                ret[j] = rand() % (123 - 97) + 97;
+                /* Now let's generate each element */
+                for (gint64 i = 0; i < nelem; i++) {
+                        /* Each element needs at least 2 characters, e.g. "/a", so let's reserve
+                         * enough space for all following elements */
+                        gint64 reserve = (nelem - i - 1) * 2;
+                        /* Generate a pseudo-random size for the current element, taking the reserved
+                         * space into consideration (i.e. the current element can take up to
+                         * "remaining size - reserved size" bytes, but at least 2 bytes.
+                         *
+                         * Additionally, if we're the last element, use the remaining size in full */
+                        gint64 elem_size = i + 1 == nelem ? size : (rand() % (size - reserve - 2)) + 2;
+                        size -= elem_size;
+
+                        ret[idx++] = '/';
+                        /* Fill each element with pseudo-random characters from the list of allowed
+                         * characters (as defined by the D-Bus spec) */
+                        for (gint64 j = 0; j < elem_size - 1; j++)
+                                ret[idx++] = OBJECT_PATH_VALID_CHARS[rand() % strlen(OBJECT_PATH_VALID_CHARS)];
                 }
-                ret[j++] = '/';
-                beg = j;
-                for (; j <= (i * 2); j++) {
-                        if (j == beg)   // objpath can begin only with character
-                                ret[j] = rand() % (91 - 65) + 65;
-                        else
-                                ret[j] = rand() % (123 - 97) + 97;
-                }
-                ret[j++] = '/';
-                beg = j;
-                for (; j <= (i * 3); j++) {
-                        if (j == beg)   // objpath can begin only with character
-                                ret[j] = rand() % (91 - 97) + 97;
-                        else
-                                ret[j] = rand() % (123 - 97) + 97;
-                }
-                ret[j] = '\0';
+
+                ret[idx] = 0;
         }
 
         *buf = g_steal_pointer(&ret);
