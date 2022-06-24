@@ -21,8 +21,21 @@
 #ifndef FUZZ_H
 #define FUZZ_H
 
+/** Minimal buffer size for generated strings */
+#define MIN_BUFFER_LENGTH 512
+/** Maximum buffer size for generated strings, default is cca 50 kB */
+#define MAX_BUFFER_LENGTH 50000
+/** Maximum length of strings containing D-Bus object path */
+#define MAX_OBJECT_PATH_LENGTH 256
 /** Maximum length of D-Bus signature string */
-#define MAXSIG 255
+#define MAX_SIGNATURE_LENGTH 255
+#define MAX_SUPPRESSIONS 256
+
+/* Basic (non-container) types which can appear in a signature
+ *
+ * https://dbus.freedesktop.org/doc/dbus-specification.html#id-1.3.8
+ */
+#define SIGNATURE_BASIC_TYPES "ybnqiuxtdsogh"
 
 /** Maximum amount of unimportant exceptions for one method; if reached
   * testing continues with a next method */
@@ -61,8 +74,6 @@ G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(df_dbus_method_t, df_dbus_method_clear)
 G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(df_dbus_property_t, df_dbus_property_clear)
 
 guint64 df_get_number_of_iterations(const char *signature);
-GVariant *df_generate_random_basic(const GVariantType *type, guint64 iteration);
-GVariant *df_generate_random_from_signature(const char *signature, guint64 iteration);
 /**
  * @function Saves pointer on D-Bus interface proxy for this module to be
  * able to call methods through this proxy during fuzz testing. Also saves
