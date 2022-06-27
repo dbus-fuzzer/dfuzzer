@@ -463,23 +463,23 @@ static gunichar df_rand_unichar(guint16 *width)
         do
                 switch (*width) {
                         case 1:
-                                /* 1-byte wide character: 0x00 - 0x7F (0 - 127)
+                                /* 1-byte wide character: [0x20, 0x7F], i.e. [32, 127]
                                  *
-                                 * Skip the bottom 32 (0x20) control characters.
+                                 * Skip the bottom 32, i.e. [0x0, 0x20) control characters.
                                  */
-                                uc = rand() % (0x7F - 0x20) + 0x20;
+                                uc = rand() % (0x80 - 0x20) + 0x20;
                                 break;
                         case 2:
-                                /* 2-byte wide character: 0x80 - 0x7FF (128 - 2047) */
-                                uc = rand() % (0x7FF - 0x80) + 0x80;
+                                /* 2-byte wide character: [0x80, 0x7FF], i.e. [128, 2047] */
+                                uc = rand() % (0x800 - 0x80) + 0x80;
                                 break;
                         case 3:
-                                /* 3-byte wide character: 0x800 - 0xFFFF (2048 - 65535) */
-                                uc = rand() % (0xFFFF - 0x800) + 0x800;
+                                /* 3-byte wide character: [0x800, 0xFFFF], i.e. [2048, 65535] */
+                                uc = rand() % (0x10000 - 0x800) + 0x800;
                                 break;
                         case 4:
-                                /* 4-byte wide character: 0x10000 - 0x10FFFF (65536 - 1114111) */
-                                uc = rand() % (0x10FFFF - 0x10000) + 0x10000;
+                                /* 4-byte wide character: [0x10000, 0x10FFFF], i.e. [65536 - 1114111] */
+                                uc = rand() % (0x110000 - 0x10000) + 0x10000;
                                 break;
                         default:
                                 g_assert_not_reached();
