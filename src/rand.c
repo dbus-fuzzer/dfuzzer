@@ -778,19 +778,20 @@ int df_rand_dbus_signature_string(gchar **buf, guint64 iteration)
         return 0;
 }
 
-/* Create a GVariant containing a random basic type
- *
- * TODO: add support for any complete type once we're able to generate
- *       arbitrary signatures
- * */
 int df_rand_GVariant(GVariant **var, guint64 iteration)
 {
-        char sig[2];
+        g_autoptr(GString) signature = NULL;
+        guint16 size;
 
-        sig[0] = SIGNATURE_BASIC_TYPES[rand() % strlen(SIGNATURE_BASIC_TYPES)];
-        sig[1] = 0;
+        size = (iteration % MAX_SIGNATURE_LENGTH) + 1;
+        signature = g_string_sized_new(size + 3);
 
-        *var = df_generate_random_basic(G_VARIANT_TYPE(sig), iteration);
+        /* Variant must be a single complete type */
+        g_string_append_c(signature, '(');
+        df_generate_random_signature(signature, size, 0, /* complete= */ TRUE);
+        g_string_append_c(signature, ')');
+
+        *var = df_generate_random_from_signature(signature->str, iteration);
         if (!*var)
                 return -1;
 
