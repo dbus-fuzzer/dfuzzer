@@ -660,36 +660,120 @@ int df_rand_dbus_objpath_string(gchar **buf, guint64 iteration)
         return 0;
 }
 
-/**
- * @function Allocates memory for pseudo-random signature string of size
- * counted by adding 1 to size variable on every call of function to maximum
- * size of MAX_SIGNATURE_LENGTH. On every call pseudo-random signature string is generated
- * by random access into global variable df_sig_def which contains all D-Bus
- * signatures and copying signature into buf buffer.
- * Warning: buf should be freed outside this module by callee of this
- * function.
- * @param buf Address of pointer on buffer where generated signature string
- * will be stored
- * @return 0 on success, -1 on error
- */
+static inline char df_generate_random_signature_basic(void)
+{
+    return SIGNATURE_BASIC_TYPES[rand() % strlen(SIGNATURE_BASIC_TYPES)];
+}
+
+static void df_generate_random_signature(GString *str, gint16 size, guint16 nest_level, gboolean complete_type)
+{
+    const char *all_types = SIGNATURE_BASIC_TYPES "av({";
+    size_t type_idx;
+
+    g_assert(str);
+    g_assert(size > 0 && size <= MAX_SIGNATURE_LENGTH);
+    g_assert(nest_level <= MAX_SIGNATURE_NEST_LEVEL);
+
+    for (gint16 i = 0; i < size;) {
+        type_idx = rand() % strlen(all_types);
+
+        if (type_idx < strlen(SIGNATURE_BASIC_TYPES) || all_types[type_idx] == 'v') {
+            g_string_append_c(str, df_generate_random_signature_basic());
+            i++;
+        } else if (all_types[type_idx] == 'a') {
+            /* Check if we have a room for the shortest array, i.e. "ax" */
+            if (size - i - 2 < 0)
+                continue;
+
+            g_string_append_c(str, 'a');
+            i++;
+
+            /* As right now we're not a complete type, let's start the loop from
+             * the beginning to fix that */
+            continue;
+        } else if (all_types[type_idx] == '(') {
+            if (nest_level >= MAX_SIGNATURE_NEST_LEVEL)
+                continue;
+
+            /* Check if we have enough space for the shortest struct, i.e. "(x)" */
+            gint16 max_struct_size = size - i - 2;
+            gint16 struct_size, orig_str_length;
+
+            if (max_struct_size < 1)
+                continue;
+
+            /* Generate a pseudo-random length for the struct. If we have a room for
+             * only 1 element, use that length directly instead.
+             *
+             * Also, since we recursively call the df_generate_signature() function
+             * to generate the struct, which itself might do the same, we need to know
+             * how long the resulting struct is - do that by saving the current signature
+             * string length and subtract it from the string length after we return from
+             * df_generate_signature().
+             */
+            struct_size = max_struct_size == 1 ? max_struct_size : (rand() % (max_struct_size - 1)) + 1;
+            orig_str_length = str->len;
+
+            g_string_append_c(str, '(');
+            /* Don't 'request' a single complete type, since we want to utilize the full length
+             * of the possible struct and we ourselves ensure the type will be complete */
+            df_generate_random_signature(str, struct_size, nest_level++, /* complete= */ FALSE);
+            g_string_append_c(str, ')');
+            i += (str->len - orig_str_length);
+        } else if (all_types[type_idx] == '{') {
+            if (nest_level >= MAX_SIGNATURE_NEST_LEVEL)
+                continue;
+            /* For dictionaries we need to meet a couple of conditions:
+             *  - dictionaries may appear only as an array element type - to increase the likelihood
+             *    of having a dictionary in the final signature, let's add the array element ourselves
+             *    if it's not already the last element of the signature
+             *  - the "key" of the dictionary must be a basic type
+             *  - the "value" of the dictionary must be a single complete type
+             */
+            gboolean prev_is_array = str->str[str->len] == 'a';
+            gint16 max_value_size = size - i - (prev_is_array ? 3 : 4);
+            gint16 value_size, orig_str_length;
+
+            if (max_value_size < 1)
+                continue;
+
+            /* Similarly to structs, generate a random size of the dict "value", and
+             * store the current signature string length, so we can later determine
+             * how many bytes were added in total */
+            value_size = max_value_size == 1 ? max_value_size : (rand() % (max_value_size - 1)) + 1;
+            orig_str_length = str->len;
+
+            /* If the last element of the signature is not an array, add it ourselves */
+            if (!prev_is_array)
+                g_string_append_c(str, 'a');
+            g_string_append_c(str, '{');
+            /* The dictionary "key" must be a basic type */
+            g_string_append_c(str, df_generate_random_signature_basic());
+            /* The dictionary "value" must be a single complete type */
+            df_generate_random_signature(str, value_size, nest_level++, /* complete= */ TRUE);
+            g_string_append_c(str, '}');
+            i += (str->len - orig_str_length);
+        } else
+            g_assert_not_reached();
+
+        /* If a single complete type was requested, break out of the loop, since
+         * at this point we should have just that, once the stack unwinds */
+        if (complete_type)
+            break;
+    }
+}
+
 int df_rand_dbus_signature_string(gchar **buf, guint64 iteration)
 {
-        /* TODO: support arrays ('a') and other complex types */
-        static const char *valid_signature_chars = SIGNATURE_BASIC_TYPES "v";
-        g_autoptr(gchar) ret = NULL;
-        uint16_t size, i = 0;
+        g_autoptr(GString) signature = NULL;
+        guint16 size;
 
         size = (iteration % MAX_SIGNATURE_LENGTH) + 1;
+        signature = g_string_sized_new(size + 1);
 
-        ret = g_try_new(gchar, size + 1);
-        if (!ret)
-                return df_fail_ret(-1, "Could not allocate memory for the random string\n");
+        df_generate_random_signature(signature, size, 0, /* complete= */ FALSE);
 
-        for (i = 0; i < size; i++)
-                ret[i] = valid_signature_chars[rand() % strlen(valid_signature_chars)];
-
-        ret[i] = '\0';
-        *buf = g_steal_pointer(&ret);
+        *buf = g_steal_pointer(&signature->str);
 
         return 0;
 }
