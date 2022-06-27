@@ -772,6 +772,7 @@ int df_rand_dbus_signature_string(gchar **buf, guint64 iteration)
         signature = g_string_sized_new(size + 1);
 
         df_generate_random_signature(signature, size, 0, /* complete= */ FALSE);
+        g_assert(g_variant_is_signature(signature->str));
 
         *buf = g_steal_pointer(&signature->str);
 
@@ -790,6 +791,8 @@ int df_rand_GVariant(GVariant **var, guint64 iteration)
         g_string_append_c(signature, '(');
         df_generate_random_signature(signature, size, 0, /* complete= */ TRUE);
         g_string_append_c(signature, ')');
+
+        g_assert(g_variant_is_signature(signature->str) && g_variant_type_string_is_valid(signature->str));
 
         *var = df_generate_random_from_signature(signature->str, iteration);
         if (!*var)
