@@ -27,10 +27,12 @@
 #define MAX_BUFFER_LENGTH 50000
 /** Maximum length of strings containing D-Bus object path */
 #define MAX_OBJECT_PATH_LENGTH 256
-/** Maximum length of D-Bus signature string */
-#define MAX_SIGNATURE_LENGTH 255
-#define MAX_SIGNATURE_NEST_LEVEL 64
 #define MAX_SUPPRESSIONS 256
+/* Set the limits fro signature length & nest level a bit higher than the limits
+ * given by the D-Bus spec (255 bytes for signature length and 64 levels for nest
+ * levels), to check if the remote side can deal with it */
+#define MAX_SIGNATURE_LENGTH (10 * 1024)
+#define MAX_SIGNATURE_NEST_LEVEL 256
 
 /* Basic (non-container) types which can appear in a signature
  *

@@ -768,7 +768,23 @@ int df_rand_dbus_signature_string(gchar **buf, guint64 iteration)
         g_autoptr(GString) signature = NULL;
         guint16 size;
 
-        size = (iteration % MAX_SIGNATURE_LENGTH) + 1;
+        switch (iteration) {
+        case 0:
+                size = 1;
+                break;
+        case 1:
+                size = 128;
+                break;
+        case 2:
+                size = 256;
+                break;
+        case 3:
+                size = MAX_SIGNATURE_LENGTH;
+                break;
+        default:
+                size = (iteration % MAX_SIGNATURE_LENGTH) + 1;
+        }
+
         signature = g_string_sized_new(size + 1);
 
         df_generate_random_signature(signature, size, 0, /* complete= */ FALSE);
@@ -784,7 +800,23 @@ int df_rand_GVariant(GVariant **var, guint64 iteration)
         g_autoptr(GString) signature = NULL;
         guint16 size;
 
-        size = (iteration % MAX_SIGNATURE_LENGTH) + 1;
+        switch (iteration) {
+        case 0:
+                size = 1;
+                break;
+        case 1:
+                size = 128;
+                break;
+        case 2:
+                size = 256;
+                break;
+        case 3:
+                size = MAX_SIGNATURE_LENGTH;
+                break;
+        default:
+                size = (iteration % MAX_SIGNATURE_LENGTH) + 1;
+        }
+
         signature = g_string_sized_new(size + 3);
 
         /* Variant must be a single complete type */
