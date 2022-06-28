@@ -29,6 +29,7 @@
 #define MAX_OBJECT_PATH_LENGTH 256
 /** Maximum length of D-Bus signature string */
 #define MAX_SIGNATURE_LENGTH 255
+#define MAX_SIGNATURE_NEST_LEVEL 64
 #define MAX_SUPPRESSIONS 256
 
 /* Basic (non-container) types which can appear in a signature
