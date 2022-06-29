@@ -18,8 +18,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef FUZZ_H
-#define FUZZ_H
+#pragma once
 
 /** Minimal buffer size for generated strings */
 #define MIN_BUFFER_LENGTH 512
@@ -136,5 +135,3 @@ extern FILE* logfile;
  * when running dfuzzer.
  */
 #define FULL_LOG(fmt, ...) if(logfile) fprintf(logfile, fmt, ##__VA_ARGS__)
-
-#endif
