@@ -7,6 +7,8 @@ project('dfuzzer', 'c',
         ],
 )
 
+tests = []
+
 libgio = dependency('gio-2.0', required : true)
 xsltproc = find_program('xsltproc', required: false)
 
@@ -21,6 +23,7 @@ config_h = configure_file(
 add_project_arguments('-include', 'config.h', language : 'c')
 
 subdir('src')
+subdir('test')
 
 executable(
         'dfuzzer',
@@ -66,3 +69,26 @@ if get_option('dfuzzer-test-server')
 endif
 
 install_data('src/dfuzzer.conf', install_dir : get_option('sysconfdir'))
+
+foreach tuple : tests
+        sources = tuple[0]
+        name = '@0@'.format(sources[0]).split('/')[-1].split('.')[0]
+
+        exe = executable(
+                name,
+                dfuzzer_util_sources + sources,
+                include_directories : include_directories('src/'),
+                dependencies : [libgio],
+        )
+
+        # See: https://docs.gtk.org/glib/testing.html#using-meson
+        test(name, exe,
+             timeout : 60,
+             env : [
+                     'G_TEST_SRCDIR=@0@'.format(meson.current_source_dir()),
+                     'G_TEST_BUILDDIR=@0@'.format(meson.current_build_dir()),
+             ]
+        )
+endforeach
+
+# vi: sw=8 ts=8 et:

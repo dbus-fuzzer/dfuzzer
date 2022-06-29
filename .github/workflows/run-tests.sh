@@ -2,6 +2,8 @@
 
 set -ex
 
+ninja -C ./build test
+
 dfuzzer=("dfuzzer")
 if [[ "$TYPE" == valgrind ]]; then
         dfuzzer=("valgrind" "--leak-check=full" "--show-leak-kinds=definite" "--errors-for-leak-kinds=definite" "--error-exitcode=42" "dfuzzer")

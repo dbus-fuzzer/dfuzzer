@@ -445,7 +445,7 @@ gdouble df_rand_gdouble(guint64 iteration)
         }
 }
 
-static gunichar df_rand_unichar(guint16 *width)
+gunichar df_rand_unichar(guint16 *width)
 {
         gunichar uc = 0;
 
