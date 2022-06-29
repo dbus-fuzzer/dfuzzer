@@ -37,10 +37,6 @@
 #include "rand.h"
 #include "util.h"
 
-/* Shared global variables */
-/** Maximum buffer size for generated strings by rand module (in Bytes) */
-guint64 df_buf_size = MAX_BUFFER_LENGTH;
-
 gboolean df_skip_methods;
 gboolean df_skip_properties;
 static char *df_test_method;
@@ -788,19 +784,23 @@ void df_parse_parameters(int argc, char **argv)
                         case 'm':
                                 df_verbose("Option -m has no effect anymore");
                                 break;
-                        case 'b':
-                                r = safe_strtoull(optarg, &df_buf_size);
+                        case 'b': {
+                                guint64 buf_length;
+
+                                r = safe_strtoull(optarg, &buf_length);
                                 if (r < 0) {
                                         df_fail("Error: invalid value for option -%c: %s\n", c, strerror(-r));
                                         exit(1);
                                 }
 
-                                if (df_buf_size < MIN_BUFFER_LENGTH) {
-                                        df_fail("Error: at least %d bytes required for the -%c option\n", MIN_BUFFER_LENGTH, c);
+                                if (buf_length < MIN_BUFFER_LENGTH || buf_length > MAX_BUFFER_LENGTH) {
+                                        df_fail("Error: buffer length must be in range [%d, %d]\n", MIN_BUFFER_LENGTH, MAX_BUFFER_LENGTH);
                                         exit(1);
                                 }
 
+                                df_fuzz_set_buffer_length(buf_length);
                                 break;
+                        }
                         case 't':
                                 df_test_method = optarg;
                                 /* Skip properties when we test a specific method */

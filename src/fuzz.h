@@ -73,6 +73,9 @@ static inline void df_dbus_property_clear(df_dbus_property_t *p)
 G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(df_dbus_method_t, df_dbus_method_clear)
 G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(df_dbus_property_t, df_dbus_property_clear)
 
+void df_fuzz_set_buffer_length(const guint64 length);
+guint64 df_fuzz_get_buffer_length(void);
+
 guint64 df_get_number_of_iterations(const char *signature);
 /**
  * @function Saves pointer on D-Bus interface proxy for this module to be

@@ -55,9 +55,6 @@ struct suppression_item {
         char *description;
 };
 
-/* Shared global variables */
-extern guint64 df_buf_size;
-
 /* Public functions */
 
 int df_process_bus(GBusType bus_type);

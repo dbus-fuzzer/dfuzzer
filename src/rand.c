@@ -31,9 +31,6 @@
 #include "dfuzzer.h"
 #include "util.h"
 
-
-extern guint64 df_buf_size;
-
 static struct external_dictionary df_external_dictionary;
 
 /**
@@ -573,9 +570,9 @@ int df_rand_string(gchar **buf, guint64 iteration)
         }
 
         if (!ret) {
-                /* Genearate a pseudo-random string length in interval <0, df_buf_size) */
-                len = (rand() * iteration) % df_buf_size;
-                len = CLAMP(len, 1, df_buf_size);
+                /* Genearate a pseudo-random string length in interval <0, df_fuzz_get_buffer_length()) */
+                len = (rand() * iteration) % df_fuzz_get_buffer_length();
+                len = CLAMP(len, 1, df_fuzz_get_buffer_length());
                 ret = df_rand_random_string(len);
         }
 
@@ -620,7 +617,7 @@ int df_rand_dbus_objpath_string(gchar **buf, guint64 iteration)
 
                 /* We need at least 2 characters for the shortest object path
                  * (e.g. "/a"), not counting the root object path ("/") */
-                size = (iteration % (df_buf_size - 2)) + 2;
+                size = (iteration % (df_fuzz_get_buffer_length() - 2)) + 2;
                 /* Calculate number of 'elements', i.e. the "/abc" parts in the object path.
                  * For that, lets calculate the maximum number of elements for given size
                  * (each element needs at least two characters, hence size/2) and

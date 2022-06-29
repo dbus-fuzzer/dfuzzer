@@ -37,7 +37,7 @@
 #include "rand.h"
 #include "util.h"
 
-extern guint64 df_buf_size;
+static guint64 fuzz_buffer_length = MAX_BUFFER_LENGTH;
 /** Pointer on D-Bus interface proxy for calling methods. */
 static GDBusProxy *df_dproxy;
 /** Exceptions counter; if MAX_EXCEPTIONS is reached testing continues
@@ -49,6 +49,18 @@ static char df_except_counter = 0;
 static void df_fuzz_write_log(const struct df_dbus_method *method, GVariant *value);
 static int df_exec_cmd_check(const char *cmd);
 static int df_fuzz_call_method(const struct df_dbus_method *method, GVariant *value);
+
+void df_fuzz_set_buffer_length(const guint64 length)
+{
+        g_assert(length <= MAX_BUFFER_LENGTH);
+
+        fuzz_buffer_length = length;
+}
+
+guint64 df_fuzz_get_buffer_length(void)
+{
+        return fuzz_buffer_length;
+}
 
 guint64 df_get_number_of_iterations(const char *signature)
 {
@@ -357,7 +369,7 @@ fail_label:
 
         df_fail("   reproducer: %sdfuzzer -v -n %s -o %s -i %s -t %s",
                 ansi_yellow(), name, obj, intf, method->name);
-        df_fail(" -b %"G_GUINT64_FORMAT, df_buf_size);
+        df_fail(" -b %"G_GUINT64_FORMAT, fuzz_buffer_length);
         if (execute_cmd != NULL)
                 df_fail(" -e '%s'", execute_cmd);
         df_fail("%s\n", ansi_normal());
