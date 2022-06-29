@@ -45,11 +45,6 @@ static GDBusProxy *df_dproxy;
 static char df_except_counter = 0;
 
 
-/* Module static functions */
-static void df_fuzz_write_log(const struct df_dbus_method *method, GVariant *value);
-static int df_exec_cmd_check(const char *cmd);
-static int df_fuzz_call_method(const struct df_dbus_method *method, GVariant *value);
-
 void df_fuzz_set_buffer_length(const guint64 length)
 {
         g_assert(length <= MAX_BUFFER_LENGTH);
@@ -265,6 +260,77 @@ static int df_check_if_exited(const int pid) {
 }
 
 /**
+ * @function Calls method from df_list (using its name) with its arguments.
+ * @param value GVariant tuple containing all method arguments signatures and
+ * their values
+ * @param void_method If method has out args 1, 0 otherwise
+ * @return 0 on success, -1 on error, 1 if void method returned non-void
+ * value or 2 when tested method raised exception (so it should be skipped)
+ */
+static int df_fuzz_call_method(const struct df_dbus_method *method, GVariant *value)
+{
+        g_autoptr(GError) error = NULL;
+        g_autoptr(GVariant) response = NULL;
+        g_autoptr(gchar) dbus_error = NULL;
+        const gchar *fmt;
+
+        // Synchronously invokes method with arguments stored in value (GVariant *)
+        // on df_dproxy.
+        response = g_dbus_proxy_call_sync(
+                        df_dproxy,
+                        method->name,
+                        value,
+                        G_DBUS_CALL_FLAGS_NONE,
+                        -1,
+                        NULL,
+                        &error);
+        if (!response) {
+                // D-Bus exceptions are accepted
+                dbus_error = g_dbus_error_get_remote_error(error);
+                if (dbus_error) {
+                        if (g_str_equal(dbus_error, "org.freedesktop.DBus.Error.NoReply"))
+                                /* If the method is annotated as "NoReply", don't consider
+                                 * not replying as an error */
+                                return method->expect_reply ? -1 : 0;
+                        else if (g_str_equal(dbus_error, "org.freedesktop.DBus.Error.Timeout")) {
+                                sleep(10);
+                                return -1;
+                        } else if (g_str_equal(dbus_error, "org.freedesktop.DBus.Error.AccessDenied") ||
+                                   g_str_equal(dbus_error, "org.freedesktop.DBus.Error.AuthFailed")) {
+                                df_verbose("%s  %sSKIP%s [M] %s - raised exception '%s'\n",
+                                           ansi_cr(), ansi_blue(), ansi_normal(),
+                                           method->name, dbus_error);
+                                return 2;
+                        }
+                }
+
+                g_dbus_error_strip_remote_error(error);
+                if (strstr(error->message, "Timeout")) {
+                        df_verbose("%s  %sSKIP%s [M] %s - timeout reached\n",
+                                   ansi_cr(), ansi_blue(), ansi_normal(), method->name);
+                        return 2;
+                }
+
+                df_debug("%s  EXCE %s - D-Bus exception thrown: %s\n",
+                         ansi_cr(), method->name, error->message);
+                df_except_counter++;
+                return 0;
+        } else {
+                /* Check if a method without return value returns void */
+                if (!method->returns_value) {
+                        fmt = g_variant_get_type_string(response);
+                        if (!g_str_equal(fmt, "()")) {
+                                df_fail("%s  %sFAIL%s [M] %s - void method returns '%s' instead of '()'\n",
+                                        ansi_cr(), ansi_red(), ansi_normal(), method->name, fmt);
+                                return 1;
+                        }
+                }
+        }
+
+        return 0;
+}
+
+/**
  * @function Function is testing a method in a cycle, each cycle generates
  * data for function arguments, calls method and waits for result.
  * @param statfd FD of process status file
@@ -385,77 +451,6 @@ fail_label:
         df_log_file("Crash\n");
 
         return 1;
-}
-
-/**
- * @function Calls method from df_list (using its name) with its arguments.
- * @param value GVariant tuple containing all method arguments signatures and
- * their values
- * @param void_method If method has out args 1, 0 otherwise
- * @return 0 on success, -1 on error, 1 if void method returned non-void
- * value or 2 when tested method raised exception (so it should be skipped)
- */
-static int df_fuzz_call_method(const struct df_dbus_method *method, GVariant *value)
-{
-        g_autoptr(GError) error = NULL;
-        g_autoptr(GVariant) response = NULL;
-        g_autoptr(gchar) dbus_error = NULL;
-        const gchar *fmt;
-
-        // Synchronously invokes method with arguments stored in value (GVariant *)
-        // on df_dproxy.
-        response = g_dbus_proxy_call_sync(
-                        df_dproxy,
-                        method->name,
-                        value,
-                        G_DBUS_CALL_FLAGS_NONE,
-                        -1,
-                        NULL,
-                        &error);
-        if (!response) {
-                // D-Bus exceptions are accepted
-                dbus_error = g_dbus_error_get_remote_error(error);
-                if (dbus_error) {
-                        if (g_str_equal(dbus_error, "org.freedesktop.DBus.Error.NoReply"))
-                                /* If the method is annotated as "NoReply", don't consider
-                                 * not replying as an error */
-                                return method->expect_reply ? -1 : 0;
-                        else if (g_str_equal(dbus_error, "org.freedesktop.DBus.Error.Timeout")) {
-                                sleep(10);
-                                return -1;
-                        } else if (g_str_equal(dbus_error, "org.freedesktop.DBus.Error.AccessDenied") ||
-                                   g_str_equal(dbus_error, "org.freedesktop.DBus.Error.AuthFailed")) {
-                                df_verbose("%s  %sSKIP%s [M] %s - raised exception '%s'\n",
-                                           ansi_cr(), ansi_blue(), ansi_normal(),
-                                           method->name, dbus_error);
-                                return 2;
-                        }
-                }
-
-                g_dbus_error_strip_remote_error(error);
-                if (strstr(error->message, "Timeout")) {
-                        df_verbose("%s  %sSKIP%s [M] %s - timeout reached\n",
-                                   ansi_cr(), ansi_blue(), ansi_normal(), method->name);
-                        return 2;
-                }
-
-                df_debug("%s  EXCE %s - D-Bus exception thrown: %s\n",
-                         ansi_cr(), method->name, error->message);
-                df_except_counter++;
-                return 0;
-        } else {
-                /* Check if a method without return value returns void */
-                if (!method->returns_value) {
-                        fmt = g_variant_get_type_string(response);
-                        if (!g_str_equal(fmt, "()")) {
-                                df_fail("%s  %sFAIL%s [M] %s - void method returns '%s' instead of '()'\n",
-                                        ansi_cr(), ansi_red(), ansi_normal(), method->name, fmt);
-                                return 1;
-                        }
-                }
-        }
-
-        return 0;
 }
 
 static int df_fuzz_get_property(GDBusProxy *pproxy, const char *interface,
