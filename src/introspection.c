@@ -24,7 +24,7 @@
 
 #include "introspection.h"
 #include "bus.h"
-#include "dfuzzer.h"
+#include "log.h"
 #include "util.h"
 
 

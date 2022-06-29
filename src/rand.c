@@ -18,6 +18,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include <assert.h>
+#include <errno.h>
 #include <gio/gio.h>
 #include <glib.h>
 #include <limits.h>
@@ -28,7 +29,7 @@
 #include <time.h>
 
 #include "rand.h"
-#include "dfuzzer.h"
+#include "log.h"
 #include "util.h"
 
 static struct external_dictionary df_external_dictionary;

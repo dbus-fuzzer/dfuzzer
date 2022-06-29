@@ -2,7 +2,6 @@ dfuzzer_sources = files(
         'bus.c',
         'bus.h',
         'dfuzzer.c',
-        'dfuzzer.h',
         'fuzz.c',
         'fuzz.h',
         'introspection.c',

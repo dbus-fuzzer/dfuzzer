@@ -33,7 +33,7 @@
 
 #include "fuzz.h"
 #include "bus.h"
-#include "dfuzzer.h"
+#include "log.h"
 #include "rand.h"
 #include "util.h"
 
