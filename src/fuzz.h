@@ -129,9 +129,3 @@ int df_fuzz_test_method(
 int df_fuzz_test_property(GDBusConnection *dcon, const struct df_dbus_property *property,
                           const char *bus, const char *object, const char *interface,
                           const int pid, guint64 iterations);
-extern FILE* logfile;
-
-/** Writes a message to a logfile if it is opened (i.e. if -L flag was passed
- * when running dfuzzer.
- */
-#define FULL_LOG(fmt, ...) if(logfile) fprintf(logfile, fmt, ##__VA_ARGS__)

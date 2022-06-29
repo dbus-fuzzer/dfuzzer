@@ -40,8 +40,6 @@
 /* Shared global variables */
 /** Maximum buffer size for generated strings by rand module (in Bytes) */
 guint64 df_buf_size = MAX_BUFFER_LENGTH;
-int df_verbose_flag;
-int df_debug_flag;
 
 gboolean df_skip_methods;
 gboolean df_skip_properties;
@@ -67,16 +65,10 @@ static int df_supflg;
   * If command/script returns >0, dfuzzer prints fail message,
   * if 0 it continues */
 static char *df_execute_cmd;
-/** If -L is passed, full log of method calls and their return values will be
-  * written to a [BUS_NAME.log] file */
-static int df_full_log_flag;
 /** Path to directory containing output logs */
-static char *log_dir_name;
+static char *df_log_dir_name;
 static guint64 df_max_iterations = G_MAXUINT32;
 static guint64 df_min_iterations = 10;
-/** Pointer to a file for full logging  */
-FILE* logfile;
-
 
 /**
  * @function Main function controls fuzzing.
@@ -93,12 +85,11 @@ int main(int argc, char **argv)
         int ret = 0;
         df_parse_parameters(argc, argv);
 
-        if (df_full_log_flag) {
-                log_file_name = strjoina(log_dir_name, "/", target_proc.name);
-                logfile = fopen(log_file_name, "a+");
-                if(!logfile) {
-                        df_fail("Error opening file %s; detailed logs will not be written\n", log_file_name);
-                        df_full_log_flag = 0;
+        if (df_log_dir_name) {
+                log_file_name = strjoina(df_log_dir_name, "/", target_proc.name);
+                if (df_log_open_log_file(log_file_name) < 0) {
+                        ret = 1;
+                        goto cleanup;
                 }
         }
         if (!df_supflg) {       // if -s option was not passed
@@ -827,10 +818,10 @@ void df_parse_parameters(int argc, char **argv)
                                 df_supflg = 1;
                                 break;
                         case 'd':
-                                df_debug_flag = 1;
+                                df_set_log_level(DF_LOG_LEVEL_DEBUG);
                                 break;
                         case 'v':
-                                df_verbose_flag = 1;
+                                df_set_log_level(DF_LOG_LEVEL_VERBOSE);
                                 break;
                         case 'l':
                                 df_list_names = 1;
@@ -850,8 +841,7 @@ void df_parse_parameters(int argc, char **argv)
                                                 " 'L'\n", argv[0], MAX_OBJECT_PATH_LENGTH - 1);
                                         exit(1);
                                 }
-                                log_dir_name = optarg;
-                                df_full_log_flag = 1;
+                                df_log_dir_name = optarg;
                                 break;
                         case 'x':
                                 r = safe_strtoull(optarg, &df_max_iterations);
@@ -1154,63 +1144,4 @@ void df_print_help(const char *name)
          "Test name org.freedesktop.Avahi, be verbose and do not use any suppression file:\n"
          "# %1$s -v -s -n org.freedesktop.Avahi\n",
          name);
-}
-
-/**
- * @function Displays an error message.
- * @param message Error message which will be printed
- * @param error Pointer on GError structure containing error specification
- */
-void df_error(const char *message, GError *error)
-{
-        if (!df_debug_flag) {
-                return;
-        }
-        if (error == NULL)
-                fprintf(stderr, "%s\n", message);
-        else
-                fprintf(stderr, "%s: %s\n", message, error->message);
-}
-
-/**
- * @function Prints debug message.
- * @param format Format string
- */
-void df_debug(const char *format, ...)
-{
-        if (!df_debug_flag)
-                return;
-        va_list args;
-        va_start(args, format);
-        vprintf(format, args);
-        va_end(args);
-        fflush(stdout);
-}
-
-/**
- * @function Prints verbose message.
- * @param format Format string
- */
-void df_verbose(const char *format, ...)
-{
-        if (!df_verbose_flag && !df_debug_flag)
-                return;
-        va_list args;
-        va_start(args, format);
-        vprintf(format, args);
-        va_end(args);
-        fflush(stdout);
-}
-
-/**
- * @function Prints error message.
- * @param format Format string
- */
-void df_fail(const char *format, ...)
-{
-        va_list args;
-        va_start(args, format);
-        vfprintf(stderr, format, args);
-        va_end(args);
-        fflush(stderr);
 }
