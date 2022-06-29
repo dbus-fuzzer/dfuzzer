@@ -17,8 +17,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef RAND_H
-#define RAND_H
+#pragma once
 
 #include "fuzz.h"
 
@@ -142,5 +141,3 @@ int df_rand_GVariant(GVariant **var, guint64 iteration);
  * @return Generated pseudo-random FD number from interval <-1, INT_MAX)
  */
 int df_rand_unixFD(guint64 iteration);
-
-#endif

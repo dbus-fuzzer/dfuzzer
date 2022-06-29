@@ -19,8 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef DFUZZER_H
-#define DFUZZER_H
+#pragma once
 
 #include <errno.h>
 #include <unistd.h>
@@ -208,5 +207,3 @@ void df_fail(const char *format, ...) __attribute__((__format__(printf, 1, 2)));
 #define df_oom(void) df_log_ret_internal(-ENOMEM, df_fail, "Allocation error: %m\n")
 #define df_fail_ret(ret, ...) df_log_ret_internal(ret, df_fail, __VA_ARGS__)
 #define df_debug_ret(ret, ...) df_log_ret_internal(ret, df_debug, __VA_ARGS__)
-
-#endif

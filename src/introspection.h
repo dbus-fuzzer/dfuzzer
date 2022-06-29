@@ -17,11 +17,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef INTROSPECTION_H
-#define INTROSPECTION_H
+#pragma once
 
 GDBusNodeInfo *df_get_interface_info(GDBusProxy *dproxy, const char *interface, GDBusInterfaceInfo **ret_iinfo);
 char *df_method_get_full_signature(const GDBusMethodInfo *method);
 gboolean df_object_returns_reply(GDBusAnnotationInfo **annotations);
-
-#endif
