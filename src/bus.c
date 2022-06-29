@@ -3,6 +3,7 @@
 
 #include "bus.h"
 #include "dfuzzer.h"
+#include "log.h"
 #include "util.h"
 
 GDBusProxy *df_bus_new_full(GDBusConnection *dcon, const char *name, const char *object,

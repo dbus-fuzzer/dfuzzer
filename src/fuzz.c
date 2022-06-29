@@ -37,7 +37,6 @@
 #include "rand.h"
 #include "util.h"
 
-extern int df_debug_flag;
 extern guint64 df_buf_size;
 /** Pointer on D-Bus interface proxy for calling methods. */
 static GDBusProxy *df_dproxy;
@@ -147,7 +146,7 @@ static void df_fuzz_write_log(const struct df_dbus_method *method, GVariant *val
         assert(method);
         assert(value);
 
-        FULL_LOG("%s;", method->name);
+        df_log_file("%s;", method->name);
 
         if (!method->signature) {
                 df_fail("No method signature\n");
@@ -155,12 +154,12 @@ static void df_fuzz_write_log(const struct df_dbus_method *method, GVariant *val
         }
 
         df_fail("   -- Signature: %s\n", method->signature);
-        FULL_LOG("%s;", method->signature);
+        df_log_file("%s;", method->signature);
 
         variant_value = g_variant_print(value, TRUE);
         if (variant_value) {
                 df_fail("   -- Value: %s\n", variant_value);
-                FULL_LOG("%s;", variant_value);
+                df_log_file("%s;", variant_value);
         }
 }
 
@@ -331,11 +330,11 @@ int df_fuzz_test_method(
                 else if (ret > 0)
                         break;
 
-                FULL_LOG("%s;%s;", intf, obj);
+                df_log_file("%s;%s;", intf, obj);
 
-                if (logfile)
+                if (df_log_file_is_open())
                         df_fuzz_write_log(method, value);
-                FULL_LOG("Success\n");
+                df_log_file("Success\n");
 
                 if (df_except_counter == MAX_EXCEPTIONS)
                         break;
@@ -352,7 +351,7 @@ int df_fuzz_test_method(
 fail_label:
         if (ret != 1) {
                 df_fail("   on input:\n");
-                FULL_LOG("%s;%s;", intf, obj);
+                df_log_file("%s;%s;", intf, obj);
                 df_fuzz_write_log(method, value);
         }
 
@@ -368,10 +367,10 @@ fail_label:
                 return 2;
         /* Command specified via -e/--command returned a non-zero exit code */
         if (execr > 0) {
-                FULL_LOG("Command execution error\n");
+                df_log_file("Command execution error\n");
                 return 4;
         }
-        FULL_LOG("Crash\n");
+        df_log_file("Crash\n");
 
         return 1;
 }
@@ -458,7 +457,7 @@ static int df_fuzz_get_property(GDBusProxy *pproxy, const char *interface,
         if (!response)
                 return -1;
 
-        if (df_debug_flag) {
+        if (df_get_log_level() >= DF_LOG_LEVEL_DEBUG) {
                 g_autoptr(gchar) value_str = NULL;
                 value_str = g_variant_print(response, TRUE);
                 df_debug("Got value for property %s.%s: %s\n", interface, property->name, value_str);
@@ -519,7 +518,7 @@ static int df_fuzz_set_property(GDBusProxy *pproxy, const char *interface,
                 return 0;
         }
 
-        if (df_debug_flag) {
+        if (df_get_log_level() >= DF_LOG_LEVEL_DEBUG) {
                 g_autoptr(gchar) value_str = NULL;
                 value_str = g_variant_print(value, TRUE);
                 df_debug("Set value for property %s.%s: %s\n", interface, property->name, value_str);

@@ -24,6 +24,8 @@
 #include <errno.h>
 #include <unistd.h>
 
+#include "log.h"
+
 #define DF_BUS_ROOT_NODE "/"
 
 enum {
@@ -55,8 +57,6 @@ struct suppression_item {
 
 /* Shared global variables */
 extern guint64 df_buf_size;
-extern int df_verbose_flag;
-extern int df_debug_flag;
 
 /* Public functions */
 
@@ -172,38 +172,3 @@ int df_load_suppressions(void);
  * @param name Name of program
  */
 void df_print_help(const char *name);
-
-/**
- * @function Displays an error message.
- * @param message Error message which will be printed
- * @param error Pointer on GError structure containing error specification
- */
-void df_error(const char *message, GError *error);
-
-/**
- * @function Prints debug message.
- * @param format Format string
- */
-void df_debug(const char *format, ...) __attribute__((__format__(printf, 1, 2)));
-
-/**
- * @function Prints verbose message.
- * @param format Format string
- */
-void df_verbose(const char *format, ...) __attribute__((__format__(printf, 1, 2)));
-
-/**
- * @function Prints error message.
- * @param format Format string
- */
-void df_fail(const char *format, ...) __attribute__((__format__(printf, 1, 2)));
-
-#define df_log_ret_internal(ret, fun, ...)          \
-        ({                                          \
-                fun(__VA_ARGS__);                   \
-                ret;                                \
-        })
-
-#define df_oom(void) df_log_ret_internal(-ENOMEM, df_fail, "Allocation error: %m\n")
-#define df_fail_ret(ret, ...) df_log_ret_internal(ret, df_fail, __VA_ARGS__)
-#define df_debug_ret(ret, ...) df_log_ret_internal(ret, df_debug, __VA_ARGS__)
