@@ -624,7 +624,10 @@ int df_rand_dbus_objpath_string(gchar **buf, guint64 iteration)
                  * (each element needs at least two characters, hence size/2) and
                  * we need at least one element (hence +-1). With that, generate
                  * a pseudo-random number of elements in interval <1, size/2> */
-                nelem = (rand() % (size / 2 - 1)) + 1;
+                g_assert(size >= 2);
+                /* Set the number of elements to 1 if size is < 4 to avoid dividing
+                 * by zero */
+                nelem = size < 4 ? 1 : (rand() % (size / 2 - 1)) + 1;
 
                 ret = g_try_new(gchar, size + 1);
                 if (!ret)
