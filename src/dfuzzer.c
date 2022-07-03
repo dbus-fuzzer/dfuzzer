@@ -35,6 +35,7 @@
 #include "introspection.h"
 #include "log.h"
 #include "rand.h"
+#include "suppression.h"
 #include "util.h"
 
 #define DF_BUS_ROOT_NODE "/"
@@ -59,13 +60,6 @@ struct fuzzing_target {
         char *interface;
 };
 
-struct suppression_item {
-        char *object;
-        char *interface;
-        char *method;
-        char *description;
-};
-
 gboolean df_skip_methods;
 gboolean df_skip_properties;
 static char *df_test_method;
@@ -76,16 +70,9 @@ static struct fuzzing_target target_proc = { "", "", "" };
 static int df_list_names;
 /** Tested process PID */
 static int df_pid = -1;
-/** NULL terminated struct of methods names which will be skipped from testing */
-static struct suppression_item *suppressions[MAX_SUPPRESSIONS];
+GList *suppressions;
 /** If -s option is passed 1, otherwise 0 */
 static int df_supflg;
-/** Suppression file #1 */
-#define SF1 "./dfuzzer.conf"
-/** Suppression file #2 (home dir) */
-#define SF2 ".dfuzzer.conf"
-/** Suppression file #3 (mandatory) */
-#define SF3 "/etc/dfuzzer.conf"
 /** Command/Script to execute by dfuzzer after each method call.
   * If command/script returns >0, dfuzzer prints fail message,
   * if 0 it continues */
@@ -224,30 +211,6 @@ static int df_get_pid(GDBusConnection *dcon, gboolean activate)
         return pid;
 }
 
-static int df_path_is_suppressed(const char *object, const char *interface, const char *method,
-                                   char **ret_description_ptr)
-{
-        if (!suppressions[0])
-                return 0;
-
-        for (struct suppression_item **p = suppressions, *i; (i = *p) && i; p++) {
-                /* If the method name is set but doesn't match, continue */
-                if (!isempty(method) && !isempty(i->method) && !g_str_equal(method, i->method))
-                        continue;
-                /* If the interface name is set but doesn't match, continue */
-                if (!isempty(interface) && !isempty(i->interface) && !g_str_equal(interface, i->interface))
-                        continue;
-                /* If the object name is set but doesn't match, continue */
-                if (!isempty(object) && !isempty(i->object) && !g_str_equal(object, i->object))
-                        continue;
-                /* Everything that should match matches, so the method is suppressed */
-                *ret_description_ptr = i->description;
-                return 1;
-        }
-
-        return 0;
-}
-
 /**
  * @function Controls fuzz testing of all methods of specified interface (intf)
  * and reports results.
@@ -366,7 +329,7 @@ static int df_fuzz(GDBusConnection *dcon, const char *name, const char *object, 
 
                 method_found = 1;
 
-                if (df_path_is_suppressed(object, interface, m->name, &description) != 0) {
+                if (df_suppression_check(suppressions, object, interface, m->name, &description) != 0) {
                         df_verbose("%s  %sSKIP%s [M] %s - %s\n", ansi_cr(), ansi_blue(), ansi_normal(),
                                    m->name, description ?: "suppressed method");
                         continue;
@@ -860,166 +823,6 @@ static void df_parse_parameters(int argc, char **argv)
         }
 }
 
-/**
- * @function Searches target_proc.name in suppression file SF1, SF2 and SF3
- * (the file which is opened first is parsed). If it is found, the suppressions
- * array is seeded with names of methods and the reason  why methods are skipped.
- * Suppression file is in format:
- * [bus_name]
- * method1 description
- * method2 description
- * [bus_name2]
- * method1 description
- * method2 description
- * ...
- * @return 0 on success, -1 on error
- */
-static int df_load_suppressions(void)
-{
-        g_autoptr(FILE) f = NULL;
-        g_autoptr(char) line = NULL, home_supp = NULL;
-        char *env = NULL;
-        int name_found = 0, i = 0;
-        size_t len = 0;
-        ssize_t n;
-
-        if (isempty(target_proc.name))
-                return 0;
-
-        env = getenv("HOME");
-        if (env) {
-                home_supp = strjoin(env, "/", SF2);
-                if (!home_supp)
-                        return df_oom();
-        }
-
-        char *paths[3] = { SF1, home_supp, SF3 };
-
-        for (i = 0; i < 3; i++) {
-                if (!paths[i])
-                        continue;
-
-                f = fopen(paths[i], "r");
-                if (f) {
-                        df_verbose("Loading suppressions from file '%s'\n", paths[i]);
-                        break;
-                }
-
-                df_verbose("Cannot open suppression file '%s'\n", paths[i]);
-        }
-
-        if (!f) {
-                df_fail("Cannot open any pre-defined suppression file\n");
-                return -1;
-        }
-
-        // determines if currently tested bus name is in suppression file
-        while (getline(&line, &len, f) > 0) {
-                if (strstr(line, target_proc.name)) {
-                        name_found++;
-                        break;
-                }
-        }
-
-        if (ferror(f)) {
-                df_fail("Error while reading from the suppression file: %m\n");
-                return -1;
-        }
-
-        // no suppressions for tested bus name
-        if (!name_found)
-                return 0;
-
-        df_verbose("Found suppressions for bus: '%s'\n", target_proc.name);
-
-        i = 0;
-        while (i < (MAX_SUPPRESSIONS - 1) && (n = getline(&line, &len, f)) > 0) {
-                g_autoptr(char) suppression = NULL, description = NULL;
-                char *p;
-
-                if (line[0] == '[')
-                        break;
-
-                /* The line contains only whitespace, skip it */
-                if (strspn(line, " \t\r\n") == (size_t) n)
-                        continue;
-
-                /* Drop the newline character for nices error messages */
-                if (line[n - 1] == '\n')
-                        line[n - 1] = 0;
-
-                /* The suppression description is optional, so let's accept such
-                 * lines as well */
-                if (sscanf(line, "%ms %m[^\n]", &suppression, &description) < 1)
-                        return df_fail_ret(-1, "Failed to parse line '%s'\n", line);
-
-                suppressions[i] = calloc(sizeof(struct suppression_item), 1);
-                if (!suppressions[i])
-                        return df_oom();
-
-                /* Break down the suppression string, which should be in format:
-                 *      [object_path]:[interface_name]:method_name
-                 * where everything except 'method_name' is optional
-                 */
-
-                /* Extract method name */
-                p = strrchr(suppression, ':');
-                if (!p)
-                        suppressions[i]->method = g_steal_pointer(&suppression);
-                else {
-                        suppressions[i]->method = strdup(p + 1);
-                        *p = 0;
-                }
-
-                if (!suppressions[i]->method)
-                        return df_oom();
-
-                /* Extract interface name */
-                if (p) {
-                        p = strrchr(suppression, ':');
-                        if (!p)
-                                suppressions[i]->interface = strdup(suppression);
-                        else {
-                                suppressions[i]->interface = strdup(p + 1);
-                                *p = 0;
-                        }
-
-                        if (!suppressions[i]->interface)
-                                return df_oom();
-                }
-
-                /* Extract object name */
-                if (p) {
-                        p = strrchr(suppression, ':');
-                        if (!p)
-                                suppressions[i]->object = strdup(suppression);
-                        else
-                                /* Found another ':'? Bail out! */
-                                return df_fail_ret(-1, "Invalid suppression string '%s'\n", line);
-
-                        if (!suppressions[i]->object)
-                                return df_oom();
-                }
-
-                suppressions[i]->description = g_steal_pointer(&description);
-                df_verbose("Loaded suppression for method: %s:%s:%s (%s)\n",
-                           isempty(suppressions[i]->object) ? "*" : suppressions[i]->object,
-                           isempty(suppressions[i]->interface) ? "*" : suppressions[i]->interface,
-                           suppressions[i]->method,
-                           suppressions[i]->description ?: "n/a");
-                i++;
-        }
-
-        suppressions[i] = NULL;
-
-        if (ferror(f)) {
-                df_fail("Error while reading from the suppression file: %m\n");
-                return -1;
-        }
-
-        return 0;
-}
-
 static int df_process_bus(GBusType bus_type)
 {
         g_autoptr(GDBusConnection) dcon = NULL;
@@ -1091,8 +894,8 @@ int main(int argc, char **argv)
                         goto cleanup;
                 }
         }
-        if (!df_supflg) {       // if -s option was not passed
-                if (df_load_suppressions() < 0) {
+        if (!df_supflg) {
+                if (df_suppression_load(&suppressions, target_proc.name) < 0) {
                         printf("%sExit status: 1%s\n", ansi_bold(), ansi_normal());
                         ret = 1;
                         goto cleanup;
@@ -1122,14 +925,7 @@ int main(int argc, char **argv)
         fprintf(stderr, "%sExit status: %d%s\n", ansi_bold(), ret, ansi_normal());
 
 cleanup:
-        // free all suppressions and their descriptions
-        for (int i = 0; suppressions[i]; i++) {
-                free(suppressions[i]->object);
-                free(suppressions[i]->interface);
-                free(suppressions[i]->method);
-                free(suppressions[i]->description);
-                free(suppressions[i]);
-        }
+        df_suppression_free(&suppressions);
 
         return ret;
 }

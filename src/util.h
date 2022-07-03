@@ -1,6 +1,10 @@
 /** @file util.h */
 #pragma once
 
+#include <gio/gio.h>
+#include <stdlib.h>
+#include <unistd.h>
+
 #define USEC_PER_SEC ((useconds_t) 1000000ULL)
 
 typedef int fd_t;
