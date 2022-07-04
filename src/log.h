@@ -1,5 +1,6 @@
 #pragma once
 
+#include <errno.h>
 #include <glib.h>
 #include <stdio.h>
 #include <stdlib.h>

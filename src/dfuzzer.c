@@ -30,16 +30,35 @@
 #include <errno.h>
 #include <getopt.h>
 
-#include "dfuzzer.h"
 #include "bus.h"
 #include "fuzz.h"
 #include "introspection.h"
+#include "log.h"
 #include "rand.h"
+#include "suppression.h"
 #include "util.h"
 
-/* Shared global variables */
-/** Maximum buffer size for generated strings by rand module (in Bytes) */
-guint64 df_buf_size = MAX_BUFFER_LENGTH;
+#define DF_BUS_ROOT_NODE "/"
+
+enum {
+        DF_BUS_OK = 0,
+        DF_BUS_SKIP,
+        DF_BUS_NO_PID,
+        DF_BUS_WARNING,
+        DF_BUS_FAIL,
+        DF_BUS_ERROR
+};
+
+/** Structure containing D-Bus name, object path and interface of process. */
+struct fuzzing_target {
+        /* names on D-Bus have the most MAX_OBJECT_PATH_LENGTH characters */
+        /** Bus name */
+        char *name;
+        /** Object path */
+        char *obj_path;
+        /** Interface */
+        char *interface;
+};
 
 gboolean df_skip_methods;
 gboolean df_skip_properties;
@@ -51,16 +70,9 @@ static struct fuzzing_target target_proc = { "", "", "" };
 static int df_list_names;
 /** Tested process PID */
 static int df_pid = -1;
-/** NULL terminated struct of methods names which will be skipped from testing */
-static struct suppression_item *suppressions[MAX_SUPPRESSIONS];
+GList *suppressions;
 /** If -s option is passed 1, otherwise 0 */
 static int df_supflg;
-/** Suppression file #1 */
-#define SF1 "./dfuzzer.conf"
-/** Suppression file #2 (home dir) */
-#define SF2 ".dfuzzer.conf"
-/** Suppression file #3 (mandatory) */
-#define SF3 "/etc/dfuzzer.conf"
 /** Command/Script to execute by dfuzzer after each method call.
   * If command/script returns >0, dfuzzer prints fail message,
   * if 0 it continues */
@@ -71,124 +83,28 @@ static guint64 df_max_iterations = G_MAXUINT32;
 static guint64 df_min_iterations = 10;
 
 /**
- * @function Main function controls fuzzing.
- * @param argc Number of program arguments
- * @param argv Pointer on string with program arguments
- * @return 0 on success, 1 on error, 2 when testing detected any failures
- * and/or warnings, 3 when testing detected only warnings
+ * @function Checks if name is valid D-Bus name, obj is valid
+ * D-Bus object path and intf is valid D-Bus interface.
+ * @param name D-Bus name
+ * @param obj D-Bus object path
+ * @param intf D-Bus interface
+ * @return 1 if name, obj and intf are valid, 0 otherwise
  */
-int main(int argc, char **argv)
+static int df_is_valid_dbus(const char *name, const char *obj, const char *intf)
 {
-        const char *log_file_name;
-        int rses = 0;               // return value from session bus testing
-        int rsys = 0;               // return value from system bus testing
-        int ret = 0;
-        df_parse_parameters(argc, argv);
-
-        if (df_log_dir_name) {
-                log_file_name = strjoina(df_log_dir_name, "/", target_proc.name);
-                if (df_log_open_log_file(log_file_name) < 0) {
-                        ret = 1;
-                        goto cleanup;
-                }
+        if (!g_dbus_is_name(name)) {
+                df_fail("Error: Unknown bus name '%s'.\n", name);
+                return 0;
         }
-        if (!df_supflg) {       // if -s option was not passed
-                if (df_load_suppressions() < 0) {
-                        printf("%sExit status: 1%s\n", ansi_bold(), ansi_normal());
-                        ret = 1;
-                        goto cleanup;
-                }
+        if (!g_variant_is_object_path(obj)) {
+                df_fail("Error: Unknown object path '%s'.\n", obj);
+                return 0;
         }
-
-        rses = df_process_bus(G_BUS_TYPE_SESSION);
-        rsys = df_process_bus(G_BUS_TYPE_SYSTEM);
-
-        // both tests ended with error
-        if (rses == DF_BUS_ERROR || rsys == DF_BUS_ERROR)
-                ret = 1;
-        else if (rses == DF_BUS_FAIL || rsys == DF_BUS_FAIL)
-                // at least one test found failures
-                ret = 2;
-        else if (rses == DF_BUS_WARNING || rsys == DF_BUS_WARNING)
-                // at least one test found warnings
-                ret = 3;
-        else if (rses == DF_BUS_OK || rsys == DF_BUS_OK)
-                // at least one of the tests passed (and the other one is not in
-                // a fail state)
-                ret = 0;
-        else
-                // all remaining combinations, like both results missing
-                ret = 4;
-
-        fprintf(stderr, "%sExit status: %d%s\n", ansi_bold(), ret, ansi_normal());
-
-cleanup:
-        // free all suppressions and their descriptions
-        for (int i = 0; suppressions[i]; i++) {
-                free(suppressions[i]->object);
-                free(suppressions[i]->interface);
-                free(suppressions[i]->method);
-                free(suppressions[i]->description);
-                free(suppressions[i]);
+        if (!g_dbus_is_interface_name(intf)) {
+                df_fail("Error: Unknown interface '%s'.\n", intf);
+                return 0;
         }
-
-        return ret;
-}
-
-int df_process_bus(GBusType bus_type)
-{
-        g_autoptr(GDBusConnection) dcon = NULL;
-        g_autoptr(GError) error = NULL;
-
-        switch (bus_type) {
-        case G_BUS_TYPE_SESSION:
-                fprintf(stderr, "%s%s[SESSION BUS]%s\n", ansi_cr(), ansi_cyan(), ansi_normal());
-                break;
-        case G_BUS_TYPE_SYSTEM:
-                fprintf(stderr, "%s%s[SYSTEM BUS]%s\n", ansi_cr(), ansi_cyan(), ansi_normal());
-                break;
-        default:
-                df_fail("Invalid bus type\n");
-                return DF_BUS_ERROR;
-        }
-
-        dcon = g_bus_get_sync(bus_type, NULL, &error);
-        if (!dcon) {
-                df_fail("Bus not found.\n");
-                df_error("Error in g_bus_get_sync()", error);
-                return DF_BUS_SKIP;
-        }
-
-        if (df_list_names) {
-                // list names on the bus
-                if (df_list_bus_names(dcon) == -1) {
-                        df_debug("Error in df_list_bus_names() for session bus\n");
-                        return DF_BUS_ERROR;
-                }
-        } else {
-                // gets pid of tested process
-                df_pid = df_get_pid(dcon, TRUE);
-                if (df_pid > 0) {
-                        df_print_process_info(df_pid);
-                        fprintf(stderr, "%s%s[CONNECTED TO PID: %d]%s\n", ansi_cr(), ansi_cyan(), df_pid, ansi_normal());
-                        if (!isempty(target_proc.interface)) {
-                                fprintf(stderr, "Object: %s%s%s\n", ansi_bold(), target_proc.obj_path, ansi_normal());
-                                fprintf(stderr, " Interface: %s%s%s\n", ansi_bold(), target_proc.interface, ansi_normal());
-                                return df_fuzz(dcon, target_proc.name, target_proc.obj_path, target_proc.interface);
-                        } else if (!isempty(target_proc.obj_path)) {
-                                fprintf(stderr, "Object: %s%s%s\n", ansi_bold(), target_proc.obj_path, ansi_normal());
-                                return df_traverse_node(dcon, target_proc.obj_path);
-                        } else {
-                                fprintf(stderr, "Object: %s/%s\n", ansi_bold(), ansi_normal());
-                                return df_traverse_node(dcon, DF_BUS_ROOT_NODE);
-                        }
-                } else {
-                        df_fail("Couldn't get the PID of the tested process\n");
-                        return DF_BUS_NO_PID;
-                }
-        }
-
-        return DF_BUS_OK;
+        return 1;
 }
 
 /**
@@ -197,7 +113,7 @@ int df_process_bus(GBusType bus_type)
  * @param dcon D-Bus connection structure
  * @return 0 on success, -1 on error
  */
-int df_list_bus_names(GDBusConnection *dcon)
+static int df_list_bus_names(GDBusConnection *dcon)
 {
         g_autoptr(GDBusProxy) proxy = NULL;
         g_autoptr(GVariantIter) iter = NULL;
@@ -239,121 +155,60 @@ int df_list_bus_names(GDBusConnection *dcon)
 }
 
 /**
- * @function Traverses through all interfaces and objects of bus
- * name target_proc.name and for each interface it calls df_fuzz()
- * to fuzz test all its methods.
+ * @function Calls method GetConnectionUnixProcessID on the interface
+ * org.freedesktop.DBus to get process pid.
  * @param dcon D-Bus connection structure
- * @param root_node Starting object path (all nodes from this object path
- * will be traversed)
- * @return 0 on success, 1 on error, 2 when testing detected any failures
- * or warnings, 3 on warnings
+ * @return Process PID on success, -1 on error
  */
-int df_traverse_node(GDBusConnection *dcon, const char *root_node)
+static int df_get_pid(GDBusConnection *dcon, gboolean activate)
 {
-        char *intro_iface = "org.freedesktop.DBus.Introspectable";
-        char *intro_method = "Introspect";
-        g_autoptr(GVariant) response = NULL;
-        g_autoptr(GDBusProxy) dproxy = NULL;
-        g_autoptr(gchar) introspection_xml = NULL;
-        g_autoptr(GError) error = NULL;
-        /** Information about nodes in a remote object hierarchy. */
-        g_autoptr(GDBusNodeInfo) node_data = NULL;
-        /** Return values */
-        int rd = 0;          // return value from df_fuzz()
-        int rt = 0;          // return value from recursive transition
-        int ret = DF_BUS_OK; // return value of this function
+        g_autoptr(GDBusProxy) pproxy = NULL;
+        g_autoptr(GVariant) variant_pid = NULL;
+        int pid = -1;
 
-
-        if (!df_is_valid_dbus(target_proc.name, root_node, intro_iface))
-                return DF_BUS_ERROR;
-
-        dproxy = df_bus_new(dcon, target_proc.name, root_node, intro_iface,
+        pproxy = df_bus_new(dcon,
+                            "org.freedesktop.DBus",
+                            "/org/freedesktop/DBus",
+                            "org.freedesktop.DBus",
                             G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES|G_DBUS_PROXY_FLAGS_DO_NOT_CONNECT_SIGNALS);
-        if (!dproxy)
-                return DF_BUS_ERROR;
+        if (!pproxy)
+                return -1;
 
-        response = df_bus_call(dproxy, intro_method, NULL, G_DBUS_CALL_FLAGS_NONE);
-        if (!response)
-                return DF_BUS_ERROR;
+        /* Attempt to activate the remote side. Since we can't use any well-known
+         * remote method for auto-activation, fall back to calling
+         * the org.freedesktop.DBus.StartServiceByName method.
+         *
+         * See:
+         *  - https://dbus.freedesktop.org/doc/dbus-specification.html#bus-messages-start-service-by-name
+         *  - https://dbus.freedesktop.org/doc/system-activation.txt
+         */
+        if (activate) {
+                g_autoptr(GError) act_error = NULL;
+                g_autoptr(GVariant) act_res = NULL;
 
-        g_variant_get(response, "(s)", &introspection_xml);
-        if (!introspection_xml) {
-                df_fail("Error: Unable to get introspection data from GVariant.\n");
-                return DF_BUS_ERROR;
-        }
-
-        // Parses introspection_xml and returns a GDBusNodeInfo representing
-        // the data.
-        node_data = g_dbus_node_info_new_for_xml(introspection_xml, &error);
-        if (!node_data) {
-                df_fail("Error: Unable to get introspection data.\n");
-                df_error("Error in g_dbus_node_info_new_for_xml()", error);
-                return DF_BUS_ERROR;
-        }
-
-        // go through all interfaces
-        STRV_FOREACH(interface, node_data->interfaces) {
-                fprintf(stderr, " Interface: %s%s%s\n",
-                        ansi_bold(), interface->name, ansi_normal());
-                // start fuzzing on the target_proc.name
-                rd = df_fuzz(dcon, target_proc.name, root_node, interface->name);
-                if (rd == DF_BUS_ERROR)
-                        return DF_BUS_ERROR;
-                else if (ret != DF_BUS_FAIL) {
-                        if (rd != DF_BUS_OK)
-                                ret = rd;
+                act_res = df_bus_call_full(pproxy,
+                                           "StartServiceByName",
+                                           g_variant_new("(su)", target_proc.name, 0),
+                                           G_DBUS_CALL_FLAGS_NONE,
+                                           &act_error);
+                if (!act_res) {
+                        g_dbus_error_strip_remote_error(act_error);
+                        df_verbose("Error while activating '%s': %s.\n", target_proc.name, act_error->message);
+                        df_error("Failed to activate the target", act_error);
+                        /* Don't make this a hard fail */
                 }
         }
 
-        // if object path was set as dfuzzer option, do not traverse
-        // through all objects
-        if (strlen(target_proc.obj_path) != 0)
-                return ret;
+        variant_pid = df_bus_call(pproxy,
+                                  "GetConnectionUnixProcessID",
+                                  g_variant_new("(s)", target_proc.name),
+                                  G_DBUS_CALL_FLAGS_NONE);
+        if (!variant_pid)
+                return -1;
 
-        // go through all nodes
-        STRV_FOREACH(node, node_data->nodes) {
-                g_autoptr(char) object = NULL;
-                // create next object path
-                object = strjoin(root_node, strlen(root_node) == 1 ? "" : "/", node->path);
-                if (object == NULL) {
-                        df_fail("Error: Could not allocate memory for root_node string.\n");
-                        return DF_BUS_ERROR;
-                }
-                fprintf(stderr, "Object: %s%s%s\n", ansi_bold(), object, ansi_normal());
-                rt = df_traverse_node(dcon, object);
-                if (rt == DF_BUS_ERROR)
-                        return DF_BUS_ERROR;
-                else if (ret != DF_BUS_FAIL) {
-                        if (rt != DF_BUS_OK)
-                                ret = rt;
-                }
-        }
+        g_variant_get(variant_pid, "(u)", &pid);
 
-        return ret;
-}
-
-static int df_path_is_suppressed(const char *object, const char *interface, const char *method,
-                                   char **ret_description_ptr)
-{
-        if (!suppressions[0])
-                return 0;
-
-        for (struct suppression_item **p = suppressions, *i; (i = *p) && i; p++) {
-                /* If the method name is set but doesn't match, continue */
-                if (!isempty(method) && !isempty(i->method) && !g_str_equal(method, i->method))
-                        continue;
-                /* If the interface name is set but doesn't match, continue */
-                if (!isempty(interface) && !isempty(i->interface) && !g_str_equal(interface, i->interface))
-                        continue;
-                /* If the object name is set but doesn't match, continue */
-                if (!isempty(object) && !isempty(i->object) && !g_str_equal(object, i->object))
-                        continue;
-                /* Everything that should match matches, so the method is suppressed */
-                *ret_description_ptr = i->description;
-                return 1;
-        }
-
-        return 0;
+        return pid;
 }
 
 /**
@@ -366,7 +221,7 @@ static int df_path_is_suppressed(const char *object, const char *interface, cons
  * @return 0 on success, 1 on error, 2 when testing detected any failures,
  * 3 on warnings
  */
-int df_fuzz(GDBusConnection *dcon, const char *name, const char *object, const char *interface)
+static int df_fuzz(GDBusConnection *dcon, const char *name, const char *object, const char *interface)
 {
         g_autoptr(GDBusProxy) dproxy = NULL;
         g_autoptr(GDBusNodeInfo) node_info = NULL;
@@ -474,7 +329,7 @@ int df_fuzz(GDBusConnection *dcon, const char *name, const char *object, const c
 
                 method_found = 1;
 
-                if (df_path_is_suppressed(object, interface, m->name, &description) != 0) {
+                if (df_suppression_check(suppressions, object, interface, m->name, &description) != 0) {
                         df_verbose("%s  %sSKIP%s [M] %s - %s\n", ansi_cr(), ansi_blue(), ansi_normal(),
                                    m->name, description ?: "suppressed method");
                         continue;
@@ -559,94 +414,100 @@ int df_fuzz(GDBusConnection *dcon, const char *name, const char *object, const c
 }
 
 /**
- * @function Checks if name is valid D-Bus name, obj is valid
- * D-Bus object path and intf is valid D-Bus interface.
- * @param name D-Bus name
- * @param obj D-Bus object path
- * @param intf D-Bus interface
- * @return 1 if name, obj and intf are valid, 0 otherwise
- */
-int df_is_valid_dbus(const char *name, const char *obj, const char *intf)
-{
-        if (!g_dbus_is_name(name)) {
-                df_fail("Error: Unknown bus name '%s'.\n", name);
-                return 0;
-        }
-        if (!g_variant_is_object_path(obj)) {
-                df_fail("Error: Unknown object path '%s'.\n", obj);
-                return 0;
-        }
-        if (!g_dbus_is_interface_name(intf)) {
-                df_fail("Error: Unknown interface '%s'.\n", intf);
-                return 0;
-        }
-        return 1;
-}
-
-/**
- * @function Calls method GetConnectionUnixProcessID on the interface
- * org.freedesktop.DBus to get process pid.
+ * @function Traverses through all interfaces and objects of bus
+ * name target_proc.name and for each interface it calls df_fuzz()
+ * to fuzz test all its methods.
  * @param dcon D-Bus connection structure
- * @return Process PID on success, -1 on error
+ * @param root_node Starting object path (all nodes from this object path
+ * will be traversed)
+ * @return 0 on success, 1 on error, 2 when testing detected any failures
+ * or warnings, 3 on warnings
  */
-int df_get_pid(GDBusConnection *dcon, gboolean activate)
+static int df_traverse_node(GDBusConnection *dcon, const char *root_node)
 {
-        g_autoptr(GDBusProxy) pproxy = NULL;
-        g_autoptr(GVariant) variant_pid = NULL;
-        int pid = -1;
+        char *intro_iface = "org.freedesktop.DBus.Introspectable";
+        char *intro_method = "Introspect";
+        g_autoptr(GVariant) response = NULL;
+        g_autoptr(GDBusProxy) dproxy = NULL;
+        g_autoptr(gchar) introspection_xml = NULL;
+        g_autoptr(GError) error = NULL;
+        /** Information about nodes in a remote object hierarchy. */
+        g_autoptr(GDBusNodeInfo) node_data = NULL;
+        /** Return values */
+        int rd = 0;          // return value from df_fuzz()
+        int rt = 0;          // return value from recursive transition
+        int ret = DF_BUS_OK; // return value of this function
 
-        pproxy = df_bus_new(dcon,
-                            "org.freedesktop.DBus",
-                            "/org/freedesktop/DBus",
-                            "org.freedesktop.DBus",
+
+        if (!df_is_valid_dbus(target_proc.name, root_node, intro_iface))
+                return DF_BUS_ERROR;
+
+        dproxy = df_bus_new(dcon, target_proc.name, root_node, intro_iface,
                             G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES|G_DBUS_PROXY_FLAGS_DO_NOT_CONNECT_SIGNALS);
-        if (!pproxy)
-                return -1;
+        if (!dproxy)
+                return DF_BUS_ERROR;
 
-        /* Attempt to activate the remote side. Since we can't use any well-known
-         * remote method for auto-activation, fall back to calling
-         * the org.freedesktop.DBus.StartServiceByName method.
-         *
-         * See:
-         *  - https://dbus.freedesktop.org/doc/dbus-specification.html#bus-messages-start-service-by-name
-         *  - https://dbus.freedesktop.org/doc/system-activation.txt
-         */
-        if (activate) {
-                g_autoptr(GError) act_error = NULL;
-                g_autoptr(GVariant) act_res = NULL;
+        response = df_bus_call(dproxy, intro_method, NULL, G_DBUS_CALL_FLAGS_NONE);
+        if (!response)
+                return DF_BUS_ERROR;
 
-                act_res = df_bus_call_full(pproxy,
-                                           "StartServiceByName",
-                                           g_variant_new("(su)", target_proc.name, 0),
-                                           G_DBUS_CALL_FLAGS_NONE,
-                                           &act_error);
-                if (!act_res) {
-                        g_dbus_error_strip_remote_error(act_error);
-                        df_verbose("Error while activating '%s': %s.\n", target_proc.name, act_error->message);
-                        df_error("Failed to activate the target", act_error);
-                        /* Don't make this a hard fail */
+        g_variant_get(response, "(s)", &introspection_xml);
+        if (!introspection_xml) {
+                df_fail("Error: Unable to get introspection data from GVariant.\n");
+                return DF_BUS_ERROR;
+        }
+
+        // Parses introspection_xml and returns a GDBusNodeInfo representing
+        // the data.
+        node_data = g_dbus_node_info_new_for_xml(introspection_xml, &error);
+        if (!node_data) {
+                df_fail("Error: Unable to get introspection data.\n");
+                df_error("Error in g_dbus_node_info_new_for_xml()", error);
+                return DF_BUS_ERROR;
+        }
+
+        // go through all interfaces
+        STRV_FOREACH(interface, node_data->interfaces) {
+                fprintf(stderr, " Interface: %s%s%s\n",
+                        ansi_bold(), interface->name, ansi_normal());
+                // start fuzzing on the target_proc.name
+                rd = df_fuzz(dcon, target_proc.name, root_node, interface->name);
+                if (rd == DF_BUS_ERROR)
+                        return DF_BUS_ERROR;
+                else if (ret != DF_BUS_FAIL) {
+                        if (rd != DF_BUS_OK)
+                                ret = rd;
                 }
         }
 
-        variant_pid = df_bus_call(pproxy,
-                                  "GetConnectionUnixProcessID",
-                                  g_variant_new("(s)", target_proc.name),
-                                  G_DBUS_CALL_FLAGS_NONE);
-        if (!variant_pid)
-                return -1;
+        // if object path was set as dfuzzer option, do not traverse
+        // through all objects
+        if (strlen(target_proc.obj_path) != 0)
+                return ret;
 
-        g_variant_get(variant_pid, "(u)", &pid);
+        // go through all nodes
+        STRV_FOREACH(node, node_data->nodes) {
+                g_autoptr(char) object = NULL;
+                // create next object path
+                object = strjoin(root_node, strlen(root_node) == 1 ? "" : "/", node->path);
+                if (object == NULL) {
+                        df_fail("Error: Could not allocate memory for root_node string.\n");
+                        return DF_BUS_ERROR;
+                }
+                fprintf(stderr, "Object: %s%s%s\n", ansi_bold(), object, ansi_normal());
+                rt = df_traverse_node(dcon, object);
+                if (rt == DF_BUS_ERROR)
+                        return DF_BUS_ERROR;
+                else if (ret != DF_BUS_FAIL) {
+                        if (rt != DF_BUS_OK)
+                                ret = rt;
+                }
+        }
 
-        return pid;
+        return ret;
 }
 
-/**
- * @function Prints process name and package to which process belongs.
- * @param pid PID of process
- * Note: Any error in this function is suppressed. On error, process name
- *       and package is just not printed.
- */
-void df_print_process_info(int pid)
+static void df_print_process_info(int pid)
 {
         char proc_path[15 + DECIMAL_STR_MAX(int)]; // "/proc/(int)/[exe|cmdline]"
         char name[PATH_MAX + 1];
@@ -698,31 +559,61 @@ void df_print_process_info(int pid)
                 ansi_cr(), ansi_cyan(), name, ansi_normal());
 }
 
-/**
- * @function Parses program options and stores them into global
- * variables:
- *  - df_buf_size -
- *     Maximum buffer size for generated strings by rand
- *     module (in Bytes)
- *  - df_test_method -
- *     Contains method name or NULL. When not NULL, only
- *     method with this name will be tested
- *  - target_proc -
- *     Is of type struct fuzzing_target and is used
- *     to store bus name, object path and interface
- *  - df_verbose_flag -
- *     Be verbose
- *  - df_debug_flag -
- *     Include debug output
- *  - df_supflg -
- *     If -s option is passed 1, otherwise 0
- *  - df_execute_cmd -
- *     Command/script to execute after each method call
- * If error occures function ends program.
- * @param argc Count of options
- * @param argv Pointer on strings containing options of program
- */
-void df_parse_parameters(int argc, char **argv)
+static void df_print_help(const char *name)
+{
+        printf(
+         "Usage: %1$s -n BUS_NAME [OTHER_OPTIONS]\n\n"
+         "Tool for fuzz testing processes communicating through D-Bus.\n"
+         "The fuzzer traverses through all the methods on the given bus name.\n"
+         "By default only failures and warnings are printed."
+         " Use -v for verbose mode.\n\n"
+         "REQUIRED OPTIONS:\n"
+         "  -n --bus=BUS_NAME           D-Bus service name.\n\n"
+         "OTHER OPTIONS:\n"
+         "  -V --version                Show dfuzzer version and exit.\n"
+         "  -h --help                   Show this help text.\n"
+         "  -l --list                   List all available services on both buses.\n"
+         "  -v --verbose                Be more verbose.\n"
+         "  -d --debug                  Enable debug logging; implies -v.\n"
+         "  -L --log-dir=DIRNAME        Write full, parseable log into DIRNAME/BUS_NAME.\n"
+         "                              The directory must already exist.\n"
+         "  -s --no-suppressions        Don't load suppression file(s).\n"
+         "  -o --object=OBJECT_PATH     Optional object path to test. All children objects are traversed.\n"
+         "  -i --interface=INTERFACE    Interface to test. Requires -o to be set as well.\n"
+         "  -t --method=METHOD_NAME     Test only given method, all other methods are skipped.\n"
+         "                              Requires -o and -i to be set as well. Can't be used together\n"
+         "                              with --property=. Implies --skip-properties.\n"
+         "  -p --property=PROPERTY_NAME Test only given property, all other properties are skipped.\n"
+         "                              Requires -o and -i to be set as well, can't be used togetgher\n"
+         "                              with --method=. Implies --skip-methods.\n"
+         "     --skip-methods           Skip all methods.\n"
+         "     --skip-properties        Skip all properties.\n"
+         "  -b --buffer-limit=SIZE      Maximum buffer size for generated strings in bytes.\n"
+         "                              Default: 50K, minimum: 256B.\n"
+         "  -x --max-iterations=ITER    Maximum number of iterations done for each method.\n"
+         "                              By default this value is dynamically calculated from each\n"
+         "                              method's signature; minimum is 1 iteration.\n"
+         "  -y --min-iterations=ITER    Minimum number of iterations done for each method.\n"
+         "                              Default: 10 iterations; minimum: 1 iteration.\n"
+         "  -I --iterations=ITER        Set both the minimum and maximum number of iterations to ITER\n"
+         "                              See --max-iterations= and --min-iterations= above\n"
+         "  -e --command=COMMAND        Command/script to execute after each method call.\n"
+         "  -f --dictionary=FILENAME    Name of a file with custom dictionary which is used as input\n"
+         "                              for fuzzed methods before generating random data.\n"
+         "\nExamples:\n\n"
+         "Test all methods of GNOME Shell. Be verbose.\n"
+         "# %1$s -v -n org.gnome.Shell\n\n"
+         "Test only method of the given bus name, object path and interface.\n"
+         "# %1$s -n org.freedesktop.Avahi -o / -i org.freedesktop.Avahi.Server -t GetAlternativeServiceName\n\n"
+         "Test all methods of Avahi and be verbose. Redirect all log messages including failures\n"
+         "and warnings into avahi.log:\n"
+         "# %1$s -v -n org.freedesktop.Avahi 2>&1 | tee avahi.log\n\n"
+         "Test name org.freedesktop.Avahi, be verbose and do not use any suppression file:\n"
+         "# %1$s -v -s -n org.freedesktop.Avahi\n",
+         name);
+}
+
+static void df_parse_parameters(int argc, char **argv)
 {
         int c = 0;
         int r;
@@ -788,19 +679,23 @@ void df_parse_parameters(int argc, char **argv)
                         case 'm':
                                 df_verbose("Option -m has no effect anymore");
                                 break;
-                        case 'b':
-                                r = safe_strtoull(optarg, &df_buf_size);
+                        case 'b': {
+                                guint64 buf_length;
+
+                                r = safe_strtoull(optarg, &buf_length);
                                 if (r < 0) {
                                         df_fail("Error: invalid value for option -%c: %s\n", c, strerror(-r));
                                         exit(1);
                                 }
 
-                                if (df_buf_size < MIN_BUFFER_LENGTH) {
-                                        df_fail("Error: at least %d bytes required for the -%c option\n", MIN_BUFFER_LENGTH, c);
+                                if (buf_length < MIN_BUFFER_LENGTH || buf_length > MAX_BUFFER_LENGTH) {
+                                        df_fail("Error: buffer length must be in range [%d, %d]\n", MIN_BUFFER_LENGTH, MAX_BUFFER_LENGTH);
                                         exit(1);
                                 }
 
+                                df_fuzz_set_buffer_length(buf_length);
                                 break;
+                        }
                         case 't':
                                 df_test_method = optarg;
                                 /* Skip properties when we test a specific method */
@@ -928,220 +823,109 @@ void df_parse_parameters(int argc, char **argv)
         }
 }
 
-/**
- * @function Searches target_proc.name in suppression file SF1, SF2 and SF3
- * (the file which is opened first is parsed). If it is found, the suppressions
- * array is seeded with names of methods and the reason  why methods are skipped.
- * Suppression file is in format:
- * [bus_name]
- * method1 description
- * method2 description
- * [bus_name2]
- * method1 description
- * method2 description
- * ...
- * @return 0 on success, -1 on error
- */
-int df_load_suppressions(void)
+static int df_process_bus(GBusType bus_type)
 {
-        g_autoptr(FILE) f = NULL;
-        g_autoptr(char) line = NULL, home_supp = NULL;
-        char *env = NULL;
-        int name_found = 0, i = 0;
-        size_t len = 0;
-        ssize_t n;
+        g_autoptr(GDBusConnection) dcon = NULL;
+        g_autoptr(GError) error = NULL;
 
-        if (isempty(target_proc.name))
-                return 0;
-
-        env = getenv("HOME");
-        if (env) {
-                home_supp = strjoin(env, "/", SF2);
-                if (!home_supp)
-                        return df_oom();
+        switch (bus_type) {
+        case G_BUS_TYPE_SESSION:
+                fprintf(stderr, "%s%s[SESSION BUS]%s\n", ansi_cr(), ansi_cyan(), ansi_normal());
+                break;
+        case G_BUS_TYPE_SYSTEM:
+                fprintf(stderr, "%s%s[SYSTEM BUS]%s\n", ansi_cr(), ansi_cyan(), ansi_normal());
+                break;
+        default:
+                df_fail("Invalid bus type\n");
+                return DF_BUS_ERROR;
         }
 
-        char *paths[3] = { SF1, home_supp, SF3 };
+        dcon = g_bus_get_sync(bus_type, NULL, &error);
+        if (!dcon) {
+                df_fail("Bus not found.\n");
+                df_error("Error in g_bus_get_sync()", error);
+                return DF_BUS_SKIP;
+        }
 
-        for (i = 0; i < 3; i++) {
-                if (!paths[i])
-                        continue;
-
-                f = fopen(paths[i], "r");
-                if (f) {
-                        df_verbose("Loading suppressions from file '%s'\n", paths[i]);
-                        break;
+        if (df_list_names) {
+                // list names on the bus
+                if (df_list_bus_names(dcon) == -1) {
+                        df_debug("Error in df_list_bus_names() for session bus\n");
+                        return DF_BUS_ERROR;
                 }
-
-                df_verbose("Cannot open suppression file '%s'\n", paths[i]);
-        }
-
-        if (!f) {
-                df_fail("Cannot open any pre-defined suppression file\n");
-                return -1;
-        }
-
-        // determines if currently tested bus name is in suppression file
-        while (getline(&line, &len, f) > 0) {
-                if (strstr(line, target_proc.name)) {
-                        name_found++;
-                        break;
-                }
-        }
-
-        if (ferror(f)) {
-                df_fail("Error while reading from the suppression file: %m\n");
-                return -1;
-        }
-
-        // no suppressions for tested bus name
-        if (!name_found)
-                return 0;
-
-        df_verbose("Found suppressions for bus: '%s'\n", target_proc.name);
-
-        i = 0;
-        while (i < (MAX_SUPPRESSIONS - 1) && (n = getline(&line, &len, f)) > 0) {
-                g_autoptr(char) suppression = NULL, description = NULL;
-                char *p;
-
-                if (line[0] == '[')
-                        break;
-
-                /* The line contains only whitespace, skip it */
-                if (strspn(line, " \t\r\n") == (size_t) n)
-                        continue;
-
-                /* Drop the newline character for nices error messages */
-                if (line[n - 1] == '\n')
-                        line[n - 1] = 0;
-
-                /* The suppression description is optional, so let's accept such
-                 * lines as well */
-                if (sscanf(line, "%ms %m[^\n]", &suppression, &description) < 1)
-                        return df_fail_ret(-1, "Failed to parse line '%s'\n", line);
-
-                suppressions[i] = calloc(sizeof(struct suppression_item), 1);
-                if (!suppressions[i])
-                        return df_oom();
-
-                /* Break down the suppression string, which should be in format:
-                 *      [object_path]:[interface_name]:method_name
-                 * where everything except 'method_name' is optional
-                 */
-
-                /* Extract method name */
-                p = strrchr(suppression, ':');
-                if (!p)
-                        suppressions[i]->method = g_steal_pointer(&suppression);
-                else {
-                        suppressions[i]->method = strdup(p + 1);
-                        *p = 0;
-                }
-
-                if (!suppressions[i]->method)
-                        return df_oom();
-
-                /* Extract interface name */
-                if (p) {
-                        p = strrchr(suppression, ':');
-                        if (!p)
-                                suppressions[i]->interface = strdup(suppression);
-                        else {
-                                suppressions[i]->interface = strdup(p + 1);
-                                *p = 0;
+        } else {
+                // gets pid of tested process
+                df_pid = df_get_pid(dcon, TRUE);
+                if (df_pid > 0) {
+                        df_print_process_info(df_pid);
+                        fprintf(stderr, "%s%s[CONNECTED TO PID: %d]%s\n", ansi_cr(), ansi_cyan(), df_pid, ansi_normal());
+                        if (!isempty(target_proc.interface)) {
+                                fprintf(stderr, "Object: %s%s%s\n", ansi_bold(), target_proc.obj_path, ansi_normal());
+                                fprintf(stderr, " Interface: %s%s%s\n", ansi_bold(), target_proc.interface, ansi_normal());
+                                return df_fuzz(dcon, target_proc.name, target_proc.obj_path, target_proc.interface);
+                        } else if (!isempty(target_proc.obj_path)) {
+                                fprintf(stderr, "Object: %s%s%s\n", ansi_bold(), target_proc.obj_path, ansi_normal());
+                                return df_traverse_node(dcon, target_proc.obj_path);
+                        } else {
+                                fprintf(stderr, "Object: %s/%s\n", ansi_bold(), ansi_normal());
+                                return df_traverse_node(dcon, DF_BUS_ROOT_NODE);
                         }
-
-                        if (!suppressions[i]->interface)
-                                return df_oom();
+                } else {
+                        df_fail("Couldn't get the PID of the tested process\n");
+                        return DF_BUS_NO_PID;
                 }
-
-                /* Extract object name */
-                if (p) {
-                        p = strrchr(suppression, ':');
-                        if (!p)
-                                suppressions[i]->object = strdup(suppression);
-                        else
-                                /* Found another ':'? Bail out! */
-                                return df_fail_ret(-1, "Invalid suppression string '%s'\n", line);
-
-                        if (!suppressions[i]->object)
-                                return df_oom();
-                }
-
-                suppressions[i]->description = g_steal_pointer(&description);
-                df_verbose("Loaded suppression for method: %s:%s:%s (%s)\n",
-                           isempty(suppressions[i]->object) ? "*" : suppressions[i]->object,
-                           isempty(suppressions[i]->interface) ? "*" : suppressions[i]->interface,
-                           suppressions[i]->method,
-                           suppressions[i]->description ?: "n/a");
-                i++;
         }
 
-        suppressions[i] = NULL;
-
-        if (ferror(f)) {
-                df_fail("Error while reading from the suppression file: %m\n");
-                return -1;
-        }
-
-        return 0;
+        return DF_BUS_OK;
 }
 
-/**
- * @function Prints help.
- * @param name Name of program
- */
-void df_print_help(const char *name)
+int main(int argc, char **argv)
 {
-        printf(
-         "Usage: %1$s -n BUS_NAME [OTHER_OPTIONS]\n\n"
-         "Tool for fuzz testing processes communicating through D-Bus.\n"
-         "The fuzzer traverses through all the methods on the given bus name.\n"
-         "By default only failures and warnings are printed."
-         " Use -v for verbose mode.\n\n"
-         "REQUIRED OPTIONS:\n"
-         "  -n --bus=BUS_NAME           D-Bus service name.\n\n"
-         "OTHER OPTIONS:\n"
-         "  -V --version                Show dfuzzer version and exit.\n"
-         "  -h --help                   Show this help text.\n"
-         "  -l --list                   List all available services on both buses.\n"
-         "  -v --verbose                Be more verbose.\n"
-         "  -d --debug                  Enable debug logging; implies -v.\n"
-         "  -L --log-dir=DIRNAME        Write full, parseable log into DIRNAME/BUS_NAME.\n"
-         "                              The directory must already exist.\n"
-         "  -s --no-suppressions        Don't load suppression file(s).\n"
-         "  -o --object=OBJECT_PATH     Optional object path to test. All children objects are traversed.\n"
-         "  -i --interface=INTERFACE    Interface to test. Requires -o to be set as well.\n"
-         "  -t --method=METHOD_NAME     Test only given method, all other methods are skipped.\n"
-         "                              Requires -o and -i to be set as well. Can't be used together\n"
-         "                              with --property=. Implies --skip-properties.\n"
-         "  -p --property=PROPERTY_NAME Test only given property, all other properties are skipped.\n"
-         "                              Requires -o and -i to be set as well, can't be used togetgher\n"
-         "                              with --method=. Implies --skip-methods.\n"
-         "     --skip-methods           Skip all methods.\n"
-         "     --skip-properties        Skip all properties.\n"
-         "  -b --buffer-limit=SIZE      Maximum buffer size for generated strings in bytes.\n"
-         "                              Default: 50K, minimum: 256B.\n"
-         "  -x --max-iterations=ITER    Maximum number of iterations done for each method.\n"
-         "                              By default this value is dynamically calculated from each\n"
-         "                              method's signature; minimum is 1 iteration.\n"
-         "  -y --min-iterations=ITER    Minimum number of iterations done for each method.\n"
-         "                              Default: 10 iterations; minimum: 1 iteration.\n"
-         "  -I --iterations=ITER        Set both the minimum and maximum number of iterations to ITER\n"
-         "                              See --max-iterations= and --min-iterations= above\n"
-         "  -e --command=COMMAND        Command/script to execute after each method call.\n"
-         "  -f --dictionary=FILENAME    Name of a file with custom dictionary which is used as input\n"
-         "                              for fuzzed methods before generating random data.\n"
-         "\nExamples:\n\n"
-         "Test all methods of GNOME Shell. Be verbose.\n"
-         "# %1$s -v -n org.gnome.Shell\n\n"
-         "Test only method of the given bus name, object path and interface.\n"
-         "# %1$s -n org.freedesktop.Avahi -o / -i org.freedesktop.Avahi.Server -t GetAlternativeServiceName\n\n"
-         "Test all methods of Avahi and be verbose. Redirect all log messages including failures\n"
-         "and warnings into avahi.log:\n"
-         "# %1$s -v -n org.freedesktop.Avahi 2>&1 | tee avahi.log\n\n"
-         "Test name org.freedesktop.Avahi, be verbose and do not use any suppression file:\n"
-         "# %1$s -v -s -n org.freedesktop.Avahi\n",
-         name);
+        const char *log_file_name;
+        int rses = 0;               // return value from session bus testing
+        int rsys = 0;               // return value from system bus testing
+        int ret = 0;
+        df_parse_parameters(argc, argv);
+
+        if (df_log_dir_name) {
+                log_file_name = strjoina(df_log_dir_name, "/", target_proc.name);
+                if (df_log_open_log_file(log_file_name) < 0) {
+                        ret = 1;
+                        goto cleanup;
+                }
+        }
+        if (!df_supflg) {
+                if (df_suppression_load(&suppressions, target_proc.name) < 0) {
+                        printf("%sExit status: 1%s\n", ansi_bold(), ansi_normal());
+                        ret = 1;
+                        goto cleanup;
+                }
+        }
+
+        rses = df_process_bus(G_BUS_TYPE_SESSION);
+        rsys = df_process_bus(G_BUS_TYPE_SYSTEM);
+
+        // both tests ended with error
+        if (rses == DF_BUS_ERROR || rsys == DF_BUS_ERROR)
+                ret = 1;
+        else if (rses == DF_BUS_FAIL || rsys == DF_BUS_FAIL)
+                // at least one test found failures
+                ret = 2;
+        else if (rses == DF_BUS_WARNING || rsys == DF_BUS_WARNING)
+                // at least one test found warnings
+                ret = 3;
+        else if (rses == DF_BUS_OK || rsys == DF_BUS_OK)
+                // at least one of the tests passed (and the other one is not in
+                // a fail state)
+                ret = 0;
+        else
+                // all remaining combinations, like both results missing
+                ret = 4;
+
+        fprintf(stderr, "%sExit status: %d%s\n", ansi_bold(), ret, ansi_normal());
+
+cleanup:
+        df_suppression_free(&suppressions);
+
+        return ret;
 }
