@@ -30,11 +30,7 @@ struct external_dictionary {
         char **strings;
 };
 
-/**
- * @function Initializes global flag variables and seeds pseudo-random
- * numbers generators.
- */
-void df_rand_init();
+void df_rand_init(unsigned int seed);
 int df_rand_load_external_dictionary(const char *filename);
 
 GVariant *df_generate_random_basic(const GVariantType *type, guint64 iteration);
@@ -87,54 +83,11 @@ guint64 df_rand_guint64(guint64 iteration);
  */
 gdouble df_rand_gdouble(guint64 iteration);
 
-/**
- * @function Allocates memory for pseudo-random string of size counted
- * by adding generated pseudo-random number from interval <0, CHAR_MAX>
- * to df_str_len (this mechanism is responsible for generating bigger strings
- * by every call of df_rand_string()). Then pseudo-random string is generated
- * and stored in buf. At the beginning strings from global array df_str_def
- * are used. Warning: buf should be freed outside this module by callee
- * of this function.
- * @param buf Address of pointer on buffer where generated string
- * will be stored
- * @return 0 on success, -1 on error
- */
+gunichar df_rand_unichar(guint16 *width);
+
 int df_rand_string(gchar **buf, guint64 iteration);
-
-/**
- * @function Allocates memory for pseudo-random object path string of size
- * counted by adding 1 to size variable on every call of function to maximum
- * size of MAX_OBJECT_PATH_LENGTH. On every call pseudo-random object path string is generated
- * into buf buffer.
- * Warning: buf should be freed outside this module by callee of this
- * function.
- * @param buf Address of pointer on buffer where generated object path string
- * will be stored
- * @return 0 on success, -1 on error
- */
 int df_rand_dbus_objpath_string(gchar **buf, guint64 iteration);
-
-/**
- * @function Allocates memory for pseudo-random signature string of size
- * counted by adding 1 to size variable on every call of function to maximum
- * size of MAX_SIGNATURE_LENGTH. On every call pseudo-random signature string is generated
- * by random access into global variable df_sig_def which contains all D-Bus
- * signatures and copying signature into buf buffer.
- * Warning: buf should be freed outside this module by callee of this
- * function.
- * @param buf Address of pointer on buffer where generated signature string
- * will be stored
- * @return 0 on success, -1 on error
- */
 int df_rand_dbus_signature_string(gchar **buf, guint64 iteration);
-
-/**
- * @function Creates Gvariant containing pseudo-random string. At the beginning
- * strings from global array df_str_def are used.
- * @param var Address of pointer on GVariant where new Gvariant value
- * will be stored
- * @return 0 on success, -1 on error
- */
 int df_rand_GVariant(GVariant **var, guint64 iteration);
 
 /**

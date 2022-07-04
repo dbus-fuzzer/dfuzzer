@@ -39,10 +39,10 @@ static struct external_dictionary df_external_dictionary;
  * numbers generators.
  * @param buf_size Maximum buffer size for generated strings (in Bytes)
  */
-void df_rand_init()
+void df_rand_init(unsigned int seed)
 {
-        srand(time(NULL));  // for int rand()
-        srandom(time(NULL));    // for long int random()
+        srand(seed);
+        srandom(seed);
 }
 
 int df_rand_load_external_dictionary(const char *filename)
@@ -445,7 +445,7 @@ gdouble df_rand_gdouble(guint64 iteration)
         }
 }
 
-static gunichar df_rand_unichar(guint16 *width)
+gunichar df_rand_unichar(guint16 *width)
 {
         gunichar uc = 0;
 
@@ -624,7 +624,10 @@ int df_rand_dbus_objpath_string(gchar **buf, guint64 iteration)
                  * (each element needs at least two characters, hence size/2) and
                  * we need at least one element (hence +-1). With that, generate
                  * a pseudo-random number of elements in interval <1, size/2> */
-                nelem = (rand() % (size / 2 - 1)) + 1;
+                g_assert(size >= 2);
+                /* Set the number of elements to 1 if size is < 4 to avoid dividing
+                 * by zero */
+                nelem = size < 4 ? 1 : (rand() % (size / 2 - 1)) + 1;
 
                 ret = g_try_new(gchar, size + 1);
                 if (!ret)
