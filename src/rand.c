@@ -39,10 +39,10 @@ static struct external_dictionary df_external_dictionary;
  * numbers generators.
  * @param buf_size Maximum buffer size for generated strings (in Bytes)
  */
-void df_rand_init()
+void df_rand_init(unsigned int seed)
 {
-        srand(time(NULL));  // for int rand()
-        srandom(time(NULL));    // for long int random()
+        srand(seed);
+        srandom(seed);
 }
 
 int df_rand_load_external_dictionary(const char *filename)

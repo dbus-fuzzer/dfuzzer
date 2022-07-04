@@ -231,7 +231,7 @@ static int df_fuzz(GDBusConnection *dcon, const char *name, const char *object, 
         int rv = DF_BUS_OK;
 
         // initialization of random module
-        df_rand_init();
+        df_rand_init(time(NULL));
 
         // Sanity check fuzzing target
         if (isempty(name) || isempty(object) || isempty(interface)) {

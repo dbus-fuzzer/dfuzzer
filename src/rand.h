@@ -30,11 +30,7 @@ struct external_dictionary {
         char **strings;
 };
 
-/**
- * @function Initializes global flag variables and seeds pseudo-random
- * numbers generators.
- */
-void df_rand_init();
+void df_rand_init(unsigned int seed);
 int df_rand_load_external_dictionary(const char *filename);
 
 GVariant *df_generate_random_basic(const GVariantType *type, guint64 iteration);

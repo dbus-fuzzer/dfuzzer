@@ -109,8 +109,16 @@ static void test_df_rand_GVariant(void)
 int main(int argc, char *argv[])
 {
         g_test_init(&argc, &argv, NULL);
-        /* Init our internal pseudo-random number generators */
-        df_rand_init();
+        /* Init our internal pseudo-random number generators
+         *
+         * Since we can't access the g_test_*() seed directly, let's use one
+         * of the g_test_rand*() functions that generate reproducible numbers
+         * (using the internal seed), so a possible test crash can be later
+         * reproduced using the `--seed xxx` option
+         *
+         * See: https://docs.gtk.org/glib/func.test_rand_int.html
+         * */
+        df_rand_init(g_test_rand_int());
 
         g_test_add_func("/df_rand/df_rand_unichar", test_df_rand_unichar);
         g_test_add_func("/df_rand/df_rand_string", test_df_rand_string);
