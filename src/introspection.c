@@ -17,7 +17,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include <assert.h>
 #include <gio/gio.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -36,9 +35,9 @@ GDBusNodeInfo *df_get_interface_info(GDBusProxy *dproxy, const char *interface, 
         GDBusNodeInfo *introspection_data = NULL;
         GDBusInterfaceInfo *interface_info = NULL;
 
-        assert(dproxy);
-        assert(interface);
-        assert(ret_iinfo);
+        g_assert(dproxy);
+        g_assert(interface);
+        g_assert(ret_iinfo);
 
         // Synchronously invokes the org.freedesktop.DBus.Introspectable.Introspect
         // method on dproxy to get introspection data in XML format
@@ -82,7 +81,7 @@ char *df_method_get_full_signature(const GDBusMethodInfo *method)
         char *r, *e;
         size_t len = 0;
 
-        assert(method);
+        g_assert(method);
 
         for (GDBusArgInfo **arg = method->in_args; *arg; arg++)
                 len += strlen((*arg)->signature);
@@ -106,7 +105,7 @@ gboolean df_object_returns_reply(GDBusAnnotationInfo **annotations)
 {
         const gchar *annotation_str;
 
-        assert(annotations);
+        g_assert(annotations);
 
         annotation_str = g_dbus_annotation_info_lookup(annotations,
                                                        "org.freedesktop.DBus.Method.NoReply");

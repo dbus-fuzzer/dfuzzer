@@ -17,7 +17,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include <assert.h>
 #include <errno.h>
 #include <gio/gio.h>
 #include <glib.h>
@@ -53,7 +52,7 @@ int df_rand_load_external_dictionary(const char *filename)
         size_t allocated = 0, len = 0, i = 0;
         ssize_t n;
 
-        assert(filename);
+        g_assert(filename);
 
         f = fopen(filename, "r");
         if (!f)
