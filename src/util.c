@@ -1,11 +1,18 @@
 /** @file util.c */
 
 #include <errno.h>
+#include <fcntl.h>
 #include <gio/gio.h>
 #include <stdarg.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/wait.h>
+#include <sys/stat.h>
+
+#include "util.h"
+#include "log.h"
 
 char *strjoin_real(const char *x, ...) {
         va_list ap;
@@ -56,6 +63,55 @@ int safe_strtoull(const gchar *p, guint64 *ret)
                 return -ERANGE;
 
         *ret = l;
+
+        return 0;
+}
+
+int df_execute_external_command(const char *command, gboolean show_output)
+{
+        pid_t pid;
+
+        g_assert(command);
+
+        pid = fork();
+
+        if (pid < 0)
+                return df_fail_ret(-1, "Failed to fork: %m\n");
+        if (pid > 0) {
+                /* Parent process */
+                siginfo_t status;
+
+                for (;;) {
+                        if (waitid(P_PID, pid, &status, WEXITED) < 0) {
+                                if (errno == EINTR)
+                                        continue;
+
+                                return df_fail_ret(-1, "Error when waiting for a child: %m\n");
+                        }
+
+                        break;
+                }
+
+                return status.si_status;
+        }
+
+        /* Child process */
+        g_auto(fd_t) null_fd = -1;
+
+        /* Redirect stdin/stdout/stderr to /dev/null */
+        null_fd = open("/dev/null", O_RDWR);
+        if (null_fd < 0)
+                return df_fail_ret(-1, "Failed to open /dev/null: %m\n");
+
+        for (guint8 i = 0; i < 3; i++) {
+                if (i > 0 && show_output)
+                        break;
+                if (dup2(null_fd, i) < 0)
+                        return df_fail_ret(-1, "Failed to replace fd %d with /dev/null: %m\n", i);
+        }
+
+        if (execl("/bin/sh", "sh", "-c", command, (char*) NULL) < 0)
+                return df_fail_ret(-1, "Failed to execl(): %m\n");
 
         return 0;
 }

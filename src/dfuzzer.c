@@ -597,6 +597,7 @@ static void df_print_help(const char *name)
          "  -I --iterations=ITER        Set both the minimum and maximum number of iterations to ITER\n"
          "                              See --max-iterations= and --min-iterations= above\n"
          "  -e --command=COMMAND        Command/script to execute after each method call.\n"
+         "     --show-command-output    Don't suppress stdout/stderr of a COMMAND.\n"
          "  -f --dictionary=FILENAME    Name of a file with custom dictionary which is used as input\n"
          "                              for fuzzed methods before generating random data.\n"
          "\nExamples:\n\n"
@@ -622,30 +623,32 @@ static void df_parse_parameters(int argc, char **argv)
                  * short variant */
                 ARG_SKIP_METHODS = 0x100,
                 ARG_SKIP_PROPERTIES,
+                ARG_SHOW_COMMAND_OUTPUT
         };
 
         static const struct option options[] = {
-                { "buffer-limit",       required_argument,  NULL,   'b'                 },
-                { "debug",              no_argument,        NULL,   'd'                 },
-                { "command",            required_argument,  NULL,   'e'                 },
-                { "string-file",        required_argument,  NULL,   'f'                 },
-                { "help",               no_argument,        NULL,   'h'                 },
-                { "interface",          required_argument,  NULL,   'i'                 },
-                { "list",               no_argument,        NULL,   'l'                 },
-                { "mem-limit",          required_argument,  NULL,   'm'                 },
-                { "bus",                required_argument,  NULL,   'n'                 },
-                { "object",             required_argument,  NULL,   'o'                 },
-                { "property",           required_argument,  NULL,   'p'                 },
-                { "no-suppressions",    no_argument,        NULL,   's'                 },
-                { "method",             required_argument,  NULL,   't'                 },
-                { "verbose",            no_argument,        NULL,   'v'                 },
-                { "log-dir",            required_argument,  NULL,   'L'                 },
-                { "version",            no_argument,        NULL,   'V'                 },
-                { "max-iterations",     required_argument,  NULL,   'x'                 },
-                { "min-iterations",     required_argument,  NULL,   'y'                 },
-                { "iterations",         required_argument,  NULL,   'I'                 },
-                { "skip-methods",       no_argument,        NULL,   ARG_SKIP_METHODS    },
-                { "skip-properties",    no_argument,        NULL,   ARG_SKIP_PROPERTIES },
+                { "buffer-limit",        required_argument,  NULL,   'b'                     },
+                { "debug",               no_argument,        NULL,   'd'                     },
+                { "command",             required_argument,  NULL,   'e'                     },
+                { "string-file",         required_argument,  NULL,   'f'                     },
+                { "help",                no_argument,        NULL,   'h'                     },
+                { "interface",           required_argument,  NULL,   'i'                     },
+                { "list",                no_argument,        NULL,   'l'                     },
+                { "mem-limit",           required_argument,  NULL,   'm'                     },
+                { "bus",                 required_argument,  NULL,   'n'                     },
+                { "object",              required_argument,  NULL,   'o'                     },
+                { "property",            required_argument,  NULL,   'p'                     },
+                { "no-suppressions",     no_argument,        NULL,   's'                     },
+                { "method",              required_argument,  NULL,   't'                     },
+                { "verbose",             no_argument,        NULL,   'v'                     },
+                { "log-dir",             required_argument,  NULL,   'L'                     },
+                { "version",             no_argument,        NULL,   'V'                     },
+                { "max-iterations",      required_argument,  NULL,   'x'                     },
+                { "min-iterations",      required_argument,  NULL,   'y'                     },
+                { "iterations",          required_argument,  NULL,   'I'                     },
+                { "skip-methods",        no_argument,        NULL,   ARG_SKIP_METHODS        },
+                { "skip-properties",     no_argument,        NULL,   ARG_SKIP_PROPERTIES     },
+                { "show-command-output", no_argument,        NULL,   ARG_SHOW_COMMAND_OUTPUT },
                 {}
         };
 
@@ -794,6 +797,9 @@ static void df_parse_parameters(int argc, char **argv)
                                 break;
                         case ARG_SKIP_PROPERTIES:
                                 df_skip_properties = TRUE;
+                                break;
+                        case ARG_SHOW_COMMAND_OUTPUT:
+                                df_fuzz_set_show_command_output(TRUE);
                                 break;
                         default:    // '?'
                                 exit(1);

@@ -20,14 +20,10 @@
  */
 #include <ctype.h>
 #include <errno.h>
-#include <fcntl.h>
 #include <gio/gio.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <sys/wait.h>
 #include <unistd.h>
 
 #include "fuzz.h"
@@ -37,12 +33,12 @@
 #include "util.h"
 
 static guint64 fuzz_buffer_length = MAX_BUFFER_LENGTH;
+static gboolean show_command_output = FALSE;
 /** Pointer on D-Bus interface proxy for calling methods. */
 static GDBusProxy *df_dproxy;
 /** Exceptions counter; if MAX_EXCEPTIONS is reached testing continues
   * with a next method */
 static char df_except_counter = 0;
-
 
 void df_fuzz_set_buffer_length(const guint64 length)
 {
@@ -54,6 +50,11 @@ void df_fuzz_set_buffer_length(const guint64 length)
 guint64 df_fuzz_get_buffer_length(void)
 {
         return fuzz_buffer_length;
+}
+
+void df_fuzz_set_show_command_output(gboolean value)
+{
+        show_command_output = value;
 }
 
 guint64 df_get_number_of_iterations(const char *signature)
@@ -167,59 +168,6 @@ static void df_fuzz_write_log(const struct df_dbus_method *method, GVariant *val
                 df_fail("   -- Value: %s\n", variant_value);
                 df_log_file("%s;", variant_value);
         }
-}
-
-/**
- * @function Executes command/script cmd.
- * @param cmd Command/Script to execute
- * @return 0 on successful completition of cmd or when cmd is NULL, value
- * higher than 0 on unsuccessful completition of cmd or -1 on error
- */
-static int df_exec_cmd_check(const char *cmd)
-{
-        if (cmd == NULL)
-                return 0;
-
-        const char *fn = "/dev/null";
-        g_auto(fd_t) stdoutcpy = -1, stderrcpy = -1, fd = -1;
-        int status = 0;
-
-        fd = open(fn, O_RDWR, S_IRUSR | S_IWUSR);
-        if (fd == -1) {
-                perror("open");
-                return -1;
-        }
-
-        // backup std descriptors
-        stdoutcpy = dup(1);
-        if (stdoutcpy < 0)
-                return -1;
-        stderrcpy = dup(2);
-        if (stderrcpy < 0)
-                return -1;
-
-        // make stdout and stderr go to fd
-        if (dup2(fd, 1) < 0)
-                return -1;
-        if (dup2(fd, 2) < 0)
-                return -1;
-        fd = safe_close(fd);      // fd no longer needed
-
-        // execute cmd
-        status = system(cmd);
-
-        // restore std descriptors
-        if (dup2(stdoutcpy, 1) < 0)
-                return -1;
-        stdoutcpy = safe_close(stdoutcpy);
-        if (dup2(stderrcpy, 2) < 0)
-                return -1;
-        stderrcpy = safe_close(stderrcpy);
-
-
-        if (status == -1)
-                return status;
-        return WEXITSTATUS(status);
 }
 
 static int df_check_if_exited(const int pid) {
@@ -373,7 +321,7 @@ int df_fuzz_test_method(
                 /* Convert the floating variant reference into a full one */
                 value = g_variant_ref_sink(value);
                 ret = df_fuzz_call_method(method, value);
-                execr = df_exec_cmd_check(execute_cmd);
+                execr = execute_cmd ? df_execute_external_command(execute_cmd, show_command_output) : 0;
 
                 if (ret < 0) {
                         df_fail("%s  %sFAIL%s [M] %s - unexpected response\n",
@@ -382,7 +330,7 @@ int df_fuzz_test_method(
                 }
 
                 if (execr < 0)
-                        return df_fail_ret(-1, "df_exec_cmd_check() failed: %m");
+                        return df_fail_ret(-1, "df_execute_external_command() failed: %m");
                 else if (execr > 0) {
                         df_fail("%s  %sFAIL%s [M] %s - '%s' returned %s%d%s\n",
                                 ansi_cr(), ansi_red(), ansi_normal(), method->name,
