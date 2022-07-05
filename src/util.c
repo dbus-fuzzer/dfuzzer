@@ -1,6 +1,5 @@
 /** @file util.c */
 
-#include <assert.h>
 #include <errno.h>
 #include <gio/gio.h>
 #include <stdarg.h>
@@ -45,7 +44,7 @@ int safe_strtoull(const gchar *p, guint64 *ret)
         gchar *e = NULL;
         guint32 l;
 
-        assert(ret);
+        g_assert(ret);
 
         errno = 0;
         l = g_ascii_strtoull(p, &e, 10);

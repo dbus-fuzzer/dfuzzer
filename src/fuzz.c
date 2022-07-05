@@ -18,7 +18,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include <assert.h>
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -61,6 +60,8 @@ guint64 df_get_number_of_iterations(const char *signature)
 {
         guint64 iterations = 0;
         guint32 multiplier = 1, current_nest_level = 0;
+
+        g_assert(signature);
 
         for (size_t i = 0; i < strlen(signature); i++) {
                 switch (signature[i]) {
@@ -133,10 +134,8 @@ guint64 df_get_number_of_iterations(const char *signature)
 
 int df_fuzz_init(GDBusProxy *dproxy)
 {
-        if (dproxy == NULL) {
-                df_debug("Passing NULL argument to function.\n");
-                return -1;
-        }
+        g_assert(dproxy);
+
         df_dproxy = dproxy;
 
         return 0;
@@ -150,8 +149,8 @@ static void df_fuzz_write_log(const struct df_dbus_method *method, GVariant *val
 {
         g_autoptr(char) variant_value = NULL;
 
-        assert(method);
-        assert(value);
+        g_assert(method);
+        g_assert(value);
 
         df_log_file("%s;", method->name);
 
@@ -230,7 +229,7 @@ static int df_check_if_exited(const int pid) {
         size_t len = 0;
         int dumping;
 
-        assert(pid > 0);
+        g_assert(pid > 0);
 
         sprintf(proc_pid, "/proc/%d/status", pid);
 
