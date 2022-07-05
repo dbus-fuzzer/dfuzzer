@@ -118,6 +118,13 @@
             </varlistentry>
 
             <varlistentry>
+                <term><option>--show-command-output</option></term>
+
+                <listitem><para>Don't suppress stdout/stderr of a <replaceable>COMMAND</replaceable>
+                specified via <option>--command=</option></para></listitem>
+            </varlistentry>
+
+            <varlistentry>
                 <term><option>-f <replaceable>FILENAME</replaceable></option></term>
                 <term><option>--dictionary=<replaceable>FILENAME</replaceable></option></term>
 

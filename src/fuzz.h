@@ -75,6 +75,7 @@ G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(df_dbus_property_t, df_dbus_property_clear)
 
 void df_fuzz_set_buffer_length(const guint64 length);
 guint64 df_fuzz_get_buffer_length(void);
+void df_fuzz_set_show_command_output(gboolean value);
 
 guint64 df_get_number_of_iterations(const char *signature);
 /**

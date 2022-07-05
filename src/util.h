@@ -128,3 +128,5 @@ DEFINE_ANSI_FUNC(cyan,       CYAN);
 DEFINE_ANSI_FUNC(normal,     NORMAL);
 DEFINE_ANSI_FUNC(bold,       BOLD);
 DEFINE_ANSI_FUNC(cr,         CR);
+
+int df_execute_external_command(const char *command, gboolean show_output);
