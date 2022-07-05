@@ -285,6 +285,11 @@ static int df_fuzz_call_method(const struct df_dbus_method *method, GVariant *va
                         NULL,
                         &error);
         if (!response) {
+                if (g_dbus_connection_is_closed(g_dbus_proxy_get_connection(df_dproxy)))
+                        return df_fail_ret(2, "%s  %sFAIL%s [M] %s - the connection is closed (this is most likely a bug in dfuzzer, "
+                                          "please report it at https://github.com/dbus-fuzzer/dfuzzer together with dbus-daemon/dbus-broker logs)\n",
+                                           ansi_cr(), ansi_red(), ansi_normal(), method->name);
+
                 // D-Bus exceptions are accepted
                 dbus_error = g_dbus_error_get_remote_error(error);
                 if (dbus_error) {
@@ -494,6 +499,11 @@ static int df_fuzz_set_property(GDBusProxy *pproxy, const char *interface,
                         NULL,
                         &error);
         if (!response) {
+                if (g_dbus_connection_is_closed(g_dbus_proxy_get_connection(pproxy)))
+                        return df_fail_ret(2, "%s  %sFAIL%s [P] %s - the connection is closed (this is most likely a bug in dfuzzer, "
+                                          "please report it at https://github.com/dbus-fuzzer/dfuzzer together with dbus-daemon/dbus-broker logs)\n",
+                                           ansi_cr(), ansi_red(), ansi_normal(), property->name);
+
                 dbus_error = g_dbus_error_get_remote_error(error);
                 if (dbus_error) {
                         if (g_str_equal(dbus_error, "org.freedesktop.DBus.Error.NoReply"))
