@@ -285,6 +285,11 @@ static int df_fuzz_call_method(const struct df_dbus_method *method, GVariant *va
                         NULL,
                         &error);
         if (!response) {
+                if (g_dbus_connection_is_closed(g_dbus_proxy_get_connection(df_dproxy)))
+                        return df_fail_ret(2, "%s  %sFAIL%s [M] %s - the connection is closed (this is most likely a bug in dfuzzer, "
+                                          "please report it at https://github.com/dbus-fuzzer/dfuzzer together with dbus-daemon/dbus-broker logs)\n",
+                                           ansi_cr(), ansi_red(), ansi_normal(), method->name);
+
                 // D-Bus exceptions are accepted
                 dbus_error = g_dbus_error_get_remote_error(error);
                 if (dbus_error) {
@@ -296,20 +301,16 @@ static int df_fuzz_call_method(const struct df_dbus_method *method, GVariant *va
                                 sleep(10);
                                 return -1;
                         } else if (g_str_equal(dbus_error, "org.freedesktop.DBus.Error.AccessDenied") ||
-                                   g_str_equal(dbus_error, "org.freedesktop.DBus.Error.AuthFailed")) {
-                                df_verbose("%s  %sSKIP%s [M] %s - raised exception '%s'\n",
-                                           ansi_cr(), ansi_blue(), ansi_normal(),
-                                           method->name, dbus_error);
-                                return 2;
-                        }
+                                   g_str_equal(dbus_error, "org.freedesktop.DBus.Error.AuthFailed"))
+                                return df_verbose_ret(2, "%s  %sSKIP%s [M] %s - raised exception '%s'\n",
+                                                      ansi_cr(), ansi_blue(), ansi_normal(),
+                                                      method->name, dbus_error);
                 }
 
                 g_dbus_error_strip_remote_error(error);
-                if (strstr(error->message, "Timeout")) {
-                        df_verbose("%s  %sSKIP%s [M] %s - timeout reached\n",
-                                   ansi_cr(), ansi_blue(), ansi_normal(), method->name);
-                        return 2;
-                }
+                if (strstr(error->message, "Timeout"))
+                        return df_verbose_ret(2, "%s  %sSKIP%s [M] %s - timeout reached\n",
+                                              ansi_cr(), ansi_blue(), ansi_normal(), method->name);
 
                 df_debug("%s  EXCE %s - D-Bus exception thrown: %s\n",
                          ansi_cr(), method->name, error->message);
@@ -319,11 +320,9 @@ static int df_fuzz_call_method(const struct df_dbus_method *method, GVariant *va
                 /* Check if a method without return value returns void */
                 if (!method->returns_value) {
                         fmt = g_variant_get_type_string(response);
-                        if (!g_str_equal(fmt, "()")) {
-                                df_fail("%s  %sFAIL%s [M] %s - void method returns '%s' instead of '()'\n",
-                                        ansi_cr(), ansi_red(), ansi_normal(), method->name, fmt);
-                                return 1;
-                        }
+                        if (!g_str_equal(fmt, "()"))
+                                return df_fail_ret(1, "%s  %sFAIL%s [M] %s - void method returns '%s' instead of '()'\n",
+                                                   ansi_cr(), ansi_red(), ansi_normal(), method->name, fmt);
                 }
         }
 
@@ -494,6 +493,11 @@ static int df_fuzz_set_property(GDBusProxy *pproxy, const char *interface,
                         NULL,
                         &error);
         if (!response) {
+                if (g_dbus_connection_is_closed(g_dbus_proxy_get_connection(pproxy)))
+                        return df_fail_ret(2, "%s  %sFAIL%s [P] %s - the connection is closed (this is most likely a bug in dfuzzer, "
+                                          "please report it at https://github.com/dbus-fuzzer/dfuzzer together with dbus-daemon/dbus-broker logs)\n",
+                                           ansi_cr(), ansi_red(), ansi_normal(), property->name);
+
                 dbus_error = g_dbus_error_get_remote_error(error);
                 if (dbus_error) {
                         if (g_str_equal(dbus_error, "org.freedesktop.DBus.Error.NoReply"))
@@ -504,20 +508,16 @@ static int df_fuzz_set_property(GDBusProxy *pproxy, const char *interface,
                                 sleep(10);
                                 return -1;
                         } else if (g_str_equal(dbus_error, "org.freedesktop.DBus.Error.AccessDenied") ||
-                                   g_str_equal(dbus_error, "org.freedesktop.DBus.Error.AuthFailed")) {
-                                df_verbose("%s  %sSKIP%s [P] %s - raised exception '%s'\n",
-                                           ansi_cr(), ansi_blue(), ansi_normal(),
-                                           property->name, dbus_error);
-                                return 2;
-                        }
+                                   g_str_equal(dbus_error, "org.freedesktop.DBus.Error.AuthFailed"))
+                                return df_verbose_ret(2, "%s  %sSKIP%s [P] %s - raised exception '%s'\n",
+                                                      ansi_cr(), ansi_blue(), ansi_normal(),
+                                                      property->name, dbus_error);
                 }
 
                 g_dbus_error_strip_remote_error(error);
-                if (strstr(error->message, "Timeout")) {
-                        df_verbose("%s  %sSKIP%s [P] %s - timeout reached\n",
-                                   ansi_cr(), ansi_blue(), ansi_normal(), property->name);
-                        return 2;
-                }
+                if (strstr(error->message, "Timeout"))
+                        return df_verbose_ret(2, "%s  %sSKIP%s [P] %s - timeout reached\n",
+                                              ansi_cr(), ansi_blue(), ansi_normal(), property->name);
 
                 df_debug("%s  EXCE [P] %s - D-Bus exception thrown: %s\n",
                          ansi_cr(), property->name, error->message);
@@ -563,11 +563,9 @@ int df_fuzz_test_property(GDBusConnection *dcon, const struct df_dbus_property *
 
                 for (guint8 i = 0; i < iterations; i++) {
                         r = df_fuzz_get_property(pproxy, interface, property);
-                        if (r < 0) {
-                                df_fail("%s  %sFAIL%s [P] %s - unexpected response while reading a property\n",
-                                        ansi_cr(), ansi_red(), ansi_normal(), property->name);
-                                return 1;
-                        }
+                        if (r < 0)
+                                return df_fail_ret(1, "%s  %sFAIL%s [P] %s - unexpected response while reading a property\n",
+                                                   ansi_cr(), ansi_red(), ansi_normal(), property->name);
                 }
 
                 /* Check if the remote side is still alive */
@@ -607,22 +605,18 @@ int df_fuzz_test_property(GDBusConnection *dcon, const struct df_dbus_property *
                         /* Convert the floating variant reference into a full one */
                         value = g_variant_ref_sink(value);
                         r = df_fuzz_set_property(pproxy, interface, property, value);
-                        if (r < 0) {
-                                df_fail("%s  %sFAIL%s [P] %s (write) - unexpected response while writing to a property\n",
-                                        ansi_cr(), ansi_red(), ansi_normal(), property->name);
-                                return 1;
-                        }
+                        if (r < 0)
+                                return df_fail_ret(1, "%s  %sFAIL%s [P] %s (write) - unexpected response while writing to a property\n",
+                                                   ansi_cr(), ansi_red(), ansi_normal(), property->name);
                 }
 
                 /* Check if the remote side is still alive */
                 r = df_check_if_exited(pid);
                 if (r < 0)
                         return df_fail_ret(-1, "Error while reading process' stat file: %m\n");
-                else if (r == 0) {
-                        df_fail("%s  %sFAIL%s [P] %s (write) - process %d exited\n",
-                                ansi_cr(), ansi_red(), ansi_normal(), property->name, pid);
-                        return 1;
-                }
+                else if (r == 0)
+                        return df_fail_ret(1, "%s  %sFAIL%s [P] %s (write) - process %d exited\n",
+                                           ansi_cr(), ansi_red(), ansi_normal(), property->name, pid);
 
                 df_verbose("%s  %sPASS%s [P] %s (write)\n",
                            ansi_cr(), ansi_green(), ansi_normal(), property->name);
