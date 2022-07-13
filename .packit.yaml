@@ -20,7 +20,6 @@ actions:
     # Drop the "sources" file so rebase-helper doesn't think we're a dist-git
     - "rm -fv .packit_rpm/sources"
     - sed -i '1 i%define _unpackaged_files_terminate_build 0' .packit_rpm/dfuzzer.spec
-    - sed -i '/^%meson$/a%meson_test' .packit_rpm/dfuzzer.spec
     - sed -i 's/^%meson$/%meson --werror -Ddfuzzer-test-server=true/' .packit_rpm/dfuzzer.spec
 
 jobs:
