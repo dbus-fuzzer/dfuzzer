@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <sys/stat.h>
 
 #include "log.h"
 
@@ -20,6 +21,8 @@ guint8 df_get_log_level(void)
 int df_log_open_log_file(const char *file_name)
 {
         g_assert(!log_file);
+
+        (void) umask(0022);
 
         log_file = fopen(file_name, "a+");
         if (!log_file)
