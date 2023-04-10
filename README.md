@@ -1,6 +1,6 @@
 dfuzzer
 =======
-[![Total alerts](https://img.shields.io/lgtm/alerts/g/dbus-fuzzer/dfuzzer.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/dbus-fuzzer/dfuzzer/alerts)
+[![CodeQL](https://github.com/dbus-fuzzer/dfuzzer/actions/workflows/codeql.yml/badge.svg)](https://github.com/dbus-fuzzer/dfuzzer/actions/workflows/codeql.yml)
 [![Coverage Status](https://coveralls.io/repos/github/dbus-fuzzer/dfuzzer/badge.svg)](https://coveralls.io/github/dbus-fuzzer/dfuzzer)
 [![Coverity Scan Status](https://scan.coverity.com/projects/24889/badge.svg)](https://scan.coverity.com/projects/dfuzzer)
 
