@@ -20,6 +20,8 @@ config_h = configure_file(
               output : 'config.h',
               configuration : conf)
 
+fs = import('fs')
+
 add_project_arguments('-include', 'config.h', language : 'c')
 
 subdir('src')
@@ -72,7 +74,7 @@ install_data('src/dfuzzer.conf', install_dir : get_option('sysconfdir'))
 
 foreach tuple : tests
         sources = tuple[0]
-        name = '@0@'.format(sources[0]).split('/')[-1].split('.')[0]
+        name = fs.stem(sources[0])
 
         exe = executable(
                 name,
