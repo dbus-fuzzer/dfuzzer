@@ -120,7 +120,7 @@ int df_suppression_load(GList **suppressions, const char *service_name)
                 if (sscanf(line, "%ms %m[^\n]", &suppression, &description) < 1)
                         return df_fail_ret(-1, "Failed to parse line '%s'\n", line);
 
-                item = calloc(sizeof(*item), 1);
+                item = calloc(1, sizeof(*item));
                 if (!item)
                         return df_oom();
 
