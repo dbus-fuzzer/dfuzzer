@@ -3,7 +3,7 @@
 
 specfile_path: .packit_rpm/dfuzzer.spec
 
-synced_files:
+files_to_sync:
     - .packit.yaml
     - src: .packit_rpm/dfuzzer.spec
       dest: dfuzzer.spec
