@@ -52,7 +52,7 @@ jobs:
     name: ${{ matrix.env.TYPE }}
     steps:
       - name: Repository checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install dependencies
         run: |
@@ -75,7 +75,7 @@ jobs:
       cancel-in-progress: true
     steps:
       - name: Repository checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install dependencies
         run: |
