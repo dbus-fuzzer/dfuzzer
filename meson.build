@@ -11,10 +11,14 @@ tests = []
 
 libgio = dependency('gio-2.0', required : true)
 xsltproc = find_program('xsltproc', required: false)
+prefixdir = get_option('prefix')
+sysconfdir = prefixdir / get_option('sysconfdir')
 
 conf = configuration_data()
 conf.set('DFUZZER_VERSION', meson.project_version())
 conf.set10('WITH_COVERAGE', get_option('b_coverage'))
+conf.set_quoted('SYSCONFDIR', sysconfdir)
+conf.set('SYSCONFDIR_RAW', sysconfdir)
 
 config_h = configure_file(
               output : 'config.h',
@@ -44,9 +48,15 @@ if xsltproc.found()
                 '@INPUT@',
         ]
 
+        dfuzzer_xml = configure_file(
+                input : 'man/dfuzzer.xml.in',
+                output : 'dfuzzer.xml',
+                configuration : conf,
+        )
+
         custom_target(
                 'dfuzzer.1',
-                input : 'man/dfuzzer.xml',
+                input : dfuzzer_xml,
                 output : 'dfuzzer.1',
                 command : xsltproc_cmd,
                 install : true,
@@ -70,7 +80,7 @@ if get_option('dfuzzer-test-server')
                      install_dir : '/usr/lib/systemd/system')
 endif
 
-install_data('src/dfuzzer.conf', install_dir : get_option('sysconfdir'))
+install_data('src/dfuzzer.conf', install_dir : sysconfdir)
 
 foreach tuple : tests
         sources = tuple[0]
@@ -92,5 +102,10 @@ foreach tuple : tests
              ]
         )
 endforeach
+
+summary({
+        'prefixdir'   : prefixdir,
+        'sysconfdir'  : sysconfdir,
+})
 
 # vi: sw=8 ts=8 et:

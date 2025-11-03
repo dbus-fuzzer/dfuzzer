@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include "config.h"
 #include "suppression.h"
 #include "log.h"
 #include "util.h"
@@ -11,7 +12,7 @@
 /** Suppression file #2 (home dir) */
 #define SUPPRESSION_FILE_HOME ".dfuzzer.conf"
 /** Suppression file #3 (mandatory) */
-#define SUPPRESSION_FILE_SYSTEM "/etc/dfuzzer.conf"
+#define SUPPRESSION_FILE_SYSTEM SYSCONFDIR "/dfuzzer.conf"
 
 typedef struct suppression_item {
         char *object;
