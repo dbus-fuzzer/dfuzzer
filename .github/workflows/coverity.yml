@@ -22,7 +22,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt -y update
-          sudo apt -y install gcc libglib2.0-dev meson
+          sudo apt -y install gcc libglib2.0-dev meson libdbus-1-dev
 
       - name: Run Coverity
         run: .github/workflows/coverity.sh

@@ -192,7 +192,7 @@
                 <variablelist>
                     <varlistentry><term>./dfuzzer.conf</term></varlistentry>
                     <varlistentry><term>~/.dfuzzer.conf</term></varlistentry>
-                    <varlistentry><term>/etc/dfuzzer.conf</term></varlistentry>
+                    <varlistentry><term>@SYSCONFDIR_RAW@/dfuzzer.conf</term></varlistentry>
                 </variablelist>
                 <para>For information about the format of the suppression file see the section
                 "Suppression file format".</para></listitem>
