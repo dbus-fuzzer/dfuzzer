@@ -1,5 +1,5 @@
 project('dfuzzer', 'c',
-        version : '2.4',
+        version : '2.5',
         default_options: [
                 'c_std=gnu11',
                 'prefix=/usr',
