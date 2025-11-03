@@ -62,7 +62,7 @@ jobs:
       - name: Build
         run: |
           set -ex
-          meson -Ddfuzzer-test-server=true build
+          meson setup --fatal-meson-warnings --werror -Ddfuzzer-test-server=true build
           ninja -C ./build -v
           sudo ninja -C ./build install
 
@@ -85,7 +85,7 @@ jobs:
       - name: Build
         run: |
           set -ex
-          meson -Ddfuzzer-test-server=true -Db_coverage=true build
+          meson setup --fatal-meson-warnings --werror -Ddfuzzer-test-server=true -Db_coverage=true build
           ninja -C ./build -v
           sudo ninja -C ./build install
 
