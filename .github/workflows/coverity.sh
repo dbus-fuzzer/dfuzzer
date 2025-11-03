@@ -32,7 +32,7 @@ function run_coverity {
     sha=$(git rev-parse --short HEAD)
     author_email=$(git log -1 --pretty="%aE")
 
-    meson setup -Ddfuzzer-test-server=true build
+    meson setup --fatal-meson-warnings --werror -Ddfuzzer-test-server=true build
     COVERITY_UNSUPPORTED=1 "$tool_dir/bin/cov-build" --dir "$results_dir" sh -c "ninja -C ./build -v"
     "$tool_dir/bin/cov-import-scm" --dir "$results_dir" --scm git --log "$results_dir/scm_log.txt"
 
