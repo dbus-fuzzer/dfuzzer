@@ -121,7 +121,11 @@ jobs:
             set -ex
             sudo mount -t procfs proc /proc
             sudo pkg install -y dbus git glib meson pkgconf polkit
-            meson setup --fatal-meson-warnings --werror build
+            # FreeBSD Ports pass --prefix=$PREFIX (where PREFIX=/usr/local) to meson, so replicate the same
+            # here in our test
+            #
+            # See: https://cgit.freebsd.org/ports/tree/Mk/Uses/meson.mk
+            meson setup --prefix=/usr/local --fatal-meson-warnings --werror build
             ninja -C build -v
             ninja -C build test
             sudo ninja -C build install
