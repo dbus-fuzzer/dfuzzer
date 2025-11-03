@@ -43,7 +43,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt -y update
-          sudo apt -y install docbook-xsl gcc libglib2.0-dev xsltproc meson
+          sudo apt -y install docbook-xsl gcc libglib2.0-dev xsltproc meson libdbus-1-dev
 
       # Don't use github/codeql-action/autobuild, so we can check the test server as well
       - name: Build
