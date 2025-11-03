@@ -49,7 +49,7 @@ jobs:
       - name: Build
         run: |
           set -ex
-          meson -Ddfuzzer-test-server=true build
+          meson setup -Ddfuzzer-test-server=true build
           ninja -C ./build -v
 
       - name: Perform CodeQL Analysis
