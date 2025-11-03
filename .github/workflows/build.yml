@@ -104,3 +104,29 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           file: ./coverage.info
           format: lcov
+  freebsd:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}-freebsd
+      cancel-in-progress: true
+    steps:
+      - name: Repository checkout
+        uses: actions/checkout@v5
+      - uses: cross-platform-actions/action@v0.29.0
+        with:
+          operating_system: 'freebsd'
+          version: '14.3'
+          architecture: 'x86_64'
+          run: |
+            set -ex
+            sudo mount -t procfs proc /proc
+            sudo pkg install -y dbus git glib meson pkgconf polkit
+            meson setup --fatal-meson-warnings --werror build
+            ninja -C build -v
+            ninja -C build test
+            sudo ninja -C build install
+            sudo service dbus onestart
+            dfuzzer -l
+            # properties are skipped to get around https://github.com/polkit-org/polkit/issues/506
+            # they can be turned on when polkit is bumped to 126
+            dfuzzer -v --skip-properties -n org.freedesktop.PolicyKit1
