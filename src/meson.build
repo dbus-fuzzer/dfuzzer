@@ -18,7 +18,3 @@ dfuzzer_util_sources = files(
 dfuzzer_sources = dfuzzer_util_sources + files(
         'dfuzzer.c',
 )
-
-dfuzzer_test_server_sources = files(
-        'dfuzzer-test-server.c',
-)

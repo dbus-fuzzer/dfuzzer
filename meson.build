@@ -73,21 +73,22 @@ if get_option('dfuzzer-test-server')
 
         executable(
                 'dfuzzer-test-server',
-                dfuzzer_test_server_sources,
+                dfuzzer_test_server_sources + dfuzzer_util_sources,
+                include_directories : include_directories('src/'),
                 dependencies : [libgio],
                 c_args : '-Wno-unused-parameter',
                 install : true,
         )
 
         dfuzzer_test_server_service = configure_file(
-                input : 'src/dfuzzer-test-server.service.in',
+                input : 'test/dfuzzer-test-server.service.in',
                 output : 'dfuzzer-test-server.service',
                 configuration : conf,
         )
 
-        install_data('src/org.freedesktop.dfuzzerServer.conf',
+        install_data('test/org.freedesktop.dfuzzerServer.conf',
                      install_dir : dbus_datadir / 'system.d')
-        install_data('src/org.freedesktop.dfuzzerServer.service',
+        install_data('test/org.freedesktop.dfuzzerServer.service',
                      install_dir : dbus_datadir / 'system-services')
         install_data(dfuzzer_test_server_service,
                      install_dir : systemd_unitdir)
@@ -101,7 +102,7 @@ foreach tuple : tests
 
         exe = executable(
                 name,
-                dfuzzer_util_sources + sources,
+                sources + dfuzzer_util_sources,
                 include_directories : include_directories('src/'),
                 dependencies : [libgio],
         )
