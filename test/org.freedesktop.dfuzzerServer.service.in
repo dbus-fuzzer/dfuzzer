@@ -1,5 +1,4 @@
 [D-BUS Service]
 Name=org.freedesktop.dfuzzerServer
-Exec=/bin/false
+Exec=@BINDIR_RAW@/dfuzzer-test-server
 User=root
-SystemdService=dfuzzer-test-server.service

@@ -4,4 +4,4 @@ Description=dfuzzer test server
 [Service]
 Type=dbus
 BusName=org.freedesktop.dfuzzerServer
-ExecStart=@PREFIXDIR_RAW@/bin/dfuzzer-test-server
+ExecStart=@BINDIR_RAW@/dfuzzer-test-server

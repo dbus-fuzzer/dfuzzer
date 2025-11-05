@@ -11,10 +11,11 @@ tests = []
 
 libgio = dependency('gio-2.0', required : true)
 libdbus = dependency('dbus-1', required : get_option('dfuzzer-test-server'))
-libsystemd = dependency('systemd', required : get_option('dfuzzer-test-server'))
+libsystemd = dependency('systemd', required : false)
 xsltproc = find_program('xsltproc', required: false)
 prefixdir = get_option('prefix')
 sysconfdir = prefixdir / get_option('sysconfdir')
+bindir = prefixdir / get_option('bindir')
 
 conf = configuration_data()
 conf.set('DFUZZER_VERSION', meson.project_version())
@@ -22,6 +23,7 @@ conf.set10('WITH_COVERAGE', get_option('b_coverage'))
 conf.set_quoted('SYSCONFDIR', sysconfdir)
 conf.set('SYSCONFDIR_RAW', sysconfdir)
 conf.set('PREFIXDIR_RAW', prefixdir)
+conf.set('BINDIR_RAW', bindir)
 
 config_h = configure_file(
               output : 'config.h',
@@ -69,7 +71,6 @@ endif
 
 if get_option('dfuzzer-test-server')
         dbus_datadir = libdbus.get_variable(pkgconfig: 'datadir') / 'dbus-1'
-        systemd_unitdir = libsystemd.get_variable(pkgconfig: 'systemdsystemunitdir')
 
         executable(
                 'dfuzzer-test-server',
@@ -80,18 +81,37 @@ if get_option('dfuzzer-test-server')
                 install : true,
         )
 
-        dfuzzer_test_server_service = configure_file(
-                input : 'test/dfuzzer-test-server.service.in',
-                output : 'dfuzzer-test-server.service',
-                configuration : conf,
-        )
+        # If we're running with systemd, we can delegate the service activation to it by specifying SystemdService=,
+        # and by installing the corresponding systemd service unit.
+        #
+        # Otherwise, let D-Bus start the service binary directly via the Exec= directive.
+        if libsystemd.found()
+                systemd_unitdir = libsystemd.get_variable(pkgconfig: 'systemdsystemunitdir')
+
+                dfuzzer_test_server_systemd_service = configure_file(
+                        input : 'test/dfuzzer-test-server.service.in',
+                        output : 'dfuzzer-test-server.service',
+                        configuration : conf,
+                )
+
+                install_data(dfuzzer_test_server_systemd_service,
+                             install_dir : systemd_unitdir)
+                install_data('test/org.freedesktop.dfuzzerServer.service.systemd',
+                             rename : 'org.freedesktop.dfuzzerServer.service',
+                             install_dir : dbus_datadir / 'system-services')
+        else
+                dfuzzer_test_server_dbus_service = configure_file(
+                        input : 'test/org.freedesktop.dfuzzerServer.service.in',
+                        output : 'org.freedesktop.dfuzzerServer.service',
+                        configuration : conf,
+                )
+
+                install_data(dfuzzer_test_server_dbus_service,
+                             install_dir : dbus_datadir / 'system-services')
+        endif
 
         install_data('test/org.freedesktop.dfuzzerServer.conf',
                      install_dir : dbus_datadir / 'system.d')
-        install_data('test/org.freedesktop.dfuzzerServer.service',
-                     install_dir : dbus_datadir / 'system-services')
-        install_data(dfuzzer_test_server_service,
-                     install_dir : systemd_unitdir)
 endif
 
 install_data('src/dfuzzer.conf', install_dir : sysconfdir)
