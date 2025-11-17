@@ -15,11 +15,16 @@ Automatic installation (Fedora):
 
     sudo dnf install dfuzzer
 
+Automatic installation (FreeBSD):
+--------------
+
+    sudo pkg install dfuzzer
+
 Manual installation:
 --------------
     $ git clone https://github.com/dbus-fuzzer/dfuzzer
     $ cd dfuzzer
-    $ meson --buildtype=release build
+    $ meson setup --buildtype=release build
     $ ninja -C ./build -v
     $ sudo ninja -C ./build install
 
@@ -38,6 +43,14 @@ Fedora:
 Debian:
 
     $ apt-get install docbook-xsl libglib2.0-dev xsltproc meson
+
+FreeBSD:
+
+    $ pkg install docbook-xsl glib libxslt meson
+
+Alpine:
+
+    $ apk add glib-dev meson
 
 
 Using valgrind with _GLib_:
