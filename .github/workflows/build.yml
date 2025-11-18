@@ -128,7 +128,6 @@ jobs:
           run: |
             set -ex
 
-            sudo mount -t procfs proc /proc
             sudo pkg install -y bash dbus git glib meson pkgconf polkit
 
             # FreeBSD Ports pass --prefix=$PREFIX (where PREFIX=/usr/local) to meson, so replicate the same
@@ -140,6 +139,11 @@ jobs:
             sudo ninja -C build install
 
             sudo service dbus onestart
+
+            # Check if dfuzzer fails without mounted /proc/
+            (! dfuzzer -l)
+
+            sudo mount -t procfs proc /proc
 
             .github/workflows/run-tests-sanity.sh
             # properties are skipped to get around https://github.com/polkit-org/polkit/issues/506

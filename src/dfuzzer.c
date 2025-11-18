@@ -19,15 +19,16 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+#include <ctype.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <getopt.h>
 #include <gio/gio.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <ctype.h>
+#include <sys/stat.h>
 #include <unistd.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <getopt.h>
 
 #include "bus.h"
 #include "fuzz.h"
@@ -884,13 +885,34 @@ static int df_process_bus(GBusType bus_type)
         return DF_BUS_OK;
 }
 
+static int df_check_proc_mounted(void)
+{
+        struct stat sb;
+
+        /* Since checking for procfs is different between Linux, FreeBSD, and possibly other platforms let's
+         * just check if /proc/1/status exists. This should achieve pretty much the same thing but without any
+         * ifdefs. */
+         if (stat("/proc/1/status", &sb) < 0) {
+                df_fail("Cannot access /proc/1/status: %m\n");
+                return -1;
+        }
+
+        return 0;
+}
+
 int main(int argc, char **argv)
 {
         const char *log_file_name;
         int rses = 0;               // return value from session bus testing
         int rsys = 0;               // return value from system bus testing
         int ret = 0;
+
         df_parse_parameters(argc, argv);
+
+        if (df_check_proc_mounted() != 0) {
+                df_fail("dfuzzer requires procfs to be mounted at /proc/ for process tracking\n");
+                return 1;
+        }
 
         if (df_log_dir_name) {
                 log_file_name = strjoina(df_log_dir_name, "/", target_proc.name);
