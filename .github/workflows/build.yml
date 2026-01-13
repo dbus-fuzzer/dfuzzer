@@ -123,10 +123,15 @@ jobs:
       - uses: cross-platform-actions/action@v0.32.0
         with:
           operating_system: 'freebsd'
-          version: '14.3'
+          version: '15.0'
           architecture: 'x86_64'
           run: |
             set -ex
+
+            # Use the latest packages
+            sudo mkdir -p /usr/local/etc/pkg/repos/
+            sudo cp /etc/pkg/FreeBSD.conf /usr/local/etc/pkg/repos/FreeBSD.conf
+            sudo sed -i '' -e 's|/quarterly|/latest|' /usr/local/etc/pkg/repos/FreeBSD.conf
 
             sudo pkg install -y bash dbus git glib meson pkgconf polkit
 
@@ -146,6 +151,4 @@ jobs:
             sudo mount -t procfs proc /proc
 
             .github/workflows/run-tests-sanity.sh
-            # properties are skipped to get around https://github.com/polkit-org/polkit/issues/506
-            # they can be turned on when polkit is bumped to 126
-            dfuzzer -v --skip-properties -n org.freedesktop.PolicyKit1
+            dfuzzer -v -n org.freedesktop.PolicyKit1
