@@ -56,7 +56,7 @@ int df_rand_load_external_dictionary(const char *filename)
 
         f = fopen(filename, "r");
         if (!f)
-                return df_fail_ret(-errno, "Failed to open file '%s': %m\n", filename);
+                return df_fail_ret(-errno, "Failed to open file '%s': %s\n", filename, strerror(errno));
 
         while ((n = getline(&line, &len, f)) > 0) {
                 /* Extend the array if we're out of space */

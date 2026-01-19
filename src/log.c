@@ -26,7 +26,7 @@ int df_log_open_log_file(const char *file_name)
 
         log_file = fopen(file_name, "a+");
         if (!log_file)
-                return df_fail_ret(-1, "Failed to open file %s: %m\n", file_name);
+                return df_fail_ret(-1, "Failed to open file %s: %s\n", file_name, strerror(errno));
 
         return 0;
 }

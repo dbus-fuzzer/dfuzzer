@@ -893,7 +893,7 @@ static int df_check_proc_mounted(void)
          * just check if /proc/1/status exists. This should achieve pretty much the same thing but without any
          * ifdefs. */
          if (stat("/proc/1/status", &sb) < 0) {
-                df_fail("Cannot access /proc/1/status: %m\n");
+                df_fail("Cannot access /proc/1/status: %s\n", strerror(errno));
                 return -1;
         }
 

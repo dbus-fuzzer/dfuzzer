@@ -4,6 +4,7 @@
 #include <glib.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 enum {
         DF_LOG_LEVEL_INFO = 0,
@@ -35,7 +36,7 @@ void df_error(const char *message, GError *error);
                 ret;                                \
         })
 
-#define df_oom(void)             df_log_ret_internal(-ENOMEM, df_fail, "Allocation error: %m\n")
+#define df_oom(void)             df_log_ret_internal(-ENOMEM, df_fail, "Allocation error: %s\n", strerror(ENOMEM))
 #define df_fail_ret(ret, ...)    df_log_ret_internal(ret, df_fail, __VA_ARGS__)
 #define df_verbose_ret(ret, ...) df_log_ret_internal(ret, df_verbose, __VA_ARGS__)
 #define df_debug_ret(ret, ...)   df_log_ret_internal(ret, df_debug, __VA_ARGS__)
