@@ -152,3 +152,32 @@ jobs:
 
             .github/workflows/run-tests-sanity.sh
             dfuzzer -v -n org.freedesktop.PolicyKit1
+
+  netbsd:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}-netbsd
+      cancel-in-progress: true
+    steps:
+      - name: Repository checkout
+        uses: actions/checkout@v6
+      - uses: cross-platform-actions/action@v0.32.0
+        with:
+          operating_system: 'netbsd'
+          version: '10.1'
+          architecture: 'x86_64'
+          run: |
+            set -ex
+
+            export PKG_PATH="https://cdn.NetBSD.org/pub/pkgsrc/packages/NetBSD/$(uname -p)/$(uname -r)/All/"
+            sudo -E pkg_add -u bash dbus git glib meson pkgconf polkit
+
+            meson setup --fatal-meson-warnings --werror -Ddfuzzer-test-server=true build
+            ninja -C build -v
+            sudo ninja -C build install
+
+            sudo cp /usr/pkg/share/examples/rc.d/dbus /etc/rc.d/
+            sudo service dbus onestart
+
+            .github/workflows/run-tests-sanity.sh
+            dfuzzer -v -n org.freedesktop.PolicyKit1
