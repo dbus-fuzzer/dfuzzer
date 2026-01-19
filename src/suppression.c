@@ -1,6 +1,8 @@
+#include <errno.h>
 #include <glib.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "config.h"
 #include "suppression.h"
@@ -90,7 +92,7 @@ int df_suppression_load(GList **suppressions, const char *service_name)
         }
 
         if (ferror(f)) {
-                df_fail("Error while reading from the suppression file: %m\n");
+                df_fail("Error while reading from the suppression file: %s\n", strerror(errno));
                 return -1;
         }
 
@@ -186,7 +188,7 @@ int df_suppression_load(GList **suppressions, const char *service_name)
         }
 
         if (ferror(f)) {
-                df_fail("Error while reading from the suppression file: %m\n");
+                df_fail("Error while reading from the suppression file: %s\n", strerror(errno));
                 return -1;
         }
 

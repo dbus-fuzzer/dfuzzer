@@ -330,7 +330,7 @@ int df_fuzz_test_method(
                 }
 
                 if (execr < 0)
-                        return df_fail_ret(-1, "df_execute_external_command() failed: %m");
+                        return df_fail_ret(-1, "df_execute_external_command() failed: %s", strerror(errno));
                 else if (execr > 0) {
                         df_fail("%s  %sFAIL%s [M] %s - '%s' returned %s%d%s\n",
                                 ansi_cr(), ansi_red(), ansi_normal(), method->name,
@@ -340,7 +340,7 @@ int df_fuzz_test_method(
 
                 r = df_check_if_exited(pid);
                 if (r < 0)
-                        return df_fail_ret(-1, "Error while reading process' stat file: %m\n");
+                        return df_fail_ret(-1, "Error while reading process' stat file: %s\n", strerror(errno));
                 else if (r == 0) {
                         ret = -1;
                         df_fail("%s  %sFAIL%s [M] %s - process %d exited\n",
@@ -518,7 +518,7 @@ int df_fuzz_test_property(GDBusConnection *dcon, const struct df_dbus_property *
                 /* Check if the remote side is still alive */
                 r = df_check_if_exited(pid);
                 if (r < 0)
-                        return df_fail_ret(-1, "Error while reading process' stat file: %m\n");
+                        return df_fail_ret(-1, "Error while reading process' stat file: %s\n", strerror(errno));
                 else if (r == 0) {
                         df_fail("%s  %sFAIL%s [P] %s (read) - process %d exited\n",
                                 ansi_cr(), ansi_red(), ansi_normal(), property->name, pid);
@@ -560,7 +560,7 @@ int df_fuzz_test_property(GDBusConnection *dcon, const struct df_dbus_property *
                 /* Check if the remote side is still alive */
                 r = df_check_if_exited(pid);
                 if (r < 0)
-                        return df_fail_ret(-1, "Error while reading process' stat file: %m\n");
+                        return df_fail_ret(-1, "Error while reading process' stat file: %s\n", strerror(errno));
                 else if (r == 0)
                         return df_fail_ret(1, "%s  %sFAIL%s [P] %s (write) - process %d exited\n",
                                            ansi_cr(), ansi_red(), ansi_normal(), property->name, pid);

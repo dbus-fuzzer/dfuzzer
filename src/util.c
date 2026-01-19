@@ -76,7 +76,7 @@ int df_execute_external_command(const char *command, gboolean show_output)
         pid = fork();
 
         if (pid < 0)
-                return df_fail_ret(-1, "Failed to fork: %m\n");
+                return df_fail_ret(-1, "Failed to fork: %s\n", strerror(errno));
         if (pid > 0) {
                 /* Parent process */
                 siginfo_t status;
@@ -86,7 +86,7 @@ int df_execute_external_command(const char *command, gboolean show_output)
                                 if (errno == EINTR)
                                         continue;
 
-                                return df_fail_ret(-1, "Error when waiting for a child: %m\n");
+                                return df_fail_ret(-1, "Error when waiting for a child: %s\n", strerror(errno));
                         }
 
                         break;
@@ -101,17 +101,17 @@ int df_execute_external_command(const char *command, gboolean show_output)
         /* Redirect stdin/stdout/stderr to /dev/null */
         null_fd = open("/dev/null", O_RDWR);
         if (null_fd < 0)
-                return df_fail_ret(-1, "Failed to open /dev/null: %m\n");
+                return df_fail_ret(-1, "Failed to open /dev/null: %s\n", strerror(errno));
 
         for (guint8 i = 0; i < 3; i++) {
                 if (i > 0 && show_output)
                         break;
                 if (dup2(null_fd, i) < 0)
-                        return df_fail_ret(-1, "Failed to replace fd %d with /dev/null: %m\n", i);
+                        return df_fail_ret(-1, "Failed to replace fd %d with /dev/null: %s\n", i, strerror(errno));
         }
 
         if (execl("/bin/sh", "sh", "-c", command, (char*) NULL) < 0)
-                return df_fail_ret(-1, "Failed to execl(): %m\n");
+                return df_fail_ret(-1, "Failed to execl(): %s\n", strerror(errno));
 
         return 0;
 }
