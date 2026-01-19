@@ -174,7 +174,7 @@ jobs:
             export PKG_RCD_SCRIPTS=yes
             sudo -E pkg_add -u bash dbus git glib meson pkgconf polkit
 
-            meson setup --fatal-meson-warnings --werror -Ddfuzzer-test-server=true build
+            meson setup --prefix=/usr/pkg --fatal-meson-warnings --werror -Ddfuzzer-test-server=true build
             ninja -C build -v
             sudo ninja -C build install
 
