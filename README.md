@@ -48,6 +48,10 @@ FreeBSD:
 
     $ pkg install docbook-xsl glib libxslt meson
 
+NetBSD:
+
+    $ pkg_add docbook-xsl glib2 libxslt meson
+
 Alpine:
 
     $ apk add glib-dev meson
