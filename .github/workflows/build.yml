@@ -114,71 +114,81 @@ jobs:
 
   freebsd:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: cpa.sh {0}
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}-freebsd
       cancel-in-progress: true
     steps:
       - name: Repository checkout
         uses: actions/checkout@v6
-      - uses: cross-platform-actions/action@v1.2.0
+      - name: Start VM
+        uses: cross-platform-actions/action@v1.2.0
         with:
           operating_system: 'freebsd'
           version: '15.0'
           architecture: 'x86_64'
-          run: |
-            set -ex
+      - name: Run commands
+        run: |
+          set -ex
 
-            # Use the latest packages
-            sudo mkdir -p /usr/local/etc/pkg/repos/
-            sudo cp /etc/pkg/FreeBSD.conf /usr/local/etc/pkg/repos/FreeBSD.conf
-            sudo sed -i '' -e 's|/quarterly|/latest|' /usr/local/etc/pkg/repos/FreeBSD.conf
+          # Use the latest packages
+          sudo mkdir -p /usr/local/etc/pkg/repos/
+          sudo cp /etc/pkg/FreeBSD.conf /usr/local/etc/pkg/repos/FreeBSD.conf
+          sudo sed -i '' -e 's|/quarterly|/latest|' /usr/local/etc/pkg/repos/FreeBSD.conf
 
-            sudo pkg install -y bash dbus git glib meson pkgconf polkit
+          sudo pkg install -y bash dbus git glib meson pkgconf polkit
 
-            # FreeBSD Ports pass --prefix=$PREFIX (where PREFIX=/usr/local) to meson, so replicate the same
-            # here in our test
-            #
-            # See: https://cgit.freebsd.org/ports/tree/Mk/Uses/meson.mk
-            meson setup --prefix=/usr/local --fatal-meson-warnings --werror -Ddfuzzer-test-server=true build
-            ninja -C build -v
-            sudo ninja -C build install
+          # FreeBSD Ports pass --prefix=$PREFIX (where PREFIX=/usr/local) to meson, so replicate the same
+          # here in our test
+          #
+          # See: https://cgit.freebsd.org/ports/tree/Mk/Uses/meson.mk
+          meson setup --prefix=/usr/local --fatal-meson-warnings --werror -Ddfuzzer-test-server=true build
+          ninja -C build -v
+          sudo ninja -C build install
 
-            sudo service dbus onestart
+          sudo service dbus onestart
 
-            # Check if dfuzzer fails without mounted /proc/
-            (! dfuzzer -l)
+          # Check if dfuzzer fails without mounted /proc/
+          (! dfuzzer -l)
 
-            sudo mount -t procfs proc /proc
+          sudo mount -t procfs proc /proc
 
-            .github/workflows/run-tests-sanity.sh
-            dfuzzer -v -n org.freedesktop.PolicyKit1
+          .github/workflows/run-tests-sanity.sh
+          dfuzzer -v -n org.freedesktop.PolicyKit1
 
   netbsd:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: cpa.sh {0}
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}-netbsd
       cancel-in-progress: true
     steps:
       - name: Repository checkout
         uses: actions/checkout@v6
-      - uses: cross-platform-actions/action@v1.2.0
+      - name: Start VM
+        uses: cross-platform-actions/action@v1.2.0
         with:
           operating_system: 'netbsd'
           version: '10.1'
           architecture: 'x86_64'
-          run: |
-            set -ex
+      - name: Run commands
+        run: |
+          set -ex
 
-            export PKG_PATH="https://cdn.NetBSD.org/pub/pkgsrc/packages/NetBSD/$(uname -p)/$(uname -r)/All/"
-            # Automatically copy rc.d scripts from /usr/pkg/share/examples/rc.d/ to /etc/rc.d/
-            export PKG_RCD_SCRIPTS=yes
-            sudo -E pkg_add -u bash dbus git glib meson pkgconf polkit
+          export PKG_PATH="https://cdn.NetBSD.org/pub/pkgsrc/packages/NetBSD/$(uname -p)/$(uname -r)/All/"
+          # Automatically copy rc.d scripts from /usr/pkg/share/examples/rc.d/ to /etc/rc.d/
+          export PKG_RCD_SCRIPTS=yes
+          sudo -E pkg_add -u bash dbus git glib meson pkgconf polkit
 
-            meson setup --prefix=/usr/pkg --fatal-meson-warnings --werror -Ddfuzzer-test-server=true build
-            ninja -C build -v
-            sudo ninja -C build install
+          meson setup --prefix=/usr/pkg --fatal-meson-warnings --werror -Ddfuzzer-test-server=true build
+          ninja -C build -v
+          sudo ninja -C build install
 
-            sudo service dbus onestart
+          sudo service dbus onestart
 
-            .github/workflows/run-tests-sanity.sh
-            dfuzzer -v -n org.freedesktop.PolicyKit1
+          .github/workflows/run-tests-sanity.sh
+          dfuzzer -v -n org.freedesktop.PolicyKit1
