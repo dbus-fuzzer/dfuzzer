@@ -52,7 +52,7 @@ jobs:
     name: ${{ matrix.env.TYPE }}
     steps:
       - name: Repository checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Install dependencies
         run: |
@@ -80,7 +80,7 @@ jobs:
       cancel-in-progress: true
     steps:
       - name: Repository checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Install dependencies
         run: |
@@ -122,7 +122,7 @@ jobs:
       cancel-in-progress: true
     steps:
       - name: Repository checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Start VM
         uses: cross-platform-actions/action@v1.2.0
         with:
@@ -168,7 +168,7 @@ jobs:
       cancel-in-progress: true
     steps:
       - name: Repository checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Start VM
         uses: cross-platform-actions/action@v1.2.0
         with:
