@@ -7,6 +7,8 @@ dfuzzer_util_sources = files(
         'introspection.h',
         'log.c',
         'log.h',
+        'proc-util.c',
+        'proc-util.h',
         'rand.c',
         'rand.h',
         'suppression.c',

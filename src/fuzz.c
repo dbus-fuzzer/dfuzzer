@@ -29,6 +29,7 @@
 #include "fuzz.h"
 #include "bus.h"
 #include "log.h"
+#include "proc-util.h"
 #include "rand.h"
 #include "util.h"
 
@@ -170,42 +171,6 @@ static void df_fuzz_write_log(const struct df_dbus_method *method, GVariant *val
         }
 }
 
-static int df_check_if_exited(const int pid) {
-        g_autoptr(FILE) f = NULL;
-        g_autoptr(char) line = NULL;
-        char proc_pid[14 + DECIMAL_STR_MAX(pid)];
-        size_t len = 0;
-        int dumping;
-
-        g_assert(pid > 0);
-
-        sprintf(proc_pid, "/proc/%d/status", pid);
-
-        f = fopen(proc_pid, "r");
-        if (!f) {
-                if (errno == ENOENT || errno == ENOTDIR || errno == ESRCH)
-                        return 0;
-
-                return -1;
-        }
-
-        /* Check if the process is not currently dumping a core */
-        while (getline(&line, &len, f) > 0) {
-                if (sscanf(line, "CoreDumping: %d", &dumping) == 1) {
-                        if (dumping > 0)
-                                return 0;
-
-                        break;
-                }
-        }
-
-        /* Assume the process exited if we fail while reading the stat file */
-        if (ferror(f))
-                return 0;
-
-        return 1;
-}
-
 /**
  * @function Calls method from df_list (using its name) with its arguments.
  * @param value GVariant tuple containing all method arguments signatures and
@@ -338,9 +303,9 @@ int df_fuzz_test_method(
                         break;
                 }
 
-                r = df_check_if_exited(pid);
+                r = df_proc_is_alive(pid);
                 if (r < 0)
-                        return df_fail_ret(-1, "Error while reading process' stat file: %s\n", strerror(errno));
+                        return df_fail_ret(-1, "Failed to determine whether process is still alive: %s\n", strerror(errno));
                 else if (r == 0) {
                         ret = -1;
                         df_fail("%s  %sFAIL%s [M] %s - process %d exited\n",
@@ -516,9 +481,9 @@ int df_fuzz_test_property(GDBusConnection *dcon, const struct df_dbus_property *
                 }
 
                 /* Check if the remote side is still alive */
-                r = df_check_if_exited(pid);
+                r = df_proc_is_alive(pid);
                 if (r < 0)
-                        return df_fail_ret(-1, "Error while reading process' stat file: %s\n", strerror(errno));
+                        return df_fail_ret(-1, "Failed to determine whether process is still alive: %s\n", strerror(errno));
                 else if (r == 0) {
                         df_fail("%s  %sFAIL%s [P] %s (read) - process %d exited\n",
                                 ansi_cr(), ansi_red(), ansi_normal(), property->name, pid);
@@ -558,9 +523,9 @@ int df_fuzz_test_property(GDBusConnection *dcon, const struct df_dbus_property *
                 }
 
                 /* Check if the remote side is still alive */
-                r = df_check_if_exited(pid);
+                r = df_proc_is_alive(pid);
                 if (r < 0)
-                        return df_fail_ret(-1, "Error while reading process' stat file: %s\n", strerror(errno));
+                        return df_fail_ret(-1, "Failed to determine whether process is still alive: %s\n", strerror(errno));
                 else if (r == 0)
                         return df_fail_ret(1, "%s  %sFAIL%s [P] %s (write) - process %d exited\n",
                                            ansi_cr(), ansi_red(), ansi_normal(), property->name, pid);

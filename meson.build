@@ -13,6 +13,12 @@ libgio = dependency('gio-2.0', required : true)
 libdbus = dependency('dbus-1', required : get_option('dfuzzer-test-server'))
 libsystemd = dependency('systemd', required : false)
 xsltproc = find_program('xsltproc', required: false)
+
+dfuzzer_deps = [libgio]
+if host_machine.system() == 'openbsd'
+        libkvm = meson.get_compiler('c').find_library('kvm')
+        dfuzzer_deps += libkvm
+endif
 prefixdir = get_option('prefix')
 sysconfdir = prefixdir / get_option('sysconfdir')
 bindir = prefixdir / get_option('bindir')
@@ -39,7 +45,7 @@ subdir('test')
 executable(
         'dfuzzer',
         dfuzzer_sources,
-        dependencies : [libgio],
+        dependencies : dfuzzer_deps,
         install : true
 )
 
@@ -76,7 +82,7 @@ if get_option('dfuzzer-test-server')
                 'dfuzzer-test-server',
                 dfuzzer_test_server_sources + dfuzzer_util_sources,
                 include_directories : include_directories('src/'),
-                dependencies : [libgio],
+                dependencies : dfuzzer_deps,
                 c_args : '-Wno-unused-parameter',
                 install : true,
         )
@@ -124,7 +130,7 @@ foreach tuple : tests
                 name,
                 sources + dfuzzer_util_sources,
                 include_directories : include_directories('src/'),
-                dependencies : [libgio],
+                dependencies : dfuzzer_deps,
         )
 
         # See: https://docs.gtk.org/glib/testing.html#using-meson
