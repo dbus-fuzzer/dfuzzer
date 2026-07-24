@@ -21,19 +21,18 @@
  */
 #include <ctype.h>
 #include <errno.h>
-#include <fcntl.h>
 #include <getopt.h>
 #include <gio/gio.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
 #include <unistd.h>
 
 #include "bus.h"
 #include "fuzz.h"
 #include "introspection.h"
 #include "log.h"
+#include "proc-util.h"
 #include "rand.h"
 #include "suppression.h"
 #include "util.h"
@@ -509,51 +508,10 @@ static int df_traverse_node(GDBusConnection *dcon, const char *root_node)
 
 static void df_print_process_info(int pid)
 {
-        char proc_path[15 + DECIMAL_STR_MAX(int)]; // "/proc/(int)/[exe|cmdline]"
         char name[PATH_MAX + 1];
-        g_auto(fd_t) fd = -1;
-        int ret;
 
-        sprintf(proc_path, "/proc/%d/exe", pid);
-        ret = readlink(proc_path, name, PATH_MAX);
-        if (ret > 0) {
-                name[ret] = '\0';
-
-                if (ret == PATH_MAX)
-                        df_verbose("The process name was truncated\n");
-
-                if (!strstr(name, "python") && !strstr(name, "perl")) {
-                        fprintf(stderr, "%s%s[PROCESS: %s]%s\n",
-                                ansi_cr(), ansi_cyan(), name, ansi_normal());
-                        return;
-                }
-        }
-
-        // if readlink failed or executable was interpret (and our target is
-        // interpreted script), try to read cmdline
-        sprintf(proc_path, "/proc/%d/cmdline", pid);
-        fd = open(proc_path, O_RDONLY);
-        if (fd <= 0) {
-                perror("open");
+        if (df_proc_get_name(pid, name, sizeof(name)) < 0)
                 return;
-        }
-
-        for (int i = 0;; i++) {
-                if (i >= PATH_MAX) {
-                        df_verbose("The process name was truncated\n");
-                        name[PATH_MAX] = '\0';
-                        break;
-                }
-
-                ret = read(fd, (name + i), 1);
-                if (ret < 0) {
-                        perror("read");
-                        return;
-                }
-
-                if (name[i] == '\0')
-                        break;
-        }
 
         fprintf(stderr, "%s%s[PROCESS: %s]%s\n",
                 ansi_cr(), ansi_cyan(), name, ansi_normal());
@@ -885,21 +843,6 @@ static int df_process_bus(GBusType bus_type)
         return DF_BUS_OK;
 }
 
-static int df_check_proc_mounted(void)
-{
-        struct stat sb;
-
-        /* Since checking for procfs is different between Linux, FreeBSD, and possibly other platforms let's
-         * just check if /proc/1/status exists. This should achieve pretty much the same thing but without any
-         * ifdefs. */
-         if (stat("/proc/1/status", &sb) < 0) {
-                df_fail("Cannot access /proc/1/status: %s\n", strerror(errno));
-                return -1;
-        }
-
-        return 0;
-}
-
 int main(int argc, char **argv)
 {
         const char *log_file_name;
@@ -909,7 +852,7 @@ int main(int argc, char **argv)
 
         df_parse_parameters(argc, argv);
 
-        if (df_check_proc_mounted() != 0) {
+        if (df_check_proc_available() != 0) {
                 df_fail("dfuzzer requires procfs to be mounted at /proc/ for process tracking\n");
                 return 1;
         }
