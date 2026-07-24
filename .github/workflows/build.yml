@@ -192,3 +192,36 @@ jobs:
 
           .github/workflows/run-tests-sanity.sh
           dfuzzer -v -n org.freedesktop.PolicyKit1
+
+  openbsd:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: cpa.sh {0}
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}-openbsd
+      cancel-in-progress: true
+    steps:
+      - name: Repository checkout
+        uses: actions/checkout@v7
+      - name: Start VM
+        uses: cross-platform-actions/action@v1.3.0
+        with:
+          operating_system: 'openbsd'
+          version: '7.9'
+          architecture: 'x86_64'
+      - name: Run commands
+        run: |
+          set -ex
+
+          export PKG_PATH="installpath:https://cdn.openbsd.org/%m"
+          sudo -E pkg_add -U bash dbus git glib2 meson polkit
+
+          meson setup --prefix=/usr/local --fatal-meson-warnings --werror -Ddfuzzer-test-server=true build
+          ninja -C build -v
+          sudo ninja -C build install
+
+          sudo rcctl -d start messagebus
+
+          .github/workflows/run-tests-sanity.sh
+          dfuzzer -v -n org.freedesktop.PolicyKit1
