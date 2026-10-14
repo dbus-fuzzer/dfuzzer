@@ -101,6 +101,11 @@ static const gchar introspection_xml[] =
 "               <property name='crash_on_read' type='a(gov)' access='read'/>"
 "               <property name='read_write' type='(iu)' access='readwrite'/>"
 "       </interface>"
+""
+"       <node name='foo'>"
+"           <interface name='org.freedesktop.dfuzzerFooInterface'>"
+"           </interface>"
+"       </node>"
 "</node>";
 
 /* Dump coverage on abort() */
@@ -113,6 +118,41 @@ static inline void test_abort(void)
 #endif
 
         abort();
+}
+
+static GDBusMessage *message_filter(
+                GDBusConnection *connection, GDBusMessage *message, gboolean incoming, gpointer user_data)
+{
+        /* We care only about incoming method calls, at least for now */
+        if (!incoming || g_dbus_message_get_message_type(message) != G_DBUS_MESSAGE_TYPE_METHOD_CALL)
+                return message;
+
+        const gchar *interface = g_dbus_message_get_interface(message);
+        const gchar *object = g_dbus_message_get_path(message);
+        const gchar *method = g_dbus_message_get_member(message);
+
+        /* Simulate UnknownObject error on the /org/freedesktop/dfuzzerObject/foo object, since GDBus returns
+         * a valid XML with an empty node even for non-existing objects */
+        if (g_strcmp0(object, "/org/freedesktop/dfuzzerObject/foo") == 0 &&
+            g_strcmp0(interface, "org.freedesktop.DBus.Introspectable") == 0 &&
+            g_strcmp0(method, "Introspect") == 0) {
+                g_autoptr(GDBusMessage) reply = NULL;
+
+                reply = g_dbus_message_new_method_error(
+                                message,
+                                "org.freedesktop.DBus.Error.UnknownObject",
+                                "Unknown object '%s'.", object);
+                g_dbus_connection_send_message(
+                                connection,
+                                reply,
+                                G_DBUS_SEND_MESSAGE_FLAGS_NONE,
+                                /* out_serial */ NULL,
+                                /* error */ NULL);
+
+                return NULL;
+        }
+
+        return message;
 }
 
 static void handle_method_call(
@@ -229,26 +269,54 @@ static const GDBusInterfaceVTable interface_vtable = {
 
 static void bus_acquired(GDBusConnection *connection, const gchar *name, gpointer user_data)
 {
+        int r;
+
         g_printf("->[bus_acquired]\n");
 
-        guint reg_id;
+        /* Register the base object with the org.freedesktop.dfuzzerInterface interface */
+        GDBusInterfaceInfo *root_iface = g_dbus_node_info_lookup_interface(introspection_data, "org.freedesktop.dfuzzerInterface");
+        g_assert_nonnull(root_iface);
+        r = g_dbus_connection_register_object(
+                        connection,
+                        "/org/freedesktop/dfuzzerObject",
+                        root_iface,
+                        &interface_vtable,
+                        /* user_data */ NULL,
+                        /* user_data_free_func */ NULL,
+                        /* error */ NULL);
+        g_assert_true(r > 0);
 
-        // Registers callbacks for exported objects at
-        // /org/freedesktop/dfuzzerObject with the D-Bus interface that is
-        // described in introspection_data->interfaces[0].
-        reg_id = g_dbus_connection_register_object(connection,
-                                "/org/freedesktop/dfuzzerObject",
-                                introspection_data->interfaces[0],
-                                &interface_vtable,
-                                NULL,   // user_data
-                                NULL,   // user_data_free_func
-                                NULL);  // GError**
-        g_assert(reg_id > 0);
+        /* Register the nested "foo" object with the org.freedesktop.dfuzzerFooInterface
+         *
+         * This exists only so the object is picked up by dfuzzer, but any method call for this object results
+         * in an UnknownObject error, see message_filter() above */
+        GDBusNodeInfo *child_node = introspection_data->nodes[0];
+        g_assert_nonnull(child_node);
+        GDBusInterfaceInfo *child_iface = g_dbus_node_info_lookup_interface(child_node, "org.freedesktop.dfuzzerFooInterface");
+        g_assert_nonnull(child_iface);
+        r = g_dbus_connection_register_object(
+                        connection,
+                        "/org/freedesktop/dfuzzerObject/foo",
+                        child_iface,
+                        &interface_vtable,
+                        /* user_data */ NULL,
+                        /* user_data_free_func */ NULL,
+                        /* error */ NULL);
+        g_assert_true(r > 0);
+
+        /* Add a message filter so we can tweak the communication in ways past what GDBus would usually let us
+         * do */
+        r = g_dbus_connection_add_filter(
+                        connection,
+                        message_filter,
+                        /* user_data */ NULL,
+                        /* user_data_free_func */ NULL);
+        g_assert_true(r > 0);
 }
 
 static void name_acquired(GDBusConnection *connection, const gchar *name, gpointer user_data)
 {
-        g_printf("->[name_acquired]\n");
+        g_printf("->[name_acquired] Listening on %s\n", name);
 }
 
 static void name_lost(GDBusConnection *connection, const gchar *name, gpointer user_data)
@@ -290,7 +358,7 @@ int main(int argc, char **argv)
         // Parses introspection_xml and returns a GDBusNodeInfo representing the data.
         // The introspection XML must contain exactly one top-level <node> element.
         introspection_data = g_dbus_node_info_new_for_xml(introspection_xml, NULL);
-        g_assert(introspection_data != NULL);
+        g_assert_nonnull(introspection_data);
 
         /* Handle SIGTERM/SIGINT cleanly, mainly to collect code coverage */
         g_unix_signal_add(SIGTERM, handle_signal, NULL);
