@@ -29,6 +29,7 @@
  * $ gdbus call --session --dest org.freedesktop.DBus -o /org/freedesktop/Dbus \
  * --method org.freedesktop.DBus.ListNames | grep org.freedesktop.dfuzzerServer
  */
+#include <getopt.h>
 #include <gio/gio.h>
 #include <glib/gstdio.h>
 #include <glib-unix.h>
@@ -266,7 +267,25 @@ gboolean handle_signal(gpointer userdata)
 
 int main(int argc, char **argv)
 {
+        int bus_type = G_BUS_TYPE_SYSTEM;
+        int c;
         guint name_id;
+
+        static const struct option options[] = {
+                { "user",   no_argument,    NULL,   'u' },
+                {}
+        };
+
+        while ((c = getopt_long(argc, argv, "u", options, NULL)) >= 0) {
+                switch (c) {
+                        case 'u':
+                                bus_type = G_BUS_TYPE_SESSION;
+                                break;
+                        default:
+                                fprintf(stderr, "Unexpected character code from getopt(): 0%o\n", c);
+                                exit(1);
+                }
+        }
 
         // Parses introspection_xml and returns a GDBusNodeInfo representing the data.
         // The introspection XML must contain exactly one top-level <node> element.
@@ -280,17 +299,14 @@ int main(int argc, char **argv)
         /* Initialize properties */
         prop_read_only = g_strdup("I'm a read-only property!");
 
-        // Starts acquiring name on the bus (G_BUS_TYPE_SESSION) and calls
-        // name_acquired handler and name_lost when the name is acquired
-        // respectively lost.
-        name_id = g_bus_own_name(G_BUS_TYPE_SYSTEM,
-                                "org.freedesktop.dfuzzerServer",
-                                G_BUS_NAME_OWNER_FLAGS_NONE,
-                                bus_acquired,
-                                name_acquired,
-                                name_lost,
-                                NULL,
-                                NULL);
+        name_id = g_bus_own_name(bus_type,
+                                 "org.freedesktop.dfuzzerServer",
+                                 G_BUS_NAME_OWNER_FLAGS_NONE,
+                                 bus_acquired,
+                                 name_acquired,
+                                 name_lost,
+                                 NULL,
+                                 NULL);
 
         g_printf("Name id: %d\n", name_id);
         loop = g_main_loop_new(NULL, FALSE);

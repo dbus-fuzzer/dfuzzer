@@ -761,8 +761,8 @@ static void df_parse_parameters(int argc, char **argv)
                                 df_fuzz_set_show_command_output(TRUE);
                                 break;
                         default:    // '?'
+                                fprintf(stderr, "Unexpected character code from getopt(): 0%o\n", c);
                                 exit(1);
-                                break;
                 }
         }
 
