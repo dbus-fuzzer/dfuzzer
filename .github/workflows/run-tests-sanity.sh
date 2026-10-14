@@ -43,6 +43,9 @@ rm -f inputs.txt
 "${dfuzzer[@]}" -s -v -n org.freedesktop.dfuzzerServer -o /org/freedesktop/dfuzzerObject -i org.freedesktop.dfuzzerInterface -p read_only
 "${dfuzzer[@]}" -s -v -n org.freedesktop.dfuzzerServer -o /org/freedesktop/dfuzzerObject -i org.freedesktop.dfuzzerInterface -p write_only
 
+# If an object vanishes before we get to introspect it, we should skip it gracefully
+"${dfuzzer[@]}" -s -v -n org.freedesktop.dfuzzerServer -o /org/freedesktop/dfuzzerObject/foo
+
 stop_test_server
 
 # dfuzzer should return 0 by default when services it tests time out

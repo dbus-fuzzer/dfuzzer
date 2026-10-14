@@ -446,9 +446,14 @@ static int df_traverse_node(GDBusConnection *dcon, const char *root_node)
         if (!dproxy)
                 return DF_BUS_ERROR;
 
-        response = df_bus_call(dproxy, intro_method, NULL, G_DBUS_CALL_FLAGS_NONE);
-        if (!response)
+        response = df_bus_call_full(dproxy, intro_method, NULL, G_DBUS_CALL_FLAGS_NONE, &error);
+        if (!response) {
+                if (g_error_matches(error, G_DBUS_ERROR, G_DBUS_ERROR_UNKNOWN_OBJECT))
+                        return df_verbose_ret(DF_BUS_OK, "Object %s vanished, ignoring\n", root_node);
+
+                df_fail("Error while calling method '%s': %s\n", intro_method, error->message);
                 return DF_BUS_ERROR;
+        }
 
         g_variant_get(response, "(s)", &introspection_xml);
         if (!introspection_xml) {
