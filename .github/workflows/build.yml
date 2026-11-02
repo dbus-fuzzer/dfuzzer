@@ -57,7 +57,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt -y update
-          sudo apt -y install docbook-xsl gcc libglib2.0-dev xsltproc meson clang valgrind libdbus-1-dev
+          sudo apt -y install docbook-xsl gcc libglib2.0-dev xsltproc meson clang valgrind libdbus-1-dev systemd-dev
 
       - name: Build
         run: |
@@ -85,7 +85,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt -y update
-          sudo apt -y install docbook-xsl gcc libglib2.0-dev xsltproc meson lcov libdbus-1-dev
+          sudo apt -y install docbook-xsl gcc libglib2.0-dev xsltproc meson lcov libdbus-1-dev systemd-dev
 
       - name: Build
         run: |
